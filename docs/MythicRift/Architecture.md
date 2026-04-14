@@ -14,6 +14,7 @@
 - The run is timed.
 - Progression is potentially infinite by level.
 - End rewards should reuse existing boss loot and world drops as much as possible, with SIF/RIF bonus on top.
+- The current preferred TAHITI-facing direction is now a `consumable item -> private portal -> Rift region` flow, using `PortalToRandomDungeon` as the best candidate object model and Bovineheim/Cow Level as the portal-flow reference.
 
 ## Architecture Principles
 
@@ -29,13 +30,14 @@
 ## Core Components
 
 - MythicRiftEntryService
+- MythicRiftLauncherService
 - MythicRiftRunConfig
-- MythicRiftRunManager
+- MythicRiftManager
 - MythicRiftRunState
-- MythicRiftContentPool
-- MythicRiftDifficultyService
-- MythicRiftRewardService
-- MythicRiftProgressionService
+- MythicRiftContentEntry pool
+- MythicRiftScaling
+- reward resolution inside MythicRiftManager
+- progression persistence via Player persistent data
 
 ## Key Runtime Responsibilities
 
@@ -58,3 +60,8 @@
 - touch existing entry points carefully
 - do not require a manual client patch
 - if game files are required, aim for Patcher-compatible delivery
+
+## Entry Point Note
+
+- The entry layer can now support logical launcher definitions such as `default`, `capital-hub`, or a future `consumable-portal` flow without assuming a specific clickable object yet.
+- The current preferred launcher candidate is a `PortalToRandomDungeon`-style consumable because it appears easier to integrate cleanly than a shop-gated Bovineheim-specific item.

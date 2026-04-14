@@ -18,6 +18,7 @@ using MHServerEmu.Games.GameData.LiveTuning;
 using MHServerEmu.Games.GameData.Prototypes;
 using MHServerEmu.Games.Loot;
 using MHServerEmu.Games.MetaGames;
+using MHServerEmu.Games.MythicRifts;
 using MHServerEmu.Games.Network;
 using MHServerEmu.Games.Network.InstanceManagement;
 using MHServerEmu.Games.Powers;
@@ -88,6 +89,9 @@ namespace MHServerEmu.Games
         public ChatManager ChatManager { get; }
         public PartyManager PartyManager { get; }
         public GuildManager GuildManager { get; }
+        public MythicRiftManager MythicRiftManager { get; }
+        public MythicRiftEntryService MythicRiftEntryService { get; }
+        public MythicRiftLauncherService MythicRiftLauncherService { get; }
         public LiveTuningData LiveTuningData { get => LiveTuningData.Current; }
         public List<PrototypeId> EventDailyGifts { get => LiveTuningData.EventDailyGifts; }
 
@@ -141,6 +145,9 @@ namespace MHServerEmu.Games
             ChatManager = new(this);
             PartyManager = new(this);
             GuildManager = new(this);
+            MythicRiftManager = new(this);
+            MythicRiftEntryService = new(this);
+            MythicRiftLauncherService = new(this);
             Random = new();
 
             Initialize();
@@ -333,6 +340,7 @@ namespace MHServerEmu.Games
             ServiceMailbox.ProcessMessages();
 
             GameEventScheduler.TriggerEvents(_currentGameTime);
+            MythicRiftManager.Update(_currentGameTime);
 
             EntityManager.LocomoteEntities();
 
