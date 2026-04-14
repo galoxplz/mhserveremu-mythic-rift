@@ -37,9 +37,142 @@ namespace MHServerEmu.Commands.Implementations
             };
 
             foreach (MythicRiftContentEntry content in contentPool.OrderBy(entry => entry.DisplayName))
-                lines.Add($"{content.Id}: {content.DisplayName} | region={content.RegionProtoRef.GetNameFormatted()} | boss={content.BossProtoRef.GetNameFormatted()}");
+                lines.Add($"{content.Id}: {content.DisplayName} | defaultKillQuota={content.DefaultKillQuota} | region={content.RegionProtoRef.GetNameFormatted()} | boss={content.BossProtoRef.GetNameFormatted()}");
 
             CommandHelper.SendMessages(client, lines);
+            return string.Empty;
+        }
+
+        [Command("entrypoints")]
+        [CommandDescription("Lists the currently registered Mythic Rift logical entry points.")]
+        [CommandUsage("rift entrypoints")]
+        [CommandUserLevel(AccountUserLevel.Admin)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        public string EntryPoints(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            if (game == null)
+                return "Game not found.";
+
+            IReadOnlyCollection<MythicRiftEntryPointDefinition> entryPoints = game.MythicRiftEntryService.EntryPoints;
+            if (entryPoints.Count == 0)
+                return "No Mythic Rift entry points are registered.";
+
+            List<string> lines = new(entryPoints.Count + 1)
+            {
+                $"Mythic Rift entry points: {entryPoints.Count}"
+            };
+
+            foreach (MythicRiftEntryPointDefinition entryPoint in entryPoints.OrderBy(entry => entry.DisplayName))
+            {
+                lines.Add(
+                    $"{entryPoint.Id}: {entryPoint.DisplayName} | launchModel={entryPoint.LaunchModel} | patcherFriendly={entryPoint.IsPatcherFriendly} | random={entryPoint.AllowsRandomContent} | fixed={entryPoint.AllowsFixedContentSelection} | candidateItem={entryPoint.CandidateItemPrototypeName ?? "n/a"} | candidatePortal={entryPoint.CandidateTransitionPrototypeName ?? "n/a"} | notes={entryPoint.Notes}");
+            }
+
+            CommandHelper.SendMessages(client, lines);
+            return string.Empty;
+        }
+
+        [Command("launchcandidates")]
+        [CommandDescription("Lists current Mythic Rift launcher item candidates discovered from game data research.")]
+        [CommandUsage("rift launchcandidates")]
+        [CommandUserLevel(AccountUserLevel.Admin)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        public string LaunchCandidates(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            if (game == null)
+                return "Game not found.";
+
+            IReadOnlyList<MythicRiftLauncherItemCandidate> candidates = game.MythicRiftEntryService.LauncherItemCandidates;
+            if (candidates.Count == 0)
+                return "No Mythic Rift launcher item candidates are registered.";
+
+            List<string> lines = new(candidates.Count + 1)
+            {
+                $"Mythic Rift launcher candidates: {candidates.Count}"
+            };
+
+            foreach (MythicRiftLauncherItemCandidate candidate in candidates.OrderByDescending(c => c.Recommendation == "chosen").ThenByDescending(c => c.Recommendation == "primary").ThenBy(c => c.PrototypeName))
+            {
+                lines.Add(
+                    $"{candidate.PrototypeName}: source={candidate.SourceFamily} | recommendation={candidate.Recommendation} | patcherFriendly={candidate.PatcherFriendly} | shopLinked={candidate.IsShopLinked} | randomFit={candidate.SupportsRandomThemeIdentity} | lowRisk={candidate.IsLikelyUnusedOrLowRisk} | notes={candidate.Notes}");
+            }
+
+            CommandHelper.SendMessages(client, lines);
+            return string.Empty;
+        }
+
+        [Command("beacon")]
+        [CommandDescription("Displays the current player-facing Cosmic Rift Beacon identity and its server-side technical base.")]
+        [CommandUsage("rift beacon")]
+        [CommandUserLevel(AccountUserLevel.Admin)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        public string Beacon(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            if (game == null)
+                return "Game not found.";
+
+            MythicRiftLauncherItemCandidate candidate = game.MythicRiftLauncherService.ResolveChosenCandidate();
+            if (candidate == null)
+                return "Chosen Cosmic Rift Beacon candidate not found.";
+
+            List<string> lines = new()
+            {
+                $"playerFacingItem={MythicRiftLauncherService.CosmicRiftBeaconDisplayName} | technicalBase={MythicRiftLauncherService.CosmicRiftBeaconPrototypeName}",
+                $"sourceFamily={candidate.SourceFamily} | patcherFriendly={candidate.PatcherFriendly} | shopLinked={candidate.IsShopLinked} | recommendation={candidate.Recommendation}",
+                $"notes={candidate.Notes}",
+                "distributionPlan=server-side item grant first, then optional loot/reward/vendor policy later if TAHITI wants it"
+            };
+
+            CommandHelper.SendMessages(client, lines);
+            return string.Empty;
+        }
+
+        [Command("launchplan")]
+        [CommandDescription("Displays the current launch plan for a Mythic Rift entry point.")]
+        [CommandUsage("rift launchplan [entryPointId]")]
+        [CommandUserLevel(AccountUserLevel.Admin)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        [CommandParamCount(1)]
+        public string LaunchPlan(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            if (game == null)
+                return "Game not found.";
+
+            MythicRiftPortalLaunchPlan launchPlan = game.MythicRiftEntryService.BuildLaunchPlan(@params[0]);
+            if (launchPlan == null)
+                return $"Unknown Mythic Rift entry point: {@params[0]}";
+
+            CommandHelper.SendMessages(client, BuildLaunchPlanLines(launchPlan));
+            return string.Empty;
+        }
+
+        [Command("itemintent")]
+        [CommandDescription("Displays the current pending launcher intent for the invoking player, if any.")]
+        [CommandUsage("rift itemintent")]
+        [CommandUserLevel(AccountUserLevel.Admin)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        public string ItemIntent(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            Player player = playerConnection?.Player;
+            if (game == null || player == null)
+                return "Game or player not found.";
+
+            MythicRiftLauncherIntent intent = game.MythicRiftLauncherService.GetPendingIntent(player.DatabaseUniqueId);
+            if (intent == null)
+                return "No pending Mythic Rift launcher intent for this player.";
+
+            int unlockedLevel = game.MythicRiftManager.GetHighestUnlockedRiftLevel(player.DatabaseUniqueId);
+            CommandHelper.SendMessages(client, BuildLauncherIntentLines(intent, unlockedLevel));
             return string.Empty;
         }
 
@@ -83,6 +216,40 @@ namespace MHServerEmu.Commands.Implementations
             int unlockedLevel = game.MythicRiftManager.GetHighestUnlockedRiftLevel(player.DatabaseUniqueId);
             bool canAccess = game.MythicRiftManager.CanAccessRiftLevel(player.DatabaseUniqueId, riftLevel);
             return $"Player unlocked level={unlockedLevel} | requested level={riftLevel} | accessible={canAccess}";
+        }
+
+        [Command("progression")]
+        [CommandDescription("Displays the invoking player's current Mythic Rift progression state and any in-progress run.")]
+        [CommandUsage("rift progression")]
+        [CommandUserLevel(AccountUserLevel.Admin)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        public string Progression(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            Player player = playerConnection?.Player;
+            if (game == null || player == null)
+                return "Game or player not found.";
+
+            int unlockedLevel = game.MythicRiftManager.GetHighestUnlockedRiftLevel(player.DatabaseUniqueId);
+            MythicRiftRunState inProgressRun = game.MythicRiftManager.GetInProgressRunForPlayer(player.DatabaseUniqueId);
+
+            List<string> lines = new()
+            {
+                $"playerDbId=0x{player.DatabaseUniqueId:X} | highestUnlockedRiftLevel={unlockedLevel} | persistedPlayerValue={player.MythicRiftHighestUnlockedLevel}"
+            };
+
+            if (inProgressRun == null)
+            {
+                lines.Add("inProgressRun=none");
+            }
+            else
+            {
+                lines.Add($"inProgressRun={inProgressRun.Config.RunId} | status={inProgressRun.Status} | content={inProgressRun.Config.Content.Id} | level={inProgressRun.Config.RiftLevel}");
+            }
+
+            CommandHelper.SendMessages(client, lines);
+            return string.Empty;
         }
 
         [Command("setaccess")]
@@ -218,17 +385,258 @@ namespace MHServerEmu.Commands.Implementations
             if (TryParsePositiveInt(@params[2], out int timeLimitMinutes) == false)
                 return "Invalid time limit.";
 
-            MythicRiftRunState runState = game.MythicRiftManager.RequestRun(
+            MythicRiftEntryResult result = game.MythicRiftEntryService.RequestRun(player, new MythicRiftEntryRequest
+            {
+                RiftLevel = riftLevel,
+                KillQuotaOverride = killQuota,
+                TimeLimit = TimeSpan.FromMinutes(timeLimitMinutes)
+            });
+
+            if (result.Success == false)
+                return string.IsNullOrWhiteSpace(result.ErrorMessage) ? "Failed to request Mythic Rift run." : result.ErrorMessage;
+
+            MythicRiftRunState runState = result.RunState;
+            CommandHelper.SendMessages(client, BuildRunLines(runState, game.CurrentTime, includeResolvedRefs: true));
+            return string.Empty;
+        }
+
+        [Command("requestauto")]
+        [CommandDescription("Requests a Mythic Rift run using the content's default kill quota.")]
+        [CommandUsage("rift requestauto [level] [minutes]")]
+        [CommandUserLevel(AccountUserLevel.Admin)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        [CommandParamCount(2)]
+        public string RequestAuto(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            Player player = playerConnection?.Player;
+            if (game == null || player == null)
+                return "Game or player not found.";
+
+            if (TryParsePositiveInt(@params[0], out int riftLevel) == false)
+                return "Invalid rift level.";
+
+            if (TryParsePositiveInt(@params[1], out int timeLimitMinutes) == false)
+                return "Invalid time limit.";
+
+            MythicRiftEntryResult result = game.MythicRiftEntryService.RequestRun(player, new MythicRiftEntryRequest
+            {
+                RiftLevel = riftLevel,
+                TimeLimit = TimeSpan.FromMinutes(timeLimitMinutes)
+            });
+
+            if (result.Success == false)
+                return string.IsNullOrWhiteSpace(result.ErrorMessage) ? "Failed to request Mythic Rift run." : result.ErrorMessage;
+
+            MythicRiftRunState runState = result.RunState;
+            CommandHelper.SendMessages(client, BuildRunLines(runState, game.CurrentTime, includeResolvedRefs: true));
+            return string.Empty;
+        }
+
+        [Command("requestportal")]
+        [CommandDescription("Requests a random Mythic Rift run through the officially chosen Cosmic Rift launcher base built on PortalToRandomDungeon.")]
+        [CommandUsage("rift requestportal [level] [minutes]")]
+        [CommandUserLevel(AccountUserLevel.Admin)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        [CommandParamCount(2)]
+        public string RequestPortal(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            Player player = playerConnection?.Player;
+            if (game == null || player == null)
+                return "Game or player not found.";
+
+            if (TryParsePositiveInt(@params[0], out int riftLevel) == false)
+                return "Invalid rift level.";
+
+            if (TryParsePositiveInt(@params[1], out int timeLimitMinutes) == false)
+                return "Invalid time limit.";
+
+            MythicRiftEntryResult result = game.MythicRiftEntryService.RequestRun(player, new MythicRiftEntryRequest
+            {
+                EntryPointId = MythicRiftEntryService.PortalToRandomDungeonEntryPointId,
+                LauncherItemPrototypeName = "PortalToRandomDungeon",
+                RiftLevel = riftLevel,
+                TimeLimit = TimeSpan.FromMinutes(timeLimitMinutes)
+            });
+
+            if (result.Success == false)
+                return string.IsNullOrWhiteSpace(result.ErrorMessage) ? "Failed to request Mythic Rift portal run." : result.ErrorMessage;
+
+            MythicRiftRunState runState = result.RunState;
+            List<string> lines = BuildRunLines(runState, game.CurrentTime, includeResolvedRefs: true);
+            lines.InsertRange(0, BuildLaunchPlanLines(result.LaunchPlan));
+            lines.Insert(0, "Requested through official Cosmic Rift launcher base: PortalToRandomDungeon.");
+            CommandHelper.SendMessages(client, lines);
+            return string.Empty;
+        }
+
+        [Command("givebeacon")]
+        [CommandDescription("Grants the currently chosen Cosmic Rift Beacon base item to the invoking player without requiring any client-side vendor changes.")]
+        [CommandUsage("rift givebeacon [count]")]
+        [CommandUserLevel(AccountUserLevel.Admin)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        [CommandParamCount(1)]
+        public string GiveBeacon(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            Player player = playerConnection?.Player;
+            if (game == null || player == null)
+                return "Game or player not found.";
+
+            if (TryParsePositiveInt(@params[0], out int count) == false)
+                return "Invalid beacon count.";
+
+            if (game.MythicRiftLauncherService.TryGrantChosenLauncher(player, count, out PrototypeId itemProtoRef, out string errorMessage) == false)
+                return string.IsNullOrWhiteSpace(errorMessage) ? "Failed to grant Cosmic Rift Beacon." : errorMessage;
+
+            return $"Granted {count}x {MythicRiftLauncherService.CosmicRiftBeaconDisplayName} to the player using {itemProtoRef.GetNameFormatted()}.";
+        }
+
+        [Command("prepbeacon")]
+        [CommandDescription("Prepares the invoking player for Cosmic Rift Beacon testing by unlocking a target Rift level and granting beacon items server-side.")]
+        [CommandUsage("rift prepbeacon [level] [count]")]
+        [CommandUserLevel(AccountUserLevel.Admin)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        [CommandParamCount(2)]
+        public string PrepBeacon(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            Player player = playerConnection?.Player;
+            if (game == null || player == null)
+                return "Game or player not found.";
+
+            if (TryParsePositiveInt(@params[0], out int unlockedLevel) == false)
+                return "Invalid Rift level.";
+
+            if (TryParsePositiveInt(@params[1], out int beaconCount) == false)
+                return "Invalid beacon count.";
+
+            int appliedLevel = game.MythicRiftManager.SetHighestUnlockedRiftLevel(player.DatabaseUniqueId, unlockedLevel);
+            if (game.MythicRiftLauncherService.TryGrantChosenLauncher(player, beaconCount, out PrototypeId itemProtoRef, out string errorMessage) == false)
+                return string.IsNullOrWhiteSpace(errorMessage) ? "Failed to prepare Cosmic Rift Beacon test flow." : errorMessage;
+
+            return $"Prepared player for Cosmic Rift testing: unlockedLevel={appliedLevel} | grantedBeacons={beaconCount} | technicalBase={itemProtoRef.GetNameFormatted()}";
+        }
+
+        [Command("requestitem")]
+        [CommandDescription("Simulates using a registered launcher item candidate and converts it into a Mythic Rift request.")]
+        [CommandUsage("rift requestitem [itemPrototypeName] [level] [minutes]")]
+        [CommandUserLevel(AccountUserLevel.Admin)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        [CommandParamCount(3)]
+        public string RequestItem(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            Player player = playerConnection?.Player;
+            if (game == null || player == null)
+                return "Game or player not found.";
+
+            string itemPrototypeName = @params[0];
+            if (TryParsePositiveInt(@params[1], out int riftLevel) == false)
+                return "Invalid rift level.";
+
+            if (TryParsePositiveInt(@params[2], out int timeLimitMinutes) == false)
+                return "Invalid time limit.";
+
+            MythicRiftLauncherItemCandidate candidate = game.MythicRiftEntryService.LauncherItemCandidates
+                .FirstOrDefault(entry => string.Equals(entry.PrototypeName, itemPrototypeName, StringComparison.OrdinalIgnoreCase));
+
+            if (candidate == null)
+                return $"Unknown Mythic Rift launcher item candidate: {itemPrototypeName}";
+
+            MythicRiftLauncherUseResult useResult = game.MythicRiftLauncherService.TryRequestRunFromPrototypeName(
+                player,
+                candidate.PrototypeName,
+                riftLevel,
+                TimeSpan.FromMinutes(timeLimitMinutes));
+
+            if (useResult.Success == false)
+                return string.IsNullOrWhiteSpace(useResult.ErrorMessage) ? "Failed to request Mythic Rift run from launcher item." : useResult.ErrorMessage;
+
+            List<string> lines = new()
+            {
+                $"launcherItem={useResult.ItemPrototypeName} | candidateRecommendation={candidate.Recommendation} | portalTarget={useResult.PortalTargetRegionProtoRef.GetNameFormatted()}"
+            };
+
+            lines.AddRange(BuildLaunchPlanLines(useResult.EntryResult.LaunchPlan));
+            lines.AddRange(BuildRunLines(useResult.EntryResult.RunState, game.CurrentTime, includeResolvedRefs: true));
+            CommandHelper.SendMessages(client, lines);
+            return string.Empty;
+        }
+
+        [Command("consumeintent")]
+        [CommandDescription("Consumes the invoking player's pending launcher intent and turns it into a Mythic Rift run.")]
+        [CommandUsage("rift consumeintent [level] [minutes]")]
+        [CommandUserLevel(AccountUserLevel.Admin)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        [CommandParamCount(2)]
+        public string ConsumeIntent(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            Player player = playerConnection?.Player;
+            if (game == null || player == null)
+                return "Game or player not found.";
+
+            if (TryParsePositiveInt(@params[0], out int riftLevel) == false)
+                return "Invalid rift level.";
+
+            if (TryParsePositiveInt(@params[1], out int timeLimitMinutes) == false)
+                return "Invalid time limit.";
+
+            MythicRiftLauncherUseResult useResult = game.MythicRiftLauncherService.ConsumePendingIntent(
                 player,
                 riftLevel,
-                killQuota,
-                TimeSpan.FromMinutes(timeLimitMinutes),
-                out string errorMessage);
+                TimeSpan.FromMinutes(timeLimitMinutes));
 
-            if (runState == null)
-                return string.IsNullOrWhiteSpace(errorMessage) ? "Failed to request Mythic Rift run." : errorMessage;
+            if (useResult.Success == false)
+                return string.IsNullOrWhiteSpace(useResult.ErrorMessage) ? "Failed to consume Mythic Rift launcher intent." : useResult.ErrorMessage;
 
-            CommandHelper.SendMessages(client, BuildRunLines(runState, game.CurrentTime, includeResolvedRefs: true));
+            List<string> lines = new();
+            MythicRiftLauncherIntent clearedIntent = game.MythicRiftLauncherService.GetPendingIntent(player.DatabaseUniqueId);
+            lines.Add($"launcherItem={useResult.ItemPrototypeName} | level={useResult.ResolvedRiftLevel} | timeLimit={useResult.ResolvedTimeLimit.TotalMinutes:0} min | portalTarget={useResult.PortalTargetRegionProtoRef.GetNameFormatted()} | pendingIntentCleared={(clearedIntent == null)}");
+            lines.AddRange(BuildLaunchPlanLines(useResult.EntryResult.LaunchPlan));
+            lines.AddRange(BuildRunLines(useResult.EntryResult.RunState, game.CurrentTime, includeResolvedRefs: true));
+            CommandHelper.SendMessages(client, lines);
+            return string.Empty;
+        }
+
+        [Command("consumeintentauto")]
+        [CommandDescription("Consumes the invoking player's pending launcher intent using their highest unlocked Rift level and the default launcher timer unless overridden.")]
+        [CommandUsage("rift consumeintentauto [minutes]")]
+        [CommandUserLevel(AccountUserLevel.Admin)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        [CommandParamCount(1)]
+        public string ConsumeIntentAuto(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            Player player = playerConnection?.Player;
+            if (game == null || player == null)
+                return "Game or player not found.";
+
+            if (TryParsePositiveInt(@params[0], out int timeLimitMinutes) == false)
+                return "Invalid time limit.";
+
+            MythicRiftLauncherUseResult useResult = game.MythicRiftLauncherService.ConsumePendingIntentAuto(
+                player,
+                TimeSpan.FromMinutes(timeLimitMinutes));
+
+            if (useResult.Success == false)
+                return string.IsNullOrWhiteSpace(useResult.ErrorMessage) ? "Failed to auto-consume Mythic Rift launcher intent." : useResult.ErrorMessage;
+
+            List<string> lines = new();
+            MythicRiftLauncherIntent clearedIntent = game.MythicRiftLauncherService.GetPendingIntent(player.DatabaseUniqueId);
+            lines.Add($"launcherItem={useResult.ItemPrototypeName} | autoLevel={useResult.ResolvedRiftLevel} | timeLimit={useResult.ResolvedTimeLimit.TotalMinutes:0} min | portalTarget={useResult.PortalTargetRegionProtoRef.GetNameFormatted()} | pendingIntentCleared={(clearedIntent == null)}");
+            lines.AddRange(BuildLaunchPlanLines(useResult.EntryResult.LaunchPlan));
+            lines.AddRange(BuildRunLines(useResult.EntryResult.RunState, game.CurrentTime, includeResolvedRefs: true));
+            CommandHelper.SendMessages(client, lines);
             return string.Empty;
         }
 
@@ -296,17 +704,54 @@ namespace MHServerEmu.Commands.Implementations
             if (TryParsePositiveInt(@params[3], out int timeLimitMinutes) == false)
                 return "Invalid time limit.";
 
-            MythicRiftRunState runState = game.MythicRiftManager.RequestFixedRun(
-                player,
-                contentId,
-                riftLevel,
-                killQuota,
-                TimeSpan.FromMinutes(timeLimitMinutes),
-                out string errorMessage);
+            MythicRiftEntryResult result = game.MythicRiftEntryService.RequestRun(player, new MythicRiftEntryRequest
+            {
+                RiftLevel = riftLevel,
+                ContentId = contentId,
+                KillQuotaOverride = killQuota,
+                TimeLimit = TimeSpan.FromMinutes(timeLimitMinutes)
+            });
 
-            if (runState == null)
-                return string.IsNullOrWhiteSpace(errorMessage) ? "Failed to request Mythic Rift run." : errorMessage;
+            if (result.Success == false)
+                return string.IsNullOrWhiteSpace(result.ErrorMessage) ? "Failed to request Mythic Rift run." : result.ErrorMessage;
 
+            MythicRiftRunState runState = result.RunState;
+            CommandHelper.SendMessages(client, BuildRunLines(runState, game.CurrentTime, includeResolvedRefs: true));
+            return string.Empty;
+        }
+
+        [Command("requestfixedauto")]
+        [CommandDescription("Requests a fixed Mythic Rift run using that content's default kill quota.")]
+        [CommandUsage("rift requestfixedauto [contentId] [level] [minutes]")]
+        [CommandUserLevel(AccountUserLevel.Admin)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        [CommandParamCount(3)]
+        public string RequestFixedAuto(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            Player player = playerConnection?.Player;
+            if (game == null || player == null)
+                return "Game or player not found.";
+
+            string contentId = @params[0];
+            if (TryParsePositiveInt(@params[1], out int riftLevel) == false)
+                return "Invalid rift level.";
+
+            if (TryParsePositiveInt(@params[2], out int timeLimitMinutes) == false)
+                return "Invalid time limit.";
+
+            MythicRiftEntryResult result = game.MythicRiftEntryService.RequestRun(player, new MythicRiftEntryRequest
+            {
+                RiftLevel = riftLevel,
+                ContentId = contentId,
+                TimeLimit = TimeSpan.FromMinutes(timeLimitMinutes)
+            });
+
+            if (result.Success == false)
+                return string.IsNullOrWhiteSpace(result.ErrorMessage) ? "Failed to request Mythic Rift run." : result.ErrorMessage;
+
+            MythicRiftRunState runState = result.RunState;
             CommandHelper.SendMessages(client, BuildRunLines(runState, game.CurrentTime, includeResolvedRefs: true));
             return string.Empty;
         }
@@ -605,6 +1050,28 @@ namespace MHServerEmu.Commands.Implementations
             }
 
             return lines;
+        }
+
+        private static List<string> BuildLaunchPlanLines(MythicRiftPortalLaunchPlan launchPlan)
+        {
+            if (launchPlan == null)
+                return new() { "launchPlan=n/a" };
+
+            return new()
+            {
+                $"launchEntryPoint={launchPlan.EntryPointId} | launchModel={launchPlan.LaunchModel} | patcherFriendly={launchPlan.IsPatcherFriendly}",
+                $"launcherItem={launchPlan.LauncherItemPrototypeName ?? "n/a"} | transition={launchPlan.TransitionPrototypeName ?? "n/a"} | consumesItem={launchPlan.ConsumesLauncherItem} | privatePortal={launchPlan.CreatesPrivatePortal} | randomOnly={launchPlan.RandomContentOnly}",
+                $"launchNotes={launchPlan.Notes}"
+            };
+        }
+
+        private static List<string> BuildLauncherIntentLines(MythicRiftLauncherIntent intent, int unlockedLevel)
+        {
+            return new()
+            {
+                $"pendingLauncherItem={intent.ItemPrototypeName} | entryPoint={intent.EntryPointId} | portalTarget={intent.PortalTargetRegionProtoRef.GetNameFormatted()}",
+                $"intentCreatedAt={intent.CreatedAt} | recommendedAutoLevel={unlockedLevel} | defaultTimeLimit={MythicRiftLauncherService.DefaultLauncherTimeLimit.TotalMinutes:0} min"
+            };
         }
 
         private static string MutateRun(NetClient client, string runIdText, Func<Game, ulong, bool> operation, string successMessage)

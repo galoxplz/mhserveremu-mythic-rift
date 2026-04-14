@@ -15,11 +15,14 @@ namespace MHServerEmu.Games.MythicRifts
         private static readonly Logger Logger = LogManager.CreateLogger();
         private const float TimedSuccessBonusRarityPct = 0.10f;
         private const float TimedSuccessBonusSpecialPct = 0.15f;
+        private static readonly TimeSpan ParticipantDisconnectAbortGracePeriod = TimeSpan.FromMinutes(2);
+        private static readonly TimeSpan CompletedRunRetention = TimeSpan.FromMinutes(5);
         private static readonly MythicRiftContentDefinition[] DefaultContentDefinitions =
         {
             new(
                 "taskmaster",
                 "Taskmaster Terminal",
+                50,
                 "Regions/EndGame/Terminals/Green/Taskmaster/DailyGTaskmasterRegionBase.prototype",
                 "Missions/Prototypes/PVEEndgame/Dailies/Green/G03TaskmasterDailyEndgame.prototype",
                 "Entity/Characters/Bosses/PVEDailies/Green/EGD03GTaskmaster.prototype",
@@ -27,6 +30,7 @@ namespace MHServerEmu.Games.MythicRifts
             new(
                 "hood",
                 "Hood Terminal",
+                55,
                 "Regions/EndGame/Terminals/Green/HoodsShip/DailyGHoodsShipRegionBase.prototype",
                 "Missions/Prototypes/PVEEndgame/Dailies/Green/G04HoodDailyEndgame.prototype",
                 "Entity/Characters/Bosses/PVEDailies/Green/EGD04GHood.prototype",
@@ -34,6 +38,7 @@ namespace MHServerEmu.Games.MythicRifts
             new(
                 "sinister",
                 "Mister Sinister Terminal",
+                60,
                 "Regions/EndGame/Terminals/Green/SinistersLab/DailyGSinisterLabRegionBase.prototype",
                 "Missions/Prototypes/PVEEndgame/Dailies/Green/G06MisterSinisterDailyEndgame.prototype",
                 "Entity/Characters/Bosses/PVEDailies/Green/EGD06GMrSinister.prototype",
@@ -41,6 +46,7 @@ namespace MHServerEmu.Games.MythicRifts
             new(
                 "kingpin",
                 "Kingpin Terminal",
+                65,
                 "Regions/EndGame/Terminals/Green/FiskTower/DailyGFiskTowerRegionBase.prototype",
                 "Missions/Prototypes/PVEEndgame/Dailies/Green/G10FiskTowerDailyEndgame.prototype",
                 "Entity/Characters/Bosses/PVEDailies/Green/EGD10GKingpin.prototype",
@@ -74,6 +80,16 @@ namespace MHServerEmu.Games.MythicRifts
             if (playerDbId == 0)
                 return 1;
 
+            Player onlinePlayer = Game.EntityManager.GetEntityByDbGuid<Player>(playerDbId);
+            if (onlinePlayer != null)
+            {
+                int persistentLevel = onlinePlayer.MythicRiftHighestUnlockedLevel;
+                if (_highestUnlockedRiftLevelByPlayer.TryGetValue(playerDbId, out int cachedUnlockedLevel))
+                    return Math.Max(Math.Max(cachedUnlockedLevel, persistentLevel), 1);
+
+                return Math.Max(persistentLevel, 1);
+            }
+
             return _highestUnlockedRiftLevelByPlayer.TryGetValue(playerDbId, out int unlockedLevel)
                 ? Math.Max(unlockedLevel, 1)
                 : 1;
@@ -94,6 +110,7 @@ namespace MHServerEmu.Games.MythicRifts
 
             int normalizedLevel = Math.Max(unlockedLevel, 1);
             _highestUnlockedRiftLevelByPlayer[playerDbId] = normalizedLevel;
+            SyncOnlinePlayerRiftLevel(playerDbId, normalizedLevel);
             return normalizedLevel;
         }
 
@@ -108,6 +125,7 @@ namespace MHServerEmu.Games.MythicRifts
                 return currentUnlockedLevel;
 
             _highestUnlockedRiftLevelByPlayer[playerDbId] = nextUnlockedLevel;
+            SyncOnlinePlayerRiftLevel(playerDbId, nextUnlockedLevel);
             return nextUnlockedLevel;
         }
 
@@ -126,7 +144,7 @@ namespace MHServerEmu.Games.MythicRifts
                 Content = content,
                 RequestedPlayerCount = Math.Max(requestedPlayerCount, 1),
                 EffectivePlayerCount = difficulty.EffectivePlayerCount,
-                KillQuota = Math.Max(killQuota, 1),
+                KillQuota = ResolveKillQuota(content, killQuota),
                 TimeLimit = timeLimit <= TimeSpan.Zero ? TimeSpan.FromMinutes(10) : timeLimit,
                 RegionProtoRef = content.RegionProtoRef,
                 MissionProtoRef = content.MissionProtoRef,
@@ -183,6 +201,16 @@ namespace MHServerEmu.Games.MythicRifts
             return _activeRuns.TryGetValue(runId, out MythicRiftRunState runState) ? runState : null;
         }
 
+        public MythicRiftRunState GetInProgressRunForPlayer(ulong playerDbId)
+        {
+            if (playerDbId == 0)
+                return null;
+
+            return _activeRuns.Values.FirstOrDefault(runState =>
+                runState.IsInProgress &&
+                runState.ParticipantPlayerDbIds.Contains(playerDbId));
+        }
+
         public bool RemoveRun(ulong runId)
         {
             if (runId == 0)
@@ -230,6 +258,7 @@ namespace MHServerEmu.Games.MythicRifts
             runState.MarkSuccess(currentTime);
             ResolveRewardOutcome(runState);
             GrantProgressionForSuccessfulRun(runState);
+            TryAutoGrantCompletionRewards(runState);
             return runState.Status == MythicRiftRunStatus.Success;
         }
 
@@ -241,6 +270,7 @@ namespace MHServerEmu.Games.MythicRifts
 
             runState.MarkFailed(currentTime);
             ResolveRewardOutcome(runState);
+            TryAutoGrantCompletionRewards(runState);
             return runState.Status == MythicRiftRunStatus.Failed;
         }
 
@@ -320,8 +350,7 @@ namespace MHServerEmu.Games.MythicRifts
                 return 0;
 
             HashSet<ulong> recipientDbIds = new(runState.ParticipantPlayerDbIds);
-
-            if (recipientDbIds.Count == 0 && runState.RegionId != 0)
+            if (runState.RegionId != 0)
             {
                 Region region = Game.RegionManager.GetRegion(runState.RegionId);
                 if (region != null)
@@ -369,14 +398,39 @@ namespace MHServerEmu.Games.MythicRifts
 
         public void Update(TimeSpan currentTime)
         {
+            List<ulong> runsToRemove = null;
+
             foreach (MythicRiftRunState runState in _activeRuns.Values)
             {
-                if (runState.HasExpired(currentTime) == false)
+                RegisterBoundRegionPlayersAsParticipants(runState);
+                UpdateParticipantPresence(runState, currentTime);
+                TryAutoBindAndStartPendingRun(runState, currentTime);
+
+                if (runState.HasExpired(currentTime))
+                {
+                    runState.MarkFailed(currentTime);
+                    ResolveRewardOutcome(runState);
+                    TryAutoGrantCompletionRewards(runState);
+                    Logger.Info($"Mythic Rift run {runState.Config.RunId} expired and failed automatically.");
+                }
+
+                if (TryAbortRunForDisconnectedParticipants(runState, currentTime))
                     continue;
 
-                runState.MarkFailed(currentTime);
-                ResolveRewardOutcome(runState);
-                Logger.Info($"Mythic Rift run {runState.Config.RunId} expired and failed automatically.");
+                if (ShouldAutoRemoveRun(runState, currentTime) == false)
+                    continue;
+
+                runsToRemove ??= new();
+                runsToRemove.Add(runState.Config.RunId);
+            }
+
+            if (runsToRemove == null)
+                return;
+
+            foreach (ulong runId in runsToRemove)
+            {
+                if (RemoveRun(runId))
+                    Logger.Info($"Mythic Rift run {runId} was removed automatically after retention cleanup.");
             }
         }
 
@@ -411,6 +465,7 @@ namespace MHServerEmu.Games.MythicRifts
             if (runState == null)
                 return null;
 
+            runState.SetRegisteredAt(Game.CurrentTime);
             _activeRuns[runState.Config.RunId] = runState;
             return runState;
         }
@@ -446,6 +501,12 @@ namespace MHServerEmu.Games.MythicRifts
             }
 
             int requestedPlayerCount = ResolveRequestedPlayerCount(player, party);
+            if (TryFindInProgressRunConflict(player, party, out MythicRiftRunState conflictingRun))
+            {
+                errorMessage = $"A Mythic Rift run is already in progress for this player or party (runId={conflictingRun.Config.RunId}, status={conflictingRun.Status}).";
+                return null;
+            }
+
             MythicRiftRunState runState = useRandomContent
                 ? CreateRandomDebugRun(riftLevel, requestedPlayerCount, killQuota, timeLimit)
                 : CreateDebugRun(contentId, riftLevel, requestedPlayerCount, killQuota, timeLimit);
@@ -517,6 +578,7 @@ namespace MHServerEmu.Games.MythicRifts
                         runState.MarkSuccess(Game.CurrentTime);
                         ResolveRewardOutcome(runState);
                         GrantProgressionForSuccessfulRun(runState);
+                        TryAutoGrantCompletionRewards(runState);
                         Logger.Info($"Mythic Rift run {runState.Config.RunId} completed by defeating {evt.Defender.PrototypeName}.");
                     }
 
@@ -620,7 +682,7 @@ namespace MHServerEmu.Games.MythicRifts
                 return;
 
             HashSet<ulong> recipientDbIds = new(runState.ParticipantPlayerDbIds);
-            if (recipientDbIds.Count == 0 && runState.RegionId != 0)
+            if (runState.RegionId != 0)
             {
                 Region region = Game.RegionManager.GetRegion(runState.RegionId);
                 if (region != null)
@@ -651,6 +713,95 @@ namespace MHServerEmu.Games.MythicRifts
             return true;
         }
 
+        private void TryAutoGrantCompletionRewards(MythicRiftRunState runState)
+        {
+            if (runState == null)
+                return;
+
+            if (runState.Status is not (MythicRiftRunStatus.Success or MythicRiftRunStatus.Failed))
+                return;
+
+            if (runState.RewardsGranted)
+                return;
+
+            int grantedCount = GrantRewardsToRunPlayers(runState.Config.RunId);
+            Logger.Info($"Mythic Rift run {runState.Config.RunId} auto-granted completion rewards to {grantedCount} player(s).");
+        }
+
+        private void TryAutoBindAndStartPendingRun(MythicRiftRunState runState, TimeSpan currentTime)
+        {
+            if (runState == null || runState.Status != MythicRiftRunStatus.Pending || runState.RegionId != 0)
+                return;
+
+            foreach (ulong participantPlayerDbId in runState.ParticipantPlayerDbIds)
+            {
+                Player player = Game.EntityManager.GetEntityByDbGuid<Player>(participantPlayerDbId);
+                Region region = player?.GetRegion();
+                if (region == null)
+                    continue;
+
+                if (region.PrototypeDataRef != runState.Config.RegionProtoRef)
+                    continue;
+
+                if (AttachRunToRegion(runState.Config.RunId, region) == false)
+                    return;
+
+                StartRun(runState.Config.RunId, currentTime);
+                Logger.Info($"Mythic Rift run {runState.Config.RunId} auto-bound to region {region.PrototypeName} (0x{region.Id:X}) and started.");
+                return;
+            }
+        }
+
+        private void UpdateParticipantPresence(MythicRiftRunState runState, TimeSpan currentTime)
+        {
+            if (runState == null || runState.ParticipantCount == 0)
+                return;
+
+            foreach (ulong participantPlayerDbId in runState.ParticipantPlayerDbIds)
+            {
+                Player player = Game.EntityManager.GetEntityByDbGuid<Player>(participantPlayerDbId);
+                if (player == null)
+                    continue;
+
+                runState.TouchParticipantPresence(currentTime);
+                return;
+            }
+        }
+
+        private void RegisterBoundRegionPlayersAsParticipants(MythicRiftRunState runState)
+        {
+            if (runState == null || runState.RegionId == 0)
+                return;
+
+            Region region = Game.RegionManager.GetRegion(runState.RegionId);
+            if (region == null)
+                return;
+
+            RegisterRegionPlayersAsParticipants(runState, region);
+        }
+
+        private bool TryAbortRunForDisconnectedParticipants(MythicRiftRunState runState, TimeSpan currentTime)
+        {
+            if (runState == null || runState.IsInProgress == false || runState.ParticipantCount == 0)
+                return false;
+
+            TimeSpan timeSinceLastParticipantSeen = currentTime - runState.LastParticipantOnlineAt;
+            if (timeSinceLastParticipantSeen < ParticipantDisconnectAbortGracePeriod)
+                return false;
+
+            runState.MarkAborted(currentTime);
+            Logger.Info($"Mythic Rift run {runState.Config.RunId} was aborted automatically after all tracked participants were offline for {timeSinceLastParticipantSeen.TotalSeconds:0} seconds.");
+            return true;
+        }
+
+        private static bool ShouldAutoRemoveRun(MythicRiftRunState runState, TimeSpan currentTime)
+        {
+            if (runState == null || runState.CompletedAt.HasValue == false)
+                return false;
+
+            return currentTime - runState.CompletedAt.Value >= CompletedRunRetention;
+        }
+
         private void RegisterDefaultContent()
         {
             foreach (MythicRiftContentDefinition definition in DefaultContentDefinitions)
@@ -666,6 +817,7 @@ namespace MHServerEmu.Games.MythicRifts
             {
                 Id = definition.Id,
                 DisplayName = definition.DisplayName,
+                DefaultKillQuota = definition.DefaultKillQuota,
                 RegionProtoRef = ResolvePrototype(definition.RegionPrototypeName),
                 MissionProtoRef = ResolvePrototype(definition.MissionPrototypeName),
                 BossProtoRef = ResolvePrototype(definition.BossPrototypeName),
@@ -693,9 +845,55 @@ namespace MHServerEmu.Games.MythicRifts
             return prototypeRef;
         }
 
+        private static int ResolveKillQuota(MythicRiftContentEntry content, int killQuota)
+        {
+            if (killQuota > 0)
+                return killQuota;
+
+            if (content != null && content.DefaultKillQuota > 0)
+                return content.DefaultKillQuota;
+
+            return 50;
+        }
+
+        private void SyncOnlinePlayerRiftLevel(ulong playerDbId, int unlockedLevel)
+        {
+            if (playerDbId == 0)
+                return;
+
+            Player onlinePlayer = Game.EntityManager.GetEntityByDbGuid<Player>(playerDbId);
+            if (onlinePlayer == null)
+                return;
+
+            onlinePlayer.MythicRiftHighestUnlockedLevel = unlockedLevel;
+        }
+
+        private bool TryFindInProgressRunConflict(Player requester, Party party, out MythicRiftRunState conflictingRun)
+        {
+            conflictingRun = requester != null
+                ? GetInProgressRunForPlayer(requester.DatabaseUniqueId)
+                : null;
+
+            if (conflictingRun != null)
+                return true;
+
+            if (party == null)
+                return false;
+
+            foreach (var kvp in party)
+            {
+                conflictingRun = GetInProgressRunForPlayer(kvp.Value.PlayerDbId);
+                if (conflictingRun != null)
+                    return true;
+            }
+
+            return false;
+        }
+
         private sealed record MythicRiftContentDefinition(
             string Id,
             string DisplayName,
+            int DefaultKillQuota,
             string RegionPrototypeName,
             string MissionPrototypeName,
             string BossPrototypeName,

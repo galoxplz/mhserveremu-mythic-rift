@@ -129,6 +129,7 @@ namespace MHServerEmu.Games.Entities
 
         private uint _loginCount;
         private TimeSpan _loginRewardCooldownTimeStart;
+        private int _mythicRiftHighestUnlockedLevel = 1;
 
         private TeleportData _teleportData;
         private SpawnGimbal _spawnGimbal;
@@ -177,6 +178,11 @@ namespace MHServerEmu.Games.Entities
         public long GazillioniteBalance { get => PlayerConnection.GazillioniteBalance; set => PlayerConnection.GazillioniteBalance = value; }
         public int PowerSpecIndexUnlocked { get => Properties[PropertyEnum.PowerSpecIndexUnlocked]; }
         public ulong TeamUpSynergyConditionId { get; set; }
+        public int MythicRiftHighestUnlockedLevel
+        {
+            get => Math.Max(_mythicRiftHighestUnlockedLevel, 1);
+            set => _mythicRiftHighestUnlockedLevel = Math.Max(value, 1);
+        }
 
         public override ulong PartyId { get => _partyId.Get(); }
         public bool IsInParty { get => PartyId != 0; }
@@ -484,6 +490,7 @@ namespace MHServerEmu.Games.Entities
                 // Login count
                 success &= Serializer.Transfer(archive, ref _loginCount);
                 success &= Serializer.Transfer(archive, ref _loginRewardCooldownTimeStart);
+                success &= Serializer.Transfer(archive, ref _mythicRiftHighestUnlockedLevel);
             }
 
             return success;

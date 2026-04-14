@@ -16,6 +16,7 @@ namespace MHServerEmu.Games.MythicRifts
 
         public MythicRiftRunConfig Config { get; }
         public MythicRiftRunStatus Status { get; private set; } = MythicRiftRunStatus.Pending;
+        public TimeSpan RegisteredAt { get; private set; }
         public ulong RegionId { get; private set; }
         public ulong BossEntityId { get; private set; }
         public int CurrentKillCount { get; private set; }
@@ -25,10 +26,12 @@ namespace MHServerEmu.Games.MythicRifts
         public TimeSpan StartedAt { get; private set; }
         public TimeSpan? CompletedAt { get; private set; }
         public TimeSpan? ExpiresAt { get; private set; }
+        public TimeSpan LastParticipantOnlineAt { get; private set; }
         public IReadOnlyCollection<ulong> ParticipantPlayerDbIds => _participantPlayerDbIds;
         public IReadOnlyCollection<ulong> RewardedPlayerDbIds => _rewardedPlayerDbIds;
         public int ParticipantCount => _participantPlayerDbIds.Count;
         public int RewardedPlayerCount => _rewardedPlayerDbIds.Count;
+        public bool IsInProgress => Status == MythicRiftRunStatus.Pending || Status == MythicRiftRunStatus.Active;
 
         public MythicRiftRunState(MythicRiftRunConfig config)
         {
@@ -45,6 +48,12 @@ namespace MHServerEmu.Games.MythicRifts
             BossEntityId = bossEntityId;
         }
 
+        public void SetRegisteredAt(TimeSpan registeredAt)
+        {
+            RegisteredAt = registeredAt;
+            LastParticipantOnlineAt = registeredAt;
+        }
+
         public void Start(TimeSpan startedAt)
         {
             if (Status != MythicRiftRunStatus.Pending)
@@ -53,6 +62,11 @@ namespace MHServerEmu.Games.MythicRifts
             Status = MythicRiftRunStatus.Active;
             StartedAt = startedAt;
             ExpiresAt = startedAt + Config.TimeLimit;
+        }
+
+        public void TouchParticipantPresence(TimeSpan currentTime)
+        {
+            LastParticipantOnlineAt = currentTime;
         }
 
         public void AddKills(int count)

@@ -90,6 +90,8 @@ namespace MHServerEmu.Games
         public PartyManager PartyManager { get; }
         public GuildManager GuildManager { get; }
         public MythicRiftManager MythicRiftManager { get; }
+        public MythicRiftEntryService MythicRiftEntryService { get; }
+        public MythicRiftLauncherService MythicRiftLauncherService { get; }
         public LiveTuningData LiveTuningData { get => LiveTuningData.Current; }
         public List<PrototypeId> EventDailyGifts { get => LiveTuningData.EventDailyGifts; }
 
@@ -144,6 +146,8 @@ namespace MHServerEmu.Games
             PartyManager = new(this);
             GuildManager = new(this);
             MythicRiftManager = new(this);
+            MythicRiftEntryService = new(this);
+            MythicRiftLauncherService = new(this);
             Random = new();
 
             Initialize();

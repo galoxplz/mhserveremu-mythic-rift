@@ -278,7 +278,15 @@ namespace MHServerEmu.Games.Entities.Items
             settings.ItemSourceId = Id;
             settings.Flags |= PowerActivationSettingsFlags.NotifyOwner;
 
-            return avatar.ActivatePower(powerProtoRef, ref settings) == PowerUseResult.Success;
+            bool success = avatar.ActivatePower(powerProtoRef, ref settings) == PowerUseResult.Success;
+            if (success)
+            {
+                Player player = avatar.GetOwnerOfType<Player>();
+                if (player != null)
+                    Game.MythicRiftLauncherService.RegisterLauncherItemUse(player, this);
+            }
+
+            return success;
         }
 
         private bool DoItemActionAwardTeamUpXP(Avatar avatar, int amount)
