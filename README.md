@@ -45,17 +45,18 @@ Implemented pieces already include:
 
 ## Project Documents
 
-The working project documents are stored outside this repository in the local project workspace:
+Repository-friendly project docs are now available here:
 
-- French working docs: `C:\Users\admin\Desktop\PROJECT MHO\Docs`
-- English shareable docs: `C:\Users\admin\Desktop\PROJECT MHO\Docs EN`
+- [docs/MythicRift/README.md](./docs/MythicRift/README.md)
+- [docs/MythicRift/High-Level.md](./docs/MythicRift/High-Level.md)
+- [docs/MythicRift/Spec-V1.md](./docs/MythicRift/Spec-V1.md)
+- [docs/MythicRift/Architecture.md](./docs/MythicRift/Architecture.md)
+- [docs/MythicRift/Implementation-Status.md](./docs/MythicRift/Implementation-Status.md)
 
-The most relevant documents for project review are:
+Additional local working docs are still maintained outside the repository in:
 
-- `PROJET-MYTHIC-RIFT-HIGH-LEVEL-EN.txt`
-- `SPEC-V1-MYTHIC-RIFT-EN.txt`
-- `ARCHITECTURE-SERVEUR-MYTHIC-RIFT-EN.txt`
-- `ETAT-IMPLEMENTATION-MYTHIC-RIFT-EN.txt`
+- `C:\Users\admin\Desktop\PROJECT MHO\Docs`
+- `C:\Users\admin\Desktop\PROJECT MHO\Docs EN`
 
 ## Technical Base
 
