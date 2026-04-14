@@ -328,13 +328,6 @@ rift entrypoints
 rift launchplan portal-to-random-dungeon
 ```
 
-## Things To Tell MonEll Explicitly
-
-- this is already reviewable as a server patch
-- the current testing path does not require a manual client patch
-- the current item identity is still technical, not fully polished
-- the current launcher flow is admin-driven for testing, but the core gameplay loop is already functioning
-- if TAHITI wants client-facing polish later, that can remain optional and patcher-delivered
 
 ## Honest Current Risks / Remaining Validation
 
