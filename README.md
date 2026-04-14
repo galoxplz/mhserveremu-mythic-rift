@@ -1,63 +1,88 @@
-# MHServerEmu
+# MHServerEmu Mythic Rift Prototype
 
-MHServerEmu is a server emulator for Marvel Heroes.
+This repository is a custom development fork focused on building a new endgame mode for **Marvel Heroes Omega**, inspired by **Diablo 3 Greater Rifts**.
 
-The only currently supported version of the game client is **1.52.0.1700** (also known as **2.16a**) released on September 7th, 2017.
+The current target is a clean, reviewable prototype that can eventually be proposed as a **server-side-first patch** for TAHITI, with minimal client impact and no dependency on a manually distributed client patch.
 
-We post development progress reports on our [blog](https://crypto137.github.io/MHServerEmu/). You can find additional information on various topics in the [documentation](./docs/Index.md). If you would like to discuss this project and/or help with its development, feel free to join our [Discord](https://discord.gg/hjR8Bj52t3).
+## Project Goal
 
-## Download
+The goal of this project is to create a replayable Rift-like activity with:
 
-We provide two kinds of builds: stable and nightly.
+- `1 to 5` player support
+- random map selection
+- random boss selection
+- timed runs
+- potentially infinite difficulty progression
+- unlock of the next level on success
+- rewards based on existing boss/world loot with a timed completion `SIF/RIF` bonus
 
-|                      | Stable         | Nightly               |
-| -------------------- | -------------- | --------------------- |
-| **Update Frequency** | Quarterly      | Daily                 |
-| **Features**         | Fewer          | More                  |
-| **Stability**        | High           | Medium                |
-| **Platforms**        | Windows        | Windows / Linux       |
-| **Configuration**    | Pre-Configured | Just the Server Files |
+## Design Direction
 
-If you are setting the server up for the first time and/or unsure which one to use, we recommend you to start with a stable build. See [Initial Setup](./docs/Setup/InitialSetup.md) for information on how to set the server up.
+The current implementation is built around these constraints:
 
-You can always upgrade from stable to nightly simply by downloading the latest nightly build and overwriting your stable files.
+- keep the core logic server-side whenever possible
+- reuse existing terminals, maps, bosses, missions, and scaling systems
+- keep changes isolated and readable for future review
+- remain compatible with a future TAHITI deployment strategy
+- avoid dependence on a manual client patch
+- if game file changes are ever needed, prefer a patcher-compatible approach
 
-### Stable
+## Current Status
 
-[![Stable Release](https://img.shields.io/github/v/release/Crypto137/MHServerEmu?include_prereleases)](https://github.com/Crypto137/MHServerEmu/releases)
+The repository already contains an in-progress Mythic Rift prototype in `src/MHServerEmu.Games/MythicRifts`.
 
-### Nightly
+Implemented pieces already include:
 
-[![Nightly Release (Windows x64)](https://github.com/Crypto137/MHServerEmu/actions/workflows/nightly-release-windows-x64.yml/badge.svg)](https://nightly.link/Crypto137/MHServerEmu/workflows/nightly-release-windows-x64/master?preview) [![Nightly Release (Linux x64)](https://github.com/Crypto137/MHServerEmu/actions/workflows/nightly-release-linux-x64.yml/badge.svg)](https://nightly.link/Crypto137/MHServerEmu/workflows/nightly-release-linux-x64/master?preview)
+- run creation and tracking
+- D3-inspired level scaling
+- timer and expiration handling
+- kill quota tracking
+- boss unlock logic
+- boss kill completion logic
+- reward preparation and timed bonus handling
+- in-memory progression unlocks
+- admin/debug commands for local testing
 
-## FAQ
+## Project Documents
 
-**Is the game fully playable?**
+The working project documents are stored outside this repository in the local project workspace:
 
-All systems and content that were in the game when it was shut down in 2017 have been restored.
+- French working docs: `C:\Users\admin\Desktop\PROJECT MHO\Docs`
+- English shareable docs: `C:\Users\admin\Desktop\PROJECT MHO\Docs EN`
 
-**Where can I download the game client?**
+The most relevant documents for project review are:
 
-We do not provide download links for the game client for legal reasons. If you have played the game through Steam when it was live, you should be able to download it in your Steam library.
+- `PROJET-MYTHIC-RIFT-HIGH-LEVEL-EN.txt`
+- `SPEC-V1-MYTHIC-RIFT-EN.txt`
+- `ARCHITECTURE-SERVEUR-MYTHIC-RIFT-EN.txt`
+- `ETAT-IMPLEMENTATION-MYTHIC-RIFT-EN.txt`
 
-**How to update the server?**
+## Technical Base
 
-Download the latest stable or nightly build and overwrite your existing files. Nightly builds can be potentially unstable, so it is recommended to back up your account database file located in `MHServerEmu\Data\Account.db` before updating.
+This project is built on top of **MHServerEmu**, a server emulator for Marvel Heroes.
 
-**Are you going to support other versions of the game, like the ones from before the Biggest Update Ever (BUE) came out?**
+The currently targeted client version remains:
 
-Yes, we do plan to implement support for other versions, including the final pre-BUE version (1.48) from late 2016. Currently there are no timeframes for when this is going to happen. The current work-in-progress 1.48 code is available on the [v48](https://github.com/Crypto137/MHServerEmu/tree/v48) branch.
+- `1.52.0.1700`
+- also known as `2.16a`
+- released on September 7, 2017
 
-Some early work has also been done to support version 1.10 from mid 2013. You can find the code for it in the [MHServerEmu2013](https://github.com/Crypto137/MHServerEmu2013) repository.
+Original upstream project:
 
-**Are you going to add new content to the game (heroes, team-ups, powers, etc.)?**
+- [Crypto137/MHServerEmu](https://github.com/Crypto137/MHServerEmu)
 
-The scope of this project is restoring the game to its original state. We do not have any plans to create custom content. However, all of our research on the game is completely open-source, and it can be potentially used by others in such endeavors.
+Upstream documentation:
 
-**Are you going to make improvements to the game client (e.g. upgrade graphics)?**
+- [docs/Index.md](./docs/Index.md)
 
-No, we do not touch the client side of the game in any way. This project is a recreation of only the server backend needed to run the game.
+## Local Build Note
 
-**I have problems with setting the server up.**
+In this workspace, the safest build flow is to redirect `bin/obj` outputs outside the repository, for example into:
 
-Feel free to join our [Discord](https://discord.gg/hjR8Bj52t3) and ask for help in the `#setup-help` channel.
+- `C:\Users\admin\Documents\Codex\build`
+
+Reference command:
+
+```powershell
+dotnet build C:\Users\admin\Desktop\PROJECT MHO\MHServerEmu-master\src\MHServerEmu\MHServerEmu.csproj -c Release -p:BaseIntermediateOutputPath=C:\Users\admin\Documents\Codex\build\obj-cli\ -p:BaseOutputPath=C:\Users\admin\Documents\Codex\build\bin-cli\
+```
