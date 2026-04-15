@@ -374,6 +374,7 @@ namespace MHServerEmu.Games.MythicRifts
             if (player == null || result?.Success != true)
                 return;
 
+            MythicRiftRunState runState = result.EntryResult?.RunState;
             PrototypeId startTargetRef = ResolveRunStartTarget(result.EntryResult.RunState);
             result.TeleportTargetProtoRef = startTargetRef;
             result.TeleportAttempted = startTargetRef != PrototypeId.Invalid;
@@ -381,6 +382,7 @@ namespace MHServerEmu.Games.MythicRifts
             if (startTargetRef == PrototypeId.Invalid)
             {
                 result.TeleportErrorMessage = "No valid region start target was found for the selected Rift content.";
+                AbortUnboundLaunchRun(runState, result.TeleportErrorMessage);
                 return;
             }
 
@@ -391,7 +393,10 @@ namespace MHServerEmu.Games.MythicRifts
             result.TeleportSucceeded = teleportSucceeded;
 
             if (teleportSucceeded == false)
+            {
                 result.TeleportErrorMessage = $"Teleport to Rift start target failed: {startTargetRef.GetNameFormatted()}";
+                AbortUnboundLaunchRun(runState, result.TeleportErrorMessage);
+            }
         }
 
         private static PrototypeId ResolveRunStartTarget(MythicRiftRunState runState)
@@ -442,6 +447,18 @@ namespace MHServerEmu.Games.MythicRifts
                 return bossName[..^terminalSuffix.Length];
 
             return bossName;
+        }
+
+        private void AbortUnboundLaunchRun(MythicRiftRunState runState, string reason)
+        {
+            if (runState == null || runState.RegionId != 0)
+                return;
+
+            string abortReason = string.IsNullOrWhiteSpace(reason)
+                ? "Rift launch failed before entering the selected terminal."
+                : $"Rift launch failed before entering the selected terminal: {reason}";
+
+            Game.MythicRiftManager.AbortRunWithReason(runState.Config.RunId, Game.CurrentTime, abortReason);
         }
 
         public MythicRiftLauncherUseResult TryRequestRunFromPrototypeName(Player player, string itemPrototypeName, int riftLevel, TimeSpan timeLimit)
