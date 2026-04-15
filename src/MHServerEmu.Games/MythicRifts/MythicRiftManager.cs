@@ -19,6 +19,7 @@ namespace MHServerEmu.Games.MythicRifts
         private const float TimedSuccessBonusRarityPct = 0.10f;
         private const float TimedSuccessBonusSpecialPct = 0.15f;
         private static readonly TimeSpan ParticipantDisconnectAbortGracePeriod = TimeSpan.FromMinutes(2);
+        private static readonly TimeSpan PendingRunBindGracePeriod = TimeSpan.FromMinutes(2);
         private static readonly TimeSpan CompletedRunRetention = TimeSpan.FromMinutes(5);
         private static readonly MythicRiftContentDefinition[] DefaultContentDefinitions =
         {
@@ -333,6 +334,15 @@ namespace MHServerEmu.Games.MythicRifts
             return AbortRun(runState, currentTime, "The run was aborted.");
         }
 
+        public bool AbortRunWithReason(ulong runId, TimeSpan currentTime, string reason)
+        {
+            MythicRiftRunState runState = GetRun(runId);
+            if (runState == null)
+                return false;
+
+            return AbortRun(runState, currentTime, reason);
+        }
+
         public bool GrantRewardsToPlayer(ulong runId, Player player)
         {
             MythicRiftRunState runState = GetRun(runId);
@@ -461,6 +471,9 @@ namespace MHServerEmu.Games.MythicRifts
                 }
 
                 if (TryAbortRunForDisconnectedParticipants(runState, currentTime))
+                    continue;
+
+                if (TryAbortStalePendingRun(runState, currentTime))
                     continue;
 
                 if (ShouldAutoRemoveRun(runState, currentTime) == false)
@@ -692,7 +705,25 @@ namespace MHServerEmu.Games.MythicRifts
                     continue;
                 }
 
-                if (runState.BossUnlocked || ShouldCountKill(evt) == false)
+                bool shouldCountKill = ShouldCountKill(evt);
+                if (runState.BossUnlocked)
+                {
+                    if (runState.BossEntityId == 0 && shouldCountKill)
+                    {
+                        if (TrySpawnConfiguredBoss(runState, evt.Defender))
+                        {
+                            NotifyBossUnlocked(runState);
+                        }
+                        else
+                        {
+                            Logger.Warn($"Mythic Rift run {runState.Config.RunId} failed to retry spawn for boss {runState.Config.BossProtoRef.GetNameFormatted() ?? "unknown"} after quota unlock.");
+                        }
+                    }
+
+                    continue;
+                }
+
+                if (shouldCountKill == false)
                     continue;
 
                 int previousKillCount = runState.CurrentKillCount;
@@ -701,13 +732,14 @@ namespace MHServerEmu.Games.MythicRifts
                 if (runState.BossUnlocked && previousKillCount < runState.Config.KillQuota)
                 {
                     if (TrySpawnConfiguredBoss(runState, evt.Defender))
+                    {
                         NotifyBossUnlocked(runState);
+                    }
+                    else
+                    {
+                        Logger.Warn($"Mythic Rift run {runState.Config.RunId} unlocked boss {runState.Config.BossProtoRef.GetNameFormatted() ?? "unknown"} but the initial spawn attempt failed.");
+                    }
                     Logger.Info($"Mythic Rift run {runState.Config.RunId} unlocked its boss after reaching {runState.CurrentKillCount}/{runState.Config.KillQuota} kills.");
-                }
-                else if (runState.BossUnlocked && runState.BossEntityId == 0)
-                {
-                    if (TrySpawnConfiguredBoss(runState, evt.Defender))
-                        NotifyBossUnlocked(runState);
                 }
             }
         }
@@ -737,6 +769,10 @@ namespace MHServerEmu.Games.MythicRifts
 
             if (evt.Killer != null)
                 runState.RegisterParticipant(evt.Killer.DatabaseUniqueId);
+
+            Player attackerOwner = evt.Attacker?.GetOwnerOfType<Player>();
+            if (attackerOwner != null)
+                runState.RegisterParticipant(attackerOwner.DatabaseUniqueId);
 
             if (evt.Defender?.TagPlayers == null)
                 return;
@@ -820,7 +856,7 @@ namespace MHServerEmu.Games.MythicRifts
 
         private static bool ShouldCountKill(in EntityDeadGameEvent evt)
         {
-            if (evt.Killer == null || evt.Defender == null)
+            if (evt.Defender == null)
                 return false;
 
             if (evt.Defender is Avatar)
@@ -829,7 +865,19 @@ namespace MHServerEmu.Games.MythicRifts
             if (evt.Defender is Agent == false)
                 return false;
 
-            return true;
+            if (evt.Defender.IsHostileToPlayers() == false)
+                return false;
+
+            if (evt.Defender.WorldEntityPrototype?.MissionEntityDeathCredit == false)
+                return false;
+
+            if (evt.Killer != null)
+                return true;
+
+            if (evt.Attacker?.GetOwnerOfType<Player>() != null)
+                return true;
+
+            return evt.Defender.TagPlayers.HasTags;
         }
 
         private MythicRiftRunConfig CreateRunConfig(MythicRiftContentEntry content, MythicRiftContentEntry bossContent, int riftLevel, int requestedPlayerCount, int killQuota, TimeSpan timeLimit)
@@ -1042,6 +1090,21 @@ namespace MHServerEmu.Games.MythicRifts
                 runState,
                 currentTime,
                 $"Run aborted after all tracked participants were offline for {timeSinceLastParticipantSeen.TotalSeconds:0} seconds.");
+        }
+
+        private bool TryAbortStalePendingRun(MythicRiftRunState runState, TimeSpan currentTime)
+        {
+            if (runState == null || runState.Status != MythicRiftRunStatus.Pending || runState.RegionId != 0)
+                return false;
+
+            TimeSpan pendingDuration = currentTime - runState.RegisteredAt;
+            if (pendingDuration < PendingRunBindGracePeriod)
+                return false;
+
+            return AbortRun(
+                runState,
+                currentTime,
+                $"Run aborted because it did not bind to a Rift region within {PendingRunBindGracePeriod.TotalSeconds:0} seconds.");
         }
 
         private void NotifyRunStarted(MythicRiftRunState runState)

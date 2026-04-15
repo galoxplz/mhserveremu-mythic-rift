@@ -90,7 +90,9 @@
 - support a scoped per-player fixed-content beacon override so a specific V1 terminal can be validated without random selection
 - keep normal `PortalToRandomDungeon` / Danger Room behavior intact unless that scoped override is explicitly armed first
 - attempt to teleport the player to the selected Rift region start target immediately after a successful armed beacon launch
+- abort a newly created run immediately if the direct beacon launch cannot resolve or reach a valid Rift start target
 - emit custom in-game system messages when a Rift starts, when the quota unlocks the final boss, and when the run succeeds, fails, or aborts
+- retry the configured random boss spawn on later eligible kills if the first spawn attempt fails exactly on quota unlock
 
 ## Current Reward Logic
 

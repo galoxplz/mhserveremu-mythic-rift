@@ -66,6 +66,7 @@ Expected result:
 - the default `PortalToRandomDungeon` / Danger Room behavior is not changed globally for non-beacon use
 - the run should emit in-game custom system messages when it starts, when the boss is unlocked, and when it completes or fails
 - the beacon use itself should also emit an immediate in-game confirmation showing the selected map, boss, level, timer, and teleport result
+- if the direct launch cannot enter the selected Rift terminal, the created pending run should now abort instead of staying stuck indefinitely
 
 Optional random preview before launching:
 
