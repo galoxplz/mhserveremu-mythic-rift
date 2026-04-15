@@ -34,8 +34,7 @@ namespace MHServerEmu.Games.MythicRifts
             if (item == null)
                 return false;
 
-            string prototypeName = item.PrototypeDataRef.GetName();
-            return string.IsNullOrWhiteSpace(prototypeName) == false && _candidateToEntryPointId.ContainsKey(prototypeName);
+            return TryResolveCandidateEntryPointId(item.PrototypeDataRef, out _);
         }
 
         public MythicRiftLauncherItemCandidate ResolveCandidate(Item item)
@@ -43,9 +42,8 @@ namespace MHServerEmu.Games.MythicRifts
             if (item == null)
                 return null;
 
-            string prototypeName = item.PrototypeDataRef.GetName();
             return EntryService.LauncherItemCandidates.FirstOrDefault(candidate =>
-                string.Equals(candidate.PrototypeName, prototypeName, StringComparison.OrdinalIgnoreCase));
+                PrototypeNameMatches(item.PrototypeDataRef, candidate.PrototypeName));
         }
 
         public MythicRiftLauncherItemCandidate ResolveChosenCandidate()
@@ -59,8 +57,8 @@ namespace MHServerEmu.Games.MythicRifts
             if (player == null || item == null)
                 return null;
 
-            string itemPrototypeName = item.PrototypeDataRef.GetName();
-            if (string.IsNullOrWhiteSpace(itemPrototypeName) || _candidateToEntryPointId.TryGetValue(itemPrototypeName, out string entryPointId) == false)
+            string itemPrototypeName = item.PrototypeDataRef.GetNameFormatted();
+            if (string.IsNullOrWhiteSpace(itemPrototypeName) || TryResolveCandidateEntryPointId(item.PrototypeDataRef, out string entryPointId) == false)
                 return null;
 
             MythicRiftLauncherIntent intent = new()
@@ -152,16 +150,17 @@ namespace MHServerEmu.Games.MythicRifts
             timeLimit = NormalizeTimeLimit(timeLimit);
 
             string itemPrototypeName = item.PrototypeDataRef.GetName();
-            if (string.IsNullOrWhiteSpace(itemPrototypeName) || _candidateToEntryPointId.TryGetValue(itemPrototypeName, out string entryPointId) == false)
+            if (string.IsNullOrWhiteSpace(itemPrototypeName) || TryResolveCandidateEntryPointId(item.PrototypeDataRef, out string entryPointId) == false)
             {
                 return new MythicRiftLauncherUseResult
                 {
-                    ItemPrototypeName = itemPrototypeName,
-                    ErrorMessage = $"Item is not registered as a Mythic Rift launcher candidate: {itemPrototypeName ?? "unknown"}"
+                    ItemPrototypeName = item.PrototypeDataRef.GetNameFormatted(),
+                    ErrorMessage = $"Item is not registered as a Mythic Rift launcher candidate: {item.PrototypeDataRef.GetNameFormatted() ?? "unknown"}"
                 };
             }
 
             MythicRiftLauncherItemCandidate candidate = ResolveCandidate(item);
+            itemPrototypeName = candidate?.PrototypeName ?? item.PrototypeDataRef.GetNameFormatted();
             PrototypeId portalTargetRegionProtoRef = item.ItemPrototype?.GetPortalTarget() ?? PrototypeId.Invalid;
 
             MythicRiftEntryResult entryResult = EntryService.RequestRun(player, new MythicRiftEntryRequest
@@ -221,7 +220,7 @@ namespace MHServerEmu.Games.MythicRifts
                 if (candidateProto == null)
                     continue;
 
-                if (string.Equals(candidateProto.DataRef.GetName(), itemPrototypeName, StringComparison.OrdinalIgnoreCase))
+                if (PrototypeNameMatches(candidateProto.DataRef, itemPrototypeName))
                 {
                     itemProto = candidateProto;
                     break;
@@ -325,11 +324,42 @@ namespace MHServerEmu.Games.MythicRifts
                 if (candidateProto == null)
                     continue;
 
-                if (string.Equals(candidateProto.DataRef.GetName(), itemPrototypeName, StringComparison.OrdinalIgnoreCase))
+                if (PrototypeNameMatches(candidateProto.DataRef, itemPrototypeName))
                     return candidateProto.DataRef;
             }
 
             return PrototypeId.Invalid;
+        }
+
+        private bool TryResolveCandidateEntryPointId(PrototypeId prototypeRef, out string entryPointId)
+        {
+            entryPointId = null;
+            if (prototypeRef == PrototypeId.Invalid)
+                return false;
+
+            foreach ((string candidatePrototypeName, string candidateEntryPointId) in _candidateToEntryPointId)
+            {
+                if (PrototypeNameMatches(prototypeRef, candidatePrototypeName) == false)
+                    continue;
+
+                entryPointId = candidateEntryPointId;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool PrototypeNameMatches(PrototypeId prototypeRef, string expectedName)
+        {
+            if (prototypeRef == PrototypeId.Invalid || string.IsNullOrWhiteSpace(expectedName))
+                return false;
+
+            string rawName = prototypeRef.GetName();
+            if (string.Equals(rawName, expectedName, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            string formattedName = prototypeRef.GetNameFormatted();
+            return string.Equals(formattedName, expectedName, StringComparison.OrdinalIgnoreCase);
         }
 
         private void RegisterDefaultMappings()
