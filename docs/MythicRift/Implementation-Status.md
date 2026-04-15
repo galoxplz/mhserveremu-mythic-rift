@@ -15,6 +15,7 @@
 - A dedicated server-side entry layer now exists to prepare a future player-facing entry point without assuming a specific clickable object yet.
 - Logical entry points can now be registered server-side even though no concrete in-game launcher has been chosen yet.
 - A more concrete TAHITI-friendly direction now exists: a consumable portal launcher modeled after `PortalToRandomDungeon`, reusing a private direct-portal flow similar to Bovineheim/Cow Level.
+- Random Rift runs now decouple the selected terminal map from the selected boss source, so the current prototype can produce a random dungeon with a different random terminal boss.
 
 ## Main Files
 
@@ -28,12 +29,18 @@
 - `src/MHServerEmu.Games/MythicRifts/MythicRiftRewardOutcome.cs`
 - `src/MHServerEmu/Commands/Implementations/MythicRiftCommands.cs`
 
-## Registered V1 Content
+## Current Playable Terminal Pool
 
+- Shocker
+- Doctor Octopus
 - Taskmaster
 - Hood
+- Magneto
 - Mister Sinister
+- MODOK
+- Mandarin
 - Kingpin
+- Ultron
 
 ## What The Prototype Already Does
 
@@ -41,6 +48,10 @@
 - process Rift requests through a headless server-side entry layer
 - accept a server-side run request for a player or group
 - choose random or fixed content from the V1 pool
+- choose random or fixed content from an expanded curated terminal pool while keeping more complex terminals out until validated
+- distinguish between the registered terminal catalog and the subset currently eligible for random selection
+- choose a random map source and a random boss source independently for random Rift runs
+- avoid selecting the same boss-source entry as the chosen map when the random pool offers alternatives
 - use a default kill quota specific to the selected terminal content
 - calculate D3-like Rift level scaling
 - track and mirror the highest unlocked Rift level per player during the session
@@ -55,8 +66,12 @@
 - bind a run to an existing region
 - count real kills in the bound region
 - unlock the boss when the kill quota is reached
+- spawn the selected Rift boss server-side when the kill quota is reached
 - recognize the death of the expected boss
 - mark the run successful when the expected boss dies after the quota
+- apply the Rift difficulty snapshot to the bound region by reducing player-to-mob damage and increasing mob-to-player damage for the duration of the run
+- restore the region damage state automatically when the run ends or is removed
+- prevent pre-quota kills of prototype-matching enemies from hijacking boss tracking before the Rift boss phase is unlocked
 - prepare an end reward based on success or failure
 - distribute boss loot to a single player
 - distribute boss loot to all tracked participants of the run
@@ -69,6 +84,13 @@
 - auto-consume that intent at the player's highest currently unlocked Rift level
 - apply a default 10-minute launcher timer when no other time limit is provided
 - distribute the `Cosmic Rift Beacon` directly from the server without relying on a custom client-side vendor
+- track the specific granted `Cosmic Rift Beacon` item instances server-side
+- let tracked beacon instances launch a Rift directly on use, without needing a prior intent-consume step
+- support a scoped per-player beacon override so the next valid `PortalToRandomDungeon` use can create a Rift directly
+- support a scoped per-player fixed-content beacon override so a specific V1 terminal can be validated without random selection
+- keep normal `PortalToRandomDungeon` / Danger Room behavior intact unless that scoped override is explicitly armed first
+- attempt to teleport the player to the selected Rift region start target immediately after a successful armed beacon launch
+- emit custom in-game system messages when a Rift starts, when the quota unlocks the final boss, and when the run succeeds, fails, or aborts
 
 ## Current Reward Logic
 
@@ -121,9 +143,14 @@
 
 - `rift list`
 - `rift entrypoints`
+- `rift validatecontent`
 - `rift launchplan [entryPointId]`
 - `rift launchcandidates`
 - `rift beacon`
+- `rift beaconmode`
+- `rift armbeacon [minutes]`
+- `rift armbeaconfixed [contentId] [minutes]`
+- `rift disarmbeacon`
 - `rift givebeacon [count]`
 - `rift prepbeacon [level] [count]`
 - `rift requestitem [itemPrototypeName] [level] [minutes]`
@@ -131,6 +158,13 @@
 - `rift consumeintent [level] [minutes]`
 - `rift consumeintentauto [minutes]`
 - `rift scale [level] [players]`
+
+Current practical launcher stage
+- The project is now at the stage where a server-granted `Cosmic Rift Beacon` can be used directly in-game to create a Rift run.
+- Important constraint:
+  - this direct behavior is scoped to tracked beacon instances granted by the server
+  - normal non-beacon `PortalToRandomDungeon` / Danger Room behavior must remain unchanged
+- For random runs, the direct beacon path now creates a random terminal map plus a separately selected random boss source from the current playable pool.
 - `rift access [level]`
 - `rift progression`
 - `rift setaccess [level]`
@@ -140,7 +174,11 @@
 - `rift requestfixed [contentId] [level] [killQuota] [minutes]`
 - `rift requestfixedauto [contentId] [level] [minutes]`
 - `rift create [level] [players] [killQuota] [minutes]`
+- `rift createmix [contentId] [bossContentId] [level] [players] [killQuota] [minutes]`
 - `rift createfixed [contentId] [level] [players] [killQuota] [minutes]`
+- `rift debugmix [contentId] [bossContentId] [level] [players] [killQuota] [minutes]`
+- `rift previewrandom [count] [level] [players] [minutes]`
+- `rift validaterandompool [level] [players] [minutes]`
 - `rift run [runId]`
 - `rift runs`
 - `rift start [runId]`
@@ -170,13 +208,14 @@
 - For future local builds, prefer a command like:
 
 ```powershell
-dotnet build MHServerEmu.csproj -c Release -p:BaseIntermediateOutputPath=C:\Users\admin\Documents\Codex\build\obj-cli\ -p:BaseOutputPath=C:\Users\admin\Documents\Codex\build\bin-cli\
+dotnet build MHServerEmu.csproj -c Release -p:BaseIntermediateOutputPath=C:\Users\admin\Documents\Codex\build\iso-obj\ -p:MSBuildProjectExtensionsPath=C:\Users\admin\Documents\Codex\build\iso-obj\ -p:BaseOutputPath=C:\Users\admin\Documents\Codex\build\iso-bin\
 ```
 
 - This keeps the repo cleaner and avoids access errors under `Desktop\PROJECT MHO`.
+- Setting `MSBuildProjectExtensionsPath` to the same isolated obj root also avoids intermittent MSBuild dependency-resolution issues seen with redirected outputs.
 - Verified state:
   - full `MHServerEmu` build OK
-  - 0 warning
+  - historical `Gazillion` warnings may still appear
   - 0 error
 
 ## V1 Quota Notes

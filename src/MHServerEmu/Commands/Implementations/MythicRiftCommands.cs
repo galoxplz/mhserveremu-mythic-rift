@@ -5,6 +5,7 @@ using MHServerEmu.DatabaseAccess.Models;
 using MHServerEmu.Games;
 using MHServerEmu.Games.Entities;
 using MHServerEmu.Games.GameData;
+using MHServerEmu.Games.GameData.Prototypes;
 using MHServerEmu.Games.MythicRifts;
 using MHServerEmu.Games.Network;
 using MHServerEmu.Games.Regions;
@@ -37,7 +38,7 @@ namespace MHServerEmu.Commands.Implementations
             };
 
             foreach (MythicRiftContentEntry content in contentPool.OrderBy(entry => entry.DisplayName))
-                lines.Add($"{content.Id}: {content.DisplayName} | defaultKillQuota={content.DefaultKillQuota} | region={content.RegionProtoRef.GetNameFormatted()} | boss={content.BossProtoRef.GetNameFormatted()}");
+                lines.Add($"{content.Id}: {content.DisplayName} | randomEligible={content.RandomEligible} | defaultKillQuota={content.DefaultKillQuota} | region={content.RegionProtoRef.GetNameFormatted()} | entryTarget={content.StartTargetProtoRef.GetNameFormatted()} | boss={content.BossProtoRef.GetNameFormatted()}");
 
             CommandHelper.SendMessages(client, lines);
             return string.Empty;
@@ -68,6 +69,45 @@ namespace MHServerEmu.Commands.Implementations
             {
                 lines.Add(
                     $"{entryPoint.Id}: {entryPoint.DisplayName} | launchModel={entryPoint.LaunchModel} | patcherFriendly={entryPoint.IsPatcherFriendly} | random={entryPoint.AllowsRandomContent} | fixed={entryPoint.AllowsFixedContentSelection} | candidateItem={entryPoint.CandidateItemPrototypeName ?? "n/a"} | candidatePortal={entryPoint.CandidateTransitionPrototypeName ?? "n/a"} | notes={entryPoint.Notes}");
+            }
+
+            CommandHelper.SendMessages(client, lines);
+            return string.Empty;
+        }
+
+        [Command("validatecontent")]
+        [CommandDescription("Validates that registered Mythic Rift content entries resolve a usable region and entry target.")]
+        [CommandUsage("rift validatecontent")]
+        [CommandUserLevel(AccountUserLevel.Admin)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        public string ValidateContent(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            if (game == null)
+                return "Game not found.";
+
+            IReadOnlyList<MythicRiftContentEntry> contentPool = game.MythicRiftManager.ContentPool;
+            if (contentPool.Count == 0)
+                return "No Mythic Rift content is registered.";
+
+            List<string> lines = new(contentPool.Count + 1)
+            {
+                $"Mythic Rift content validation: {contentPool.Count} entries"
+            };
+
+            foreach (MythicRiftContentEntry content in contentPool.OrderBy(entry => entry.DisplayName))
+            {
+                RegionPrototype regionProto = content.RegionProtoRef.As<RegionPrototype>();
+                RegionConnectionTargetPrototype startTargetProto = content.StartTargetProtoRef.As<RegionConnectionTargetPrototype>();
+
+                bool regionValid = regionProto != null;
+                bool startTargetValid = startTargetProto != null;
+                bool targetMatchesRegion = regionValid && startTargetValid &&
+                    RegionPrototype.Equivalent(startTargetProto.Region.As<RegionPrototype>(), regionProto);
+
+                lines.Add(
+                    $"{content.Id}: randomEligible={content.RandomEligible} | regionValid={regionValid} | startTargetValid={startTargetValid} | targetMatchesRegion={targetMatchesRegion} | region={content.RegionProtoRef.GetNameFormatted()} | entryTarget={content.StartTargetProtoRef.GetNameFormatted()}");
             }
 
             CommandHelper.SendMessages(client, lines);
@@ -316,7 +356,206 @@ namespace MHServerEmu.Commands.Implementations
                 $"killQuota={config.KillQuota} | timeLimit={config.TimeLimit.TotalMinutes:0} min | HP x{config.Difficulty.HealthMultiplier:F3} | damage x{config.Difficulty.DamageMultiplier:F3}",
                 $"region={config.RegionProtoRef.GetNameFormatted()}",
                 $"mission={config.MissionProtoRef.GetNameFormatted()}",
-                $"boss={config.BossProtoRef.GetNameFormatted()}",
+                $"bossSource={config.BossContent?.Id ?? "n/a"} | boss={config.BossProtoRef.GetNameFormatted()}",
+                $"bossLoot={config.BossLootTableProtoRef.GetNameFormatted()}"
+            };
+
+            CommandHelper.SendMessages(client, lines);
+            return string.Empty;
+        }
+
+        [Command("previewrandom")]
+        [CommandDescription("Previews random Mythic Rift map/boss combinations without creating live runs.")]
+        [CommandUsage("rift previewrandom [count] [level] [players] [minutes]")]
+        [CommandUserLevel(AccountUserLevel.Admin)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        [CommandParamCount(4)]
+        public string PreviewRandom(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            if (game == null)
+                return "Game not found.";
+
+            if (TryParsePositiveInt(@params[0], out int previewCount) == false)
+                return "Invalid preview count.";
+
+            if (TryParsePositiveInt(@params[1], out int riftLevel) == false)
+                return "Invalid rift level.";
+
+            if (TryParsePositiveInt(@params[2], out int requestedPlayers) == false)
+                return "Invalid player count.";
+
+            if (TryParsePositiveInt(@params[3], out int timeLimitMinutes) == false)
+                return "Invalid time limit.";
+
+            previewCount = Math.Clamp(previewCount, 1, 20);
+            List<string> lines = new(previewCount + 1)
+            {
+                $"Random Mythic Rift preview: {previewCount} sample(s)"
+            };
+
+            for (int index = 0; index < previewCount; index++)
+            {
+                MythicRiftRunConfig config = game.MythicRiftManager.CreateRandomDebugRunConfig(
+                    riftLevel,
+                    requestedPlayers,
+                    0,
+                    TimeSpan.FromMinutes(timeLimitMinutes));
+
+                if (config == null)
+                {
+                    lines.Add("Failed to resolve a random Rift config from the current pool.");
+                    break;
+                }
+
+                lines.Add(
+                    $"sample={index + 1} | map={config.Content.Id} | bossSource={config.BossContent?.Id ?? "n/a"} | sameEntry={(string.Equals(config.Content.Id, config.BossContent?.Id, StringComparison.OrdinalIgnoreCase))} | quota={config.KillQuota} | timer={config.TimeLimit.TotalMinutes:0} min");
+            }
+
+            CommandHelper.SendMessages(client, lines);
+            return string.Empty;
+        }
+
+        [Command("validaterandompool")]
+        [CommandDescription("Validates every currently random-eligible map/boss combination without creating live runs.")]
+        [CommandUsage("rift validaterandompool [level] [players] [minutes]")]
+        [CommandUserLevel(AccountUserLevel.Admin)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        [CommandParamCount(3)]
+        public string ValidateRandomPool(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            if (game == null)
+                return "Game not found.";
+
+            if (TryParsePositiveInt(@params[0], out int riftLevel) == false)
+                return "Invalid rift level.";
+
+            if (TryParsePositiveInt(@params[1], out int requestedPlayers) == false)
+                return "Invalid player count.";
+
+            if (TryParsePositiveInt(@params[2], out int timeLimitMinutes) == false)
+                return "Invalid time limit.";
+
+            IReadOnlyList<MythicRiftContentEntry> pool = game.MythicRiftManager.RandomEligibleContentPool;
+            if (pool.Count == 0)
+                return "No random-eligible Mythic Rift content is registered.";
+
+            int totalCombos = 0;
+            int validCombos = 0;
+            int sameEntryCombos = 0;
+            List<string> invalidLines = new();
+
+            foreach (MythicRiftContentEntry mapContent in pool.OrderBy(entry => entry.Id))
+            {
+                foreach (MythicRiftContentEntry bossContent in pool.OrderBy(entry => entry.Id))
+                {
+                    totalCombos++;
+                    bool sameEntry = string.Equals(mapContent.Id, bossContent.Id, StringComparison.OrdinalIgnoreCase);
+                    if (sameEntry)
+                        sameEntryCombos++;
+
+                    MythicRiftRunConfig config = game.MythicRiftManager.CreateDebugRunConfig(
+                        mapContent.Id,
+                        bossContent.Id,
+                        riftLevel,
+                        requestedPlayers,
+                        0,
+                        TimeSpan.FromMinutes(timeLimitMinutes));
+
+                    RegionPrototype regionProto = config?.RegionProtoRef.As<RegionPrototype>();
+                    RegionConnectionTargetPrototype startTargetProto = config?.StartTargetProtoRef.As<RegionConnectionTargetPrototype>();
+                    MissionPrototype missionProto = config?.MissionProtoRef.As<MissionPrototype>();
+                    AgentPrototype bossProto = config?.BossProtoRef.As<AgentPrototype>();
+                    bool configValid = config?.IsValid == true;
+                    bool regionValid = regionProto != null;
+                    bool startTargetValid = startTargetProto != null;
+                    bool targetMatchesRegion = regionValid && startTargetValid &&
+                        RegionPrototype.Equivalent(startTargetProto.Region.As<RegionPrototype>(), regionProto);
+                    bool missionValid = missionProto != null;
+                    bool bossValid = bossProto != null;
+                    bool lootValid = config != null && config.BossLootTableProtoRef != PrototypeId.Invalid;
+
+                    bool comboValid = configValid && regionValid && startTargetValid && targetMatchesRegion && missionValid && bossValid && lootValid;
+                    if (comboValid)
+                    {
+                        validCombos++;
+                        continue;
+                    }
+
+                    invalidLines.Add(
+                        $"INVALID map={mapContent.Id} bossSource={bossContent.Id} | configValid={configValid} | regionValid={regionValid} | startTargetValid={startTargetValid} | targetMatchesRegion={targetMatchesRegion} | missionValid={missionValid} | bossValid={bossValid} | lootValid={lootValid}");
+                }
+            }
+
+            List<string> lines = new()
+            {
+                $"Random pool validation: maps={pool.Count} | bosses={pool.Count} | totalCombos={totalCombos} | validCombos={validCombos} | invalidCombos={totalCombos - validCombos} | sameEntryCombos={sameEntryCombos}"
+            };
+
+            if (invalidLines.Count == 0)
+            {
+                lines.Add("All random-eligible map/boss combinations resolved successfully.");
+            }
+            else
+            {
+                lines.AddRange(invalidLines.Take(25));
+                if (invalidLines.Count > 25)
+                    lines.Add($"... {invalidLines.Count - 25} more invalid combinations omitted.");
+            }
+
+            CommandHelper.SendMessages(client, lines);
+            return string.Empty;
+        }
+
+        [Command("debugmix")]
+        [CommandDescription("Builds a debug run config for a specific map content and a different boss content without starting a live run.")]
+        [CommandUsage("rift debugmix [contentId] [bossContentId] [level] [players] [killQuota] [minutes]")]
+        [CommandUserLevel(AccountUserLevel.Admin)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        [CommandParamCount(6)]
+        public string DebugMix(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            if (game == null)
+                return "Game not found.";
+
+            string contentId = @params[0];
+            string bossContentId = @params[1];
+            if (TryParsePositiveInt(@params[2], out int riftLevel) == false)
+                return "Invalid rift level.";
+
+            if (TryParsePositiveInt(@params[3], out int requestedPlayers) == false)
+                return "Invalid player count.";
+
+            if (TryParsePositiveInt(@params[4], out int killQuota) == false)
+                return "Invalid kill quota.";
+
+            if (TryParsePositiveInt(@params[5], out int timeLimitMinutes) == false)
+                return "Invalid time limit.";
+
+            MythicRiftRunConfig config = game.MythicRiftManager.CreateDebugRunConfig(
+                contentId,
+                bossContentId,
+                riftLevel,
+                requestedPlayers,
+                killQuota,
+                TimeSpan.FromMinutes(timeLimitMinutes));
+
+            if (config == null)
+                return $"Unknown Mythic Rift content id or boss content id: {contentId} / {bossContentId}";
+
+            List<string> lines = new()
+            {
+                $"Mythic Rift mixed debug config for map={config.Content.DisplayName} boss={config.BossContent?.DisplayName ?? "n/a"}",
+                $"runId={config.RunId} | level={config.RiftLevel} | requestedPlayers={config.RequestedPlayerCount} | effectivePlayers={config.EffectivePlayerCount}",
+                $"killQuota={config.KillQuota} | timeLimit={config.TimeLimit.TotalMinutes:0} min | HP x{config.Difficulty.HealthMultiplier:F3} | damage x{config.Difficulty.DamageMultiplier:F3}",
+                $"region={config.RegionProtoRef.GetNameFormatted()}",
+                $"mission={config.MissionProtoRef.GetNameFormatted()}",
+                $"bossSource={config.BossContent?.Id ?? "n/a"} | boss={config.BossProtoRef.GetNameFormatted()}",
                 $"bossLoot={config.BossLootTableProtoRef.GetNameFormatted()}"
             };
 
@@ -357,6 +596,48 @@ namespace MHServerEmu.Commands.Implementations
 
             if (runState == null)
                 return "Failed to create a random Mythic Rift run.";
+
+            CommandHelper.SendMessages(client, BuildRunLines(runState, game.CurrentTime, includeResolvedRefs: true));
+            return string.Empty;
+        }
+
+        [Command("createmix")]
+        [CommandDescription("Creates a debug run with a fixed map content and a specific boss content, then registers it in memory.")]
+        [CommandUsage("rift createmix [contentId] [bossContentId] [level] [players] [killQuota] [minutes]")]
+        [CommandUserLevel(AccountUserLevel.Admin)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        [CommandParamCount(6)]
+        public string CreateMix(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            if (game == null)
+                return "Game not found.";
+
+            string contentId = @params[0];
+            string bossContentId = @params[1];
+            if (TryParsePositiveInt(@params[2], out int riftLevel) == false)
+                return "Invalid rift level.";
+
+            if (TryParsePositiveInt(@params[3], out int requestedPlayers) == false)
+                return "Invalid player count.";
+
+            if (TryParsePositiveInt(@params[4], out int killQuota) == false)
+                return "Invalid kill quota.";
+
+            if (TryParsePositiveInt(@params[5], out int timeLimitMinutes) == false)
+                return "Invalid time limit.";
+
+            MythicRiftRunState runState = game.MythicRiftManager.CreateDebugRun(
+                contentId,
+                bossContentId,
+                riftLevel,
+                requestedPlayers,
+                killQuota,
+                TimeSpan.FromMinutes(timeLimitMinutes));
+
+            if (runState == null)
+                return $"Failed to create a mixed Mythic Rift run for content id / boss content id: {contentId} / {bossContentId}";
 
             CommandHelper.SendMessages(client, BuildRunLines(runState, game.CurrentTime, includeResolvedRefs: true));
             return string.Empty;
@@ -521,6 +802,136 @@ namespace MHServerEmu.Commands.Implementations
                 return string.IsNullOrWhiteSpace(errorMessage) ? "Failed to prepare Cosmic Rift Beacon test flow." : errorMessage;
 
             return $"Prepared player for Cosmic Rift testing: unlockedLevel={appliedLevel} | grantedBeacons={beaconCount} | technicalBase={itemProtoRef.GetNameFormatted()}";
+        }
+
+        [Command("armbeacon")]
+        [CommandDescription("Arms a scoped Cosmic Rift Beacon override for the invoking player. The next valid beacon use will create a Rift directly without changing default Danger Room behavior globally.")]
+        [CommandUsage("rift armbeacon [minutes]")]
+        [CommandUserLevel(AccountUserLevel.Admin)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        [CommandParamCount(1)]
+        public string ArmBeacon(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            Player player = playerConnection?.Player;
+            if (game == null || player == null)
+                return "Game or player not found.";
+
+            if (TryParsePositiveInt(@params[0], out int timeLimitMinutes) == false)
+                return "Invalid time limit.";
+
+            MythicRiftArmedLauncherState armedState = game.MythicRiftLauncherService.ArmChosenLauncher(
+                player,
+                0,
+                TimeSpan.FromMinutes(timeLimitMinutes));
+
+            return $"Armed scoped Cosmic Rift Beacon override for next use: level=auto | timeLimit={armedState.TimeLimit.TotalMinutes:0} min | technicalBase={MythicRiftLauncherService.CosmicRiftBeaconPrototypeName}";
+        }
+
+        [Command("armbeaconfixed")]
+        [CommandDescription("Arms a scoped Cosmic Rift Beacon override for a specific fixed V1 content id without changing normal Danger Room behavior globally.")]
+        [CommandUsage("rift armbeaconfixed [contentId] [minutes]")]
+        [CommandUserLevel(AccountUserLevel.Admin)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        [CommandParamCount(2)]
+        public string ArmBeaconFixed(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            Player player = playerConnection?.Player;
+            if (game == null || player == null)
+                return "Game or player not found.";
+
+            string contentId = @params[0];
+            if (string.IsNullOrWhiteSpace(contentId))
+                return "Invalid content id.";
+
+            if (game.MythicRiftManager.GetContent(contentId) == null)
+                return $"Unknown Mythic Rift content id: {contentId}";
+
+            if (TryParsePositiveInt(@params[1], out int timeLimitMinutes) == false)
+                return "Invalid time limit.";
+
+            MythicRiftArmedLauncherState armedState = game.MythicRiftLauncherService.ArmChosenLauncher(
+                player,
+                0,
+                TimeSpan.FromMinutes(timeLimitMinutes),
+                contentId);
+
+            return $"Armed scoped Cosmic Rift Beacon override for next use: content={armedState.FixedContentId} | level=auto | timeLimit={armedState.TimeLimit.TotalMinutes:0} min | technicalBase={MythicRiftLauncherService.CosmicRiftBeaconPrototypeName}";
+        }
+
+        [Command("disarmbeacon")]
+        [CommandDescription("Disarms the scoped Cosmic Rift Beacon override for the invoking player.")]
+        [CommandUsage("rift disarmbeacon")]
+        [CommandUserLevel(AccountUserLevel.Admin)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        public string DisarmBeacon(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            Player player = playerConnection?.Player;
+            if (game == null || player == null)
+                return "Game or player not found.";
+
+            bool disarmed = game.MythicRiftLauncherService.DisarmChosenLauncher(player.DatabaseUniqueId);
+            return disarmed
+                ? "Scoped Cosmic Rift Beacon override disarmed."
+                : "No scoped Cosmic Rift Beacon override was armed for this player.";
+        }
+
+        [Command("beaconmode")]
+        [CommandDescription("Displays the invoking player's current Cosmic Rift Beacon state, including scoped override state, tracked beacon charges, and the result of the last launcher use.")]
+        [CommandUsage("rift beaconmode")]
+        [CommandUserLevel(AccountUserLevel.Admin)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        public string BeaconMode(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            Player player = playerConnection?.Player;
+            if (game == null || player == null)
+                return "Game or player not found.";
+
+            MythicRiftArmedLauncherState armedState = game.MythicRiftLauncherService.GetArmedLauncherState(player.DatabaseUniqueId);
+            MythicRiftLauncherUseResult lastResult = game.MythicRiftLauncherService.GetLastArmedLaunchResult(player.DatabaseUniqueId);
+            int trackedBeaconCharges = game.MythicRiftLauncherService.GetTotalTrackedBeaconCharges(player.DatabaseUniqueId);
+
+            List<string> lines = new();
+            lines.Add($"trackedCosmicRiftBeaconCharges={trackedBeaconCharges}");
+            if (armedState == null)
+            {
+                lines.Add("scopedBeaconOverride=inactive");
+            }
+            else
+            {
+                lines.Add($"scopedBeaconOverride=armed | fixedContent={(string.IsNullOrWhiteSpace(armedState.FixedContentId) ? "random" : armedState.FixedContentId)} | requestedLevel={(armedState.RequestedRiftLevel > 0 ? armedState.RequestedRiftLevel : "auto")} | timeLimit={armedState.TimeLimit.TotalMinutes:0} min | armedAt={armedState.ArmedAt}");
+            }
+
+            if (lastResult == null)
+            {
+                lines.Add("lastArmedLaunchResult=none");
+            }
+            else
+            {
+                lines.Add($"lastArmedLaunchResultSuccess={lastResult.Success} | consumedArmedMode={lastResult.ConsumedArmedLaunchMode} | item={lastResult.ItemPrototypeName ?? "n/a"} | level={lastResult.ResolvedRiftLevel} | timeLimit={lastResult.ResolvedTimeLimit.TotalMinutes:0} min");
+                lines.Add($"lastArmedLaunchTeleportAttempted={lastResult.TeleportAttempted} | teleportSucceeded={lastResult.TeleportSucceeded} | teleportTarget={lastResult.TeleportTargetProtoRef.GetNameFormatted()}");
+                MythicRiftRunState launchedRun = lastResult.EntryResult?.RunState;
+                if (launchedRun != null)
+                {
+                    lines.Add($"lastArmedLaunchRunId={launchedRun.Config.RunId} | content={launchedRun.Config.Content.Id} | region={launchedRun.Config.RegionProtoRef.GetNameFormatted()} | entryTarget={launchedRun.Config.StartTargetProtoRef.GetNameFormatted()}");
+                    lines.Add($"lastArmedLaunchRunStatus={launchedRun.Status} | regionId=0x{launchedRun.RegionId:X} | participants={launchedRun.ParticipantCount}");
+                }
+
+                if (string.IsNullOrWhiteSpace(lastResult.ErrorMessage) == false)
+                    lines.Add($"lastArmedLaunchError={lastResult.ErrorMessage}");
+                if (string.IsNullOrWhiteSpace(lastResult.TeleportErrorMessage) == false)
+                    lines.Add($"lastArmedLaunchTeleportError={lastResult.TeleportErrorMessage}");
+            }
+
+            CommandHelper.SendMessages(client, lines);
+            return string.Empty;
         }
 
         [Command("requestitem")]
@@ -780,7 +1191,7 @@ namespace MHServerEmu.Commands.Implementations
             foreach (MythicRiftRunState runState in activeRuns.OrderBy(run => run.Config.RunId))
             {
                 lines.Add(
-                    $"runId={runState.Config.RunId} | status={runState.Status} | content={runState.Config.Content.DisplayName} | level={runState.Config.RiftLevel} | kills={runState.CurrentKillCount}/{runState.Config.KillQuota}");
+                    $"runId={runState.Config.RunId} | status={runState.Status} | content={runState.Config.Content.DisplayName} | bossSource={runState.Config.BossContent?.DisplayName ?? "n/a"} | level={runState.Config.RiftLevel} | kills={runState.CurrentKillCount}/{runState.Config.KillQuota}");
             }
 
             CommandHelper.SendMessages(client, lines);
@@ -1023,6 +1434,7 @@ namespace MHServerEmu.Commands.Implementations
             {
                 $"Mythic Rift run {runState.Config.RunId}",
                 $"status={runState.Status} | content={runState.Config.Content.DisplayName} ({runState.Config.Content.Id})",
+                $"bossSource={runState.Config.BossContent?.DisplayName ?? "n/a"} ({runState.Config.BossContent?.Id ?? "n/a"}) | regionScalingApplied={runState.RegionDifficultyScalingApplied}",
                 $"level={runState.Config.RiftLevel} | requestedPlayers={runState.Config.RequestedPlayerCount} | effectivePlayers={runState.Config.EffectivePlayerCount}",
                 $"killQuota={runState.CurrentKillCount}/{runState.Config.KillQuota} | bossUnlocked={runState.BossUnlocked} | rewardsGranted={runState.RewardsGranted}",
                 $"timeLimit={runState.Config.TimeLimit.TotalMinutes:0} min | remaining={runState.GetTimeRemaining(currentTime).TotalMinutes:0.##} min | HP x{runState.Config.Difficulty.HealthMultiplier:F3} | damage x{runState.Config.Difficulty.DamageMultiplier:F3}",
@@ -1044,9 +1456,12 @@ namespace MHServerEmu.Commands.Implementations
             if (includeResolvedRefs)
             {
                 lines.Add($"region={runState.Config.RegionProtoRef.GetNameFormatted()}");
+                lines.Add($"entryTarget={runState.Config.StartTargetProtoRef.GetNameFormatted()}");
                 lines.Add($"mission={runState.Config.MissionProtoRef.GetNameFormatted()}");
+                lines.Add($"bossSource={runState.Config.BossContent?.Id ?? "n/a"}");
                 lines.Add($"boss={runState.Config.BossProtoRef.GetNameFormatted()}");
                 lines.Add($"bossLoot={runState.Config.BossLootTableProtoRef.GetNameFormatted()}");
+                lines.Add($"regionDamageScalingOriginal=playerToMob:{runState.RegionPlayerToMobDamageMultiplierBeforeScaling:F3} mobToPlayer:{runState.RegionMobToPlayerDamageMultiplierBeforeScaling:F3}");
             }
 
             return lines;

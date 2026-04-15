@@ -27,6 +27,9 @@ namespace MHServerEmu.Games.MythicRifts
         public TimeSpan? CompletedAt { get; private set; }
         public TimeSpan? ExpiresAt { get; private set; }
         public TimeSpan LastParticipantOnlineAt { get; private set; }
+        public bool RegionDifficultyScalingApplied { get; private set; }
+        public float RegionPlayerToMobDamageMultiplierBeforeScaling { get; private set; } = 1f;
+        public float RegionMobToPlayerDamageMultiplierBeforeScaling { get; private set; } = 1f;
         public IReadOnlyCollection<ulong> ParticipantPlayerDbIds => _participantPlayerDbIds;
         public IReadOnlyCollection<ulong> RewardedPlayerDbIds => _rewardedPlayerDbIds;
         public int ParticipantCount => _participantPlayerDbIds.Count;
@@ -46,6 +49,20 @@ namespace MHServerEmu.Games.MythicRifts
         public void AttachBoss(ulong bossEntityId)
         {
             BossEntityId = bossEntityId;
+        }
+
+        public void CaptureRegionDifficultyScaling(float playerToMobDamageMultiplier, float mobToPlayerDamageMultiplier)
+        {
+            RegionDifficultyScalingApplied = true;
+            RegionPlayerToMobDamageMultiplierBeforeScaling = playerToMobDamageMultiplier;
+            RegionMobToPlayerDamageMultiplierBeforeScaling = mobToPlayerDamageMultiplier;
+        }
+
+        public void ClearRegionDifficultyScaling()
+        {
+            RegionDifficultyScalingApplied = false;
+            RegionPlayerToMobDamageMultiplierBeforeScaling = 1f;
+            RegionMobToPlayerDamageMultiplierBeforeScaling = 1f;
         }
 
         public void SetRegisteredAt(TimeSpan registeredAt)

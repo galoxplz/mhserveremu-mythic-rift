@@ -9,6 +9,7 @@ using MHServerEmu.Games.GameData;
 using MHServerEmu.Games.GameData.Prototypes;
 using MHServerEmu.Games.Loot;
 using MHServerEmu.Games.Loot.Specs;
+using MHServerEmu.Games.MythicRifts;
 using MHServerEmu.Games.Powers;
 using MHServerEmu.Games.Properties;
 
@@ -247,6 +248,21 @@ namespace MHServerEmu.Games.Entities.Items
         
         private bool DoItemActionUsePower(PrototypeId powerProtoRef, Avatar avatar)
         {
+            Player player = avatar.GetOwnerOfType<Player>();
+            MythicRiftLauncherUseResult trackedBeaconResult = player != null
+                ? Game.MythicRiftLauncherService.TryHandleTrackedBeaconUse(player, this)
+                : null;
+
+            if (trackedBeaconResult?.InterceptedItemUse == true)
+                return trackedBeaconResult.Success;
+
+            MythicRiftLauncherUseResult armedLaunchResult = player != null
+                ? Game.MythicRiftLauncherService.TryHandleArmedLauncherUse(player, this)
+                : null;
+
+            if (armedLaunchResult?.Success == true)
+                return true;
+
             Power power = avatar.GetPower(powerProtoRef);
             if (!Verify.IsNotNull(power)) return false;
 
@@ -263,7 +279,6 @@ namespace MHServerEmu.Games.Entities.Items
             bool success = avatar.ActivatePower(powerProtoRef, ref settings) == PowerUseResult.Success;
             if (success)
             {
-                Player player = avatar.GetOwnerOfType<Player>();
                 if (player != null)
                     Game.MythicRiftLauncherService.RegisterLauncherItemUse(player, this);
             }
