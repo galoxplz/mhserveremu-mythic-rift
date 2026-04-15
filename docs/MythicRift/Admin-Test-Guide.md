@@ -19,9 +19,9 @@ Current technical base:
 - the actual item still uses the game's existing `PortalToRandomDungeon` prototype as its technical base
 - the current prototype remains admin-oriented while the final player entry flow is still being refined
 
-## Quickest Smoke Test
+## Preferred Direct Beacon Test
 
-Use this when you want to validate the current server-side launcher flow as quickly as possible.
+Use this when you want to validate the direct Cosmic Rift launcher path without changing normal Danger Room behavior globally.
 
 1. Prepare the player:
 
@@ -33,23 +33,127 @@ rift prepbeacon 1 1
 
 ```text
 rift beacon
+rift validatecontent
 ```
 
-3. Use the granted `PortalToRandomDungeon` item in-game.
+3. Inspect the current beacon state:
 
-4. Confirm that the launcher intent was captured:
+```text
+rift beaconmode
+```
+
+4. Use the granted `PortalToRandomDungeon` item in-game.
+
+5. Inspect the launcher state and active run:
+
+```text
+rift beaconmode
+rift runs
+rift run [runId]
+```
+
+Expected result:
+
+- the granted beacon item itself creates the Rift run directly on use
+- `rift beaconmode` should report at least `trackedCosmicRiftBeaconCharges=1` before use
+- `rift beaconmode` should report `teleportAttempted=true`
+- `rift beaconmode` should report `teleportSucceeded=true`
+- `rift beaconmode` should report the created `runId`, selected `content`, `region`, and `entryTarget`
+- `rift run [runId]` should show a `bossSource` that may differ from the selected map content
+- when the pool allows it, the random `bossSource` now avoids matching the selected map entry so admins can validate true map/boss mixing more easily
+- `rift run [runId]` should show `regionScalingApplied=true` once the run is bound to the live region
+- the tracked beacon charge should go down after a successful use
+- the default `PortalToRandomDungeon` / Danger Room behavior is not changed globally for non-beacon use
+- the run should emit in-game custom system messages when it starts, when the boss is unlocked, and when it completes or fails
+- the beacon use itself should also emit an immediate in-game confirmation showing the selected map, boss, level, timer, and teleport result
+
+Optional random preview before launching:
+
+```text
+rift previewrandom 5 1 1 10
+```
+
+This previews five random map/boss combinations without creating live runs.
+
+Deep random-pool validation:
+
+```text
+rift validaterandompool 1 1 10
+```
+
+This validates every currently allowed random map/boss combination and reports any invalid pairings before in-game testing.
+
+## Fixed Content Beacon Test
+
+Use this when you want to validate a specific V1 terminal without relying on random selection.
+
+Recommended content ids:
+
+- `shocker`
+- `doctor-octopus`
+- `taskmaster`
+- `hood`
+- `magneto`
+- `sinister`
+- `modok`
+- `mandarin`
+- `kingpin`
+- `ultron`
+
+Example flow:
+
+```text
+rift prepbeacon 1 1
+rift validatecontent
+rift armbeaconfixed taskmaster 10
+rift beaconmode
+```
+
+Then:
+
+1. Use the granted `PortalToRandomDungeon` item in-game.
+2. Inspect the result:
+
+```text
+rift beaconmode
+rift runs
+rift run [runId]
+```
+
+Expected result:
+
+- `rift beaconmode` should show `fixedContent=taskmaster` while armed
+- after item use, `rift beaconmode` should show the created `runId`
+- the run should report `content=taskmaster`
+- the run should report `bossSource=taskmaster`
+- teleport should target the `entryTarget` resolved for the selected terminal
+- normal unarmed Danger Room behavior should remain unchanged globally
+
+## Legacy Intent-Based Smoke Test
+
+Use this when you want to validate the older server-side intent capture flow.
+
+1. Prepare the player:
+
+```text
+rift prepbeacon 1 1
+```
+
+2. Use the granted `PortalToRandomDungeon` item in-game.
+
+3. Confirm that the launcher intent was captured:
 
 ```text
 rift itemintent
 ```
 
-5. Convert the intent into a Rift run using the highest unlocked level and a 10-minute timer:
+4. Convert the intent into a Rift run using the highest unlocked level and a 10-minute timer:
 
 ```text
 rift consumeintentauto 10
 ```
 
-6. Inspect the active run:
+5. Inspect the active run:
 
 ```text
 rift runs
@@ -93,6 +197,32 @@ Recommended flow:
 4. Kill enemies until the quota is reached.
 5. Kill the expected boss.
 6. Inspect the run result.
+
+Additional validation for the current random-boss implementation:
+
+- use `rift run [runId]` after the run is bound
+- confirm that the selected `bossSource` is present in the run details
+- confirm that the run only completes when the spawned/configured Rift boss dies after the quota
+- confirm that ordinary prototype-matching enemies killed before quota do not complete or corrupt the run
+
+## Forced Map/Boss Mix Test
+
+Use this when you want to force a specific terminal map with a different terminal boss for debugging.
+
+Example:
+
+```text
+rift createmix taskmaster ultron 1 1 50 10
+rift bind [runId]
+rift start [runId]
+rift run [runId]
+```
+
+Expected result:
+
+- the run should report `content=taskmaster`
+- the run should report `bossSource=ultron`
+- once the quota is reached, the spawned/configured Ultron boss should be the one that completes the run
 
 ## Progression Persistence Test
 
@@ -224,6 +354,9 @@ Practical consequence:
 Useful commands during this phase:
 
 ```text
+rft beaconmode
+rft armbeacon [minutes]
+rft disarmbeacon
 rift progression
 rift runs
 rift run [runId]
@@ -243,6 +376,9 @@ Identity and launcher:
 
 ```text
 rift beacon
+rft beaconmode
+rft armbeacon [minutes]
+rft disarmbeacon
 rift entrypoints
 rift launchcandidates
 rift launchplan portal-to-random-dungeon

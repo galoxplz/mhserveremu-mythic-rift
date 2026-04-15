@@ -12,4 +12,15 @@ namespace MHServerEmu.Games.MythicRifts
 
         public bool IsValid => PlayerDbId != 0 && string.IsNullOrWhiteSpace(ItemPrototypeName) == false;
     }
+
+    public sealed class MythicRiftArmedLauncherState
+    {
+        public ulong PlayerDbId { get; init; }
+        public TimeSpan ArmedAt { get; init; }
+        public TimeSpan TimeLimit { get; init; }
+        public int RequestedRiftLevel { get; init; }
+        public string FixedContentId { get; init; }
+
+        public bool IsValid => PlayerDbId != 0;
+    }
 }

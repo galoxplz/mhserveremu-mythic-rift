@@ -7,11 +7,13 @@ namespace MHServerEmu.Games.MythicRifts
         public ulong RunId { get; init; }
         public int RiftLevel { get; init; }
         public MythicRiftContentEntry Content { get; init; }
+        public MythicRiftContentEntry BossContent { get; init; }
         public int RequestedPlayerCount { get; init; }
         public int EffectivePlayerCount { get; init; }
         public int KillQuota { get; init; }
         public TimeSpan TimeLimit { get; init; }
         public PrototypeId RegionProtoRef { get; init; }
+        public PrototypeId StartTargetProtoRef { get; init; }
         public PrototypeId MissionProtoRef { get; init; }
         public PrototypeId BossProtoRef { get; init; }
         public PrototypeId BossLootTableProtoRef { get; init; }
@@ -21,7 +23,9 @@ namespace MHServerEmu.Games.MythicRifts
             RunId != 0 &&
             RiftLevel > 0 &&
             Content != null &&
+            BossContent != null &&
             RegionProtoRef != PrototypeId.Invalid &&
+            StartTargetProtoRef != PrototypeId.Invalid &&
             BossProtoRef != PrototypeId.Invalid &&
             TimeLimit > TimeSpan.Zero;
     }
