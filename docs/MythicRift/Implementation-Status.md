@@ -86,11 +86,13 @@
 - distribute the `Cosmic Rift Beacon` directly from the server without relying on a custom client-side vendor
 - track the specific granted `Cosmic Rift Beacon` item instances server-side
 - let tracked beacon instances launch a Rift directly on use, without needing a prior intent-consume step
+- allow tracked beacon launches to fall back to player-level tracked charges when inventory stacking or item instance ids differ on the live server
 - support a scoped per-player beacon override so the next valid `PortalToRandomDungeon` use can create a Rift directly
 - support a scoped per-player fixed-content beacon override so a specific V1 terminal can be validated without random selection
 - keep normal `PortalToRandomDungeon` / Danger Room behavior intact unless that scoped override is explicitly armed first
 - attempt to teleport the player to the selected Rift region start target immediately after a successful armed beacon launch
 - abort a newly created run immediately if the direct beacon launch cannot resolve or reach a valid Rift start target
+- auto-bind pending runs against equivalent terminal region variants, not just exact prototype matches
 - emit custom in-game system messages when a Rift starts, when the quota unlocks the final boss, and when the run succeeds, fails, or aborts
 - retry the configured random boss spawn on later eligible kills if the first spawn attempt fails exactly on quota unlock
 

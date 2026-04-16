@@ -1037,7 +1037,7 @@ namespace MHServerEmu.Games.MythicRifts
                 if (region == null)
                     continue;
 
-                if (region.PrototypeDataRef != runState.Config.RegionProtoRef)
+                if (IsMatchingRunRegion(region, runState) == false)
                     continue;
 
                 if (AttachRunToRegion(runState.Config.RunId, region) == false)
@@ -1047,6 +1047,27 @@ namespace MHServerEmu.Games.MythicRifts
                 Logger.Info($"Mythic Rift run {runState.Config.RunId} auto-bound to region {region.PrototypeName} (0x{region.Id:X}) and started.");
                 return;
             }
+        }
+
+        private static bool IsMatchingRunRegion(Region region, MythicRiftRunState runState)
+        {
+            if (region == null || runState?.Config == null)
+                return false;
+
+            if (region.PrototypeDataRef == runState.Config.RegionProtoRef)
+                return true;
+
+            RegionPrototype currentRegionProto = region.Prototype;
+            RegionPrototype expectedRegionProto = runState.Config.RegionProtoRef.As<RegionPrototype>();
+            if (RegionPrototype.Equivalent(expectedRegionProto, currentRegionProto))
+                return true;
+
+            RegionConnectionTargetPrototype startTargetProto = runState.Config.StartTargetProtoRef.As<RegionConnectionTargetPrototype>();
+            RegionPrototype startTargetRegionProto = startTargetProto?.Region.As<RegionPrototype>();
+            if (RegionPrototype.Equivalent(startTargetRegionProto, currentRegionProto))
+                return true;
+
+            return false;
         }
 
         private void UpdateParticipantPresence(MythicRiftRunState runState, TimeSpan currentTime)

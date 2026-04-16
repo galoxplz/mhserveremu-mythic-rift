@@ -299,9 +299,19 @@ namespace MHServerEmu.Games.MythicRifts
             if (player == null || item == null)
                 return null;
 
-            int availableCharges = GetTrackedBeaconChargeCount(player, item);
-            if (availableCharges <= 0)
+            if (CanHandleItem(item) == false)
                 return null;
+
+            int availableCharges = GetTrackedBeaconChargeCount(player, item);
+            bool usingGenericTrackedChargeFallback = false;
+            if (availableCharges <= 0)
+            {
+                availableCharges = GetTotalTrackedBeaconCharges(player.DatabaseUniqueId);
+                if (availableCharges <= 0)
+                    return null;
+
+                usingGenericTrackedChargeFallback = true;
+            }
 
             MythicRiftArmedLauncherState armedState = GetArmedLauncherState(player.DatabaseUniqueId);
             int resolvedRiftLevel = NormalizeRiftLevel(player, armedState?.RequestedRiftLevel ?? 0);
@@ -320,7 +330,11 @@ namespace MHServerEmu.Games.MythicRifts
 
             if (result.Success)
             {
-                ConsumeTrackedBeaconCharge(player.DatabaseUniqueId, item.Id);
+                if (usingGenericTrackedChargeFallback)
+                    ConsumeAnyTrackedBeaconCharge(player.DatabaseUniqueId);
+                else
+                    ConsumeTrackedBeaconCharge(player.DatabaseUniqueId, item.Id);
+
                 TryTeleportToRunEntry(player, result);
                 _lastArmedLaunchResultsByPlayerDbId[player.DatabaseUniqueId] = result;
 
@@ -694,6 +708,19 @@ namespace MHServerEmu.Games.MythicRifts
             chargesByItemId.Remove(itemEntityId);
             if (chargesByItemId.Count == 0)
                 _trackedBeaconChargesByPlayerDbId.Remove(playerDbId);
+        }
+
+        private void ConsumeAnyTrackedBeaconCharge(ulong playerDbId)
+        {
+            if (playerDbId == 0)
+                return;
+
+            if (_trackedBeaconChargesByPlayerDbId.TryGetValue(playerDbId, out Dictionary<ulong, int> chargesByItemId) == false ||
+                chargesByItemId.Count == 0)
+                return;
+
+            ulong itemEntityId = chargesByItemId.Keys.First();
+            ConsumeTrackedBeaconCharge(playerDbId, itemEntityId);
         }
 
         private Dictionary<ulong, int> SnapshotChosenLauncherStacks(Player player)
