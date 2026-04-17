@@ -306,6 +306,11 @@ namespace MHServerEmu.Games.MythicRifts
             bool usingGenericTrackedChargeFallback = false;
             if (availableCharges <= 0)
             {
+                // The generic fallback exists only to tolerate live-server stack/entity-id differences for the
+                // chosen Cosmic Rift beacon base. Do not let it hijack other portal candidates or future items.
+                if (PrototypeNameMatches(item.PrototypeDataRef, CosmicRiftBeaconPrototypeName) == false)
+                    return null;
+
                 availableCharges = GetTotalTrackedBeaconCharges(player.DatabaseUniqueId);
                 if (availableCharges <= 0)
                     return null;
