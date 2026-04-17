@@ -53,9 +53,9 @@ Branch to review:
 
 - `codex/mythic-rift`
 
-Current milestone commit:
+Current review target:
 
-- `e2df9d9`
+- latest head of `codex/mythic-rift`
 
 ## Best Docs To Share First
 
@@ -84,10 +84,11 @@ Current implemented prototype behavior:
 - end reward resolution
 - timed success SIF/RIF bonus
 - server-side granting of the beacon item
-- launcher intent capture from item use
-- conversion of that intent into a Rift run
+- direct beacon use in-game from a server-granted `PortalToRandomDungeon`
+- random terminal map plus separately selected random boss source
 - persistent unlocked Rift progression
 - chaining into higher Rift levels
+- competitive next-level progression based on who was inside the Rift at boss unlock and boss death
 - prevention of overlapping in-progress Rift runs for the same player / party
 - automatic abort if all tracked participants stay offline too long
 - automatic cleanup of stale completed or abandoned runs
@@ -105,10 +106,16 @@ These parts are still not final:
 
 ## Current V1 Content Pool
 
+- Shocker
+- Doctor Octopus
 - Taskmaster
 - Hood
+- Magneto
 - Mister Sinister
+- MODOK
+- Mandarin
 - Kingpin
+- Ultron
 
 ## Build Procedure
 
@@ -122,9 +129,9 @@ dotnet build C:\Users\admin\Desktop\PROJECT MHO\MHServerEmu-master\src\MHServerE
 
 Known verified state at this milestone:
 
-- build complete
-- 0 warning
-- 0 error
+- full server build succeeds
+- historical Gazillion warnings may still appear
+- local direct in-repo build can occasionally hit a temporary Gazillion/VBCSCompiler file lock during rapid rebuilds
 
 ## Important Current Identity Mapping
 
@@ -159,26 +166,17 @@ rift prepbeacon 1 1
 
 ```text
 rift beacon
+rift validatecontent
 ```
 
 3. Use the granted `PortalToRandomDungeon` item in-game.
 
-4. Confirm the launcher intent:
+4. Inspect the launched run:
 
 ```text
-rift itemintent
-```
-
-5. Convert the intent into a Rift:
-
-```text
-rift consumeintentauto 10
-```
-
-6. Inspect the run:
-
-```text
+rift beaconmode
 rift runs
+rift run [runId]
 ```
 
 ## Recommended Review Test Plan
@@ -188,16 +186,17 @@ rift runs
 Goal:
 
 - verify beacon grant
-- verify item use capture
+- verify direct item use
 - verify run creation
+- verify terminal bind / teleport feedback
 
 Commands:
 
 ```text
 rift prepbeacon 1 1
 rift beacon
-rift itemintent
-rift consumeintentauto 10
+rift validatecontent
+rift beaconmode
 rift runs
 ```
 
@@ -225,6 +224,11 @@ rift run [runId]
 rift progression
 ```
 
+Also confirm:
+
+- `competitiveEligibility=bossUnlock:X | bossKill:Y`
+- only players counted at `bossKill` unlock the next difficulty
+
 ### Test 3: Progression Chain
 
 Goal:
@@ -240,7 +244,7 @@ rift progression
 
 Then:
 
-- consume a beacon
+- use a beacon directly in-game
 - complete the Rift
 - verify:
 
@@ -317,9 +321,10 @@ Expected:
 rift beacon
 rift prepbeacon [level] [count]
 rift givebeacon [count]
-rift itemintent
-rift consumeintent [level] [minutes]
-rift consumeintentauto [minutes]
+rift beaconmode
+rift validatecontent
+rift previewrandom [count] [level] [players] [minutes]
+rift validaterandompool [level] [players] [minutes]
 rift access [level]
 rift progression
 rift runs
@@ -335,6 +340,7 @@ rift launchplan portal-to-random-dungeon
 - broader multiplayer testing is still needed
 - the visible launcher item identity is not yet the final polished UX
 - long-session testing should still be done on a real TAHITI-like environment
+- reward distribution is still more permissive than next-level progression; only progression currently follows the strict competitive rule
 
 ## Bottom-Line Recommendation
 

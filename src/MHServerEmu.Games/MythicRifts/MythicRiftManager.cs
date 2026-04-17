@@ -698,6 +698,7 @@ namespace MHServerEmu.Games.MythicRifts
 
                     if (runState.BossUnlocked)
                     {
+                        CaptureSuccessfulCompletionEligibility(runState);
                         CompleteRunSuccess(runState, Game.CurrentTime);
                         Logger.Info($"Mythic Rift run {runState.Config.RunId} completed by defeating {evt.Defender.PrototypeName}.");
                     }
@@ -712,6 +713,7 @@ namespace MHServerEmu.Games.MythicRifts
                     {
                         if (TrySpawnConfiguredBoss(runState, evt.Defender))
                         {
+                            CaptureBossUnlockEligibility(runState);
                             NotifyBossUnlocked(runState);
                         }
                         else
@@ -733,6 +735,7 @@ namespace MHServerEmu.Games.MythicRifts
                 {
                     if (TrySpawnConfiguredBoss(runState, evt.Defender))
                     {
+                        CaptureBossUnlockEligibility(runState);
                         NotifyBossUnlocked(runState);
                     }
                     else
@@ -836,15 +839,11 @@ namespace MHServerEmu.Games.MythicRifts
             if (runState == null || runState.Status != MythicRiftRunStatus.Success)
                 return;
 
-            HashSet<ulong> recipientDbIds = new(runState.ParticipantPlayerDbIds);
-            if (runState.RegionId != 0)
+            HashSet<ulong> recipientDbIds = new(runState.ProgressionEligiblePlayerDbIds);
+            if (recipientDbIds.Count == 0)
             {
-                Region region = Game.RegionManager.GetRegion(runState.RegionId);
-                if (region != null)
-                {
-                    foreach (Player player in new PlayerIterator(region))
-                        recipientDbIds.Add(player.DatabaseUniqueId);
-                }
+                Logger.Info($"Mythic Rift run {runState.Config.RunId} completed but no players satisfied the competitive progression rule for level unlocks.");
+                return;
             }
 
             foreach (ulong playerDbId in recipientDbIds)
@@ -852,6 +851,41 @@ namespace MHServerEmu.Games.MythicRifts
                 int unlockedLevel = GrantNextRiftLevel(playerDbId, runState.Config.RiftLevel);
                 Logger.Info($"Mythic Rift run {runState.Config.RunId} unlocked Rift level {unlockedLevel} for playerDbId=0x{playerDbId:X}.");
             }
+        }
+
+        private void CaptureBossUnlockEligibility(MythicRiftRunState runState)
+        {
+            if (runState == null)
+                return;
+
+            runState.SnapshotBossUnlockEligiblePlayers(GetCurrentRunRegionPlayerDbIds(runState));
+        }
+
+        private void CaptureSuccessfulCompletionEligibility(MythicRiftRunState runState)
+        {
+            if (runState == null)
+                return;
+
+            runState.SnapshotProgressionEligiblePlayers(GetCurrentRunRegionPlayerDbIds(runState));
+        }
+
+        private HashSet<ulong> GetCurrentRunRegionPlayerDbIds(MythicRiftRunState runState)
+        {
+            HashSet<ulong> playerDbIds = new();
+            if (runState == null || runState.RegionId == 0)
+                return playerDbIds;
+
+            Region region = Game.RegionManager.GetRegion(runState.RegionId);
+            if (region == null)
+                return playerDbIds;
+
+            foreach (Player player in new PlayerIterator(region))
+            {
+                if (player?.DatabaseUniqueId != 0)
+                    playerDbIds.Add(player.DatabaseUniqueId);
+            }
+
+            return playerDbIds;
         }
 
         private static bool ShouldCountKill(in EntityDeadGameEvent evt)
@@ -989,7 +1023,11 @@ namespace MHServerEmu.Games.MythicRifts
             GrantProgressionForSuccessfulRun(runState);
             TryAutoGrantCompletionRewards(runState);
             TryRestoreRegionDifficultyScaling(runState);
-            NotifyRunCompleted(runState, success: true, "Rift cleared. Next level unlocked.");
+            int eligibleUnlockCount = runState.ProgressionEligiblePlayerDbIds.Count;
+            string successMessage = eligibleUnlockCount > 0
+                ? $"Rift cleared. Next level unlocked for {eligibleUnlockCount} eligible player(s)."
+                : "Rift cleared. No players met the competitive progression rule for next-level unlock.";
+            NotifyRunCompleted(runState, success: true, successMessage);
             return true;
         }
 
