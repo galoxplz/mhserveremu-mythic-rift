@@ -60,10 +60,12 @@ Expected result:
 - `rift beaconmode` should report `teleportSucceeded=true`
 - `rift beaconmode` should report the created `runId`, selected `content`, `region`, and `entryTarget`
 - `rift run [runId]` should show a `bossSource` that may differ from the selected map content
+- `rift run [runId]` should show `competitiveEligibility=bossUnlock:X | bossKill:Y` so admins can verify who qualified for the next-level unlock rule
 - when the pool allows it, the random `bossSource` now avoids matching the selected map entry so admins can validate true map/boss mixing more easily
 - `rift run [runId]` should show `regionScalingApplied=true` once the run is bound to the live region
 - the tracked beacon charge should go down after a successful use
 - beacon interception should still work even if the live server stacks or reuses `PortalToRandomDungeon` item instances differently than the local dev environment
+- for competitive progression, only players who were inside the Rift at boss unlock and still inside the Rift at boss death should unlock the next difficulty
 - the default `PortalToRandomDungeon` / Danger Room behavior is not changed globally for non-beacon use
 - the run should emit in-game custom system messages when it starts, when the boss is unlocked, and when it completes or fails
 - the beacon use itself should also emit an immediate in-game confirmation showing the selected map, boss, level, timer, and teleport result

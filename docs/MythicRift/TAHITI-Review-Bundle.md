@@ -26,7 +26,9 @@ Current technical launcher base:
 
 ## What Already Works
 
+- direct beacon use in-game from a server-granted `PortalToRandomDungeon`
 - random or fixed terminal selection from the V1 pool
+- random terminal map plus separately selected random boss source
 - timed Rift runs
 - D3-inspired scaling
 - kill quota before boss unlock
@@ -36,16 +38,21 @@ Current technical launcher base:
 - persistent Rift level progression
 - chained progression from one Rift level to the next
 - server-side beacon granting
-- launcher intent capture from the technical beacon base item
-- conversion of that intent into a Rift run
+- competitive next-level progression based on who was inside the Rift at boss unlock and boss death
 - automatic cleanup / safety behavior for stale runs
 
 ## Current V1 Content Pool
 
+- Shocker
+- Doctor Octopus
 - Taskmaster
 - Hood
+- Magneto
 - Mister Sinister
+- MODOK
+- Mandarin
 - Kingpin
+- Ultron
 
 ## Current Group Rules
 
@@ -62,14 +69,15 @@ Recommended first-pass test:
 ```text
 rift prepbeacon 1 1
 rift beacon
+rift validatecontent
 ```
 
 Use the granted `PortalToRandomDungeon` item in-game, then:
 
 ```text
-rift itemintent
-rift consumeintentauto 10
+rift beaconmode
 rift runs
+rift run [runId]
 ```
 
 Recommended progression test:
@@ -86,6 +94,17 @@ rift access 2
 rift access 3
 rift progression
 ```
+
+For competitive progression validation, admins should also inspect:
+
+```text
+rift run [runId]
+```
+
+Expected:
+
+- `competitiveEligibility=bossUnlock:X | bossKill:Y`
+- only players counted in `bossKill` should unlock the next difficulty
 
 ## What Still Needs Work Before A Near-Final V1
 

@@ -1440,6 +1440,7 @@ namespace MHServerEmu.Commands.Implementations
                 $"timeLimit={runState.Config.TimeLimit.TotalMinutes:0} min | remaining={runState.GetTimeRemaining(currentTime).TotalMinutes:0.##} min | HP x{runState.Config.Difficulty.HealthMultiplier:F3} | damage x{runState.Config.Difficulty.DamageMultiplier:F3}",
                 $"regionId=0x{runState.RegionId:X} | bossEntityId=0x{runState.BossEntityId:X}",
                 $"participants={runState.ParticipantCount} | rewardedPlayers={runState.RewardedPlayerCount}",
+                $"competitiveEligibility=bossUnlock:{runState.BossUnlockEligiblePlayerDbIds.Count} | bossKill:{runState.ProgressionEligiblePlayerDbIds.Count}",
                 $"nextUnlockOnSuccess={runState.Config.RiftLevel + 1}"
             };
 

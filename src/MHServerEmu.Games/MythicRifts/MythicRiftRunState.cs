@@ -13,6 +13,8 @@ namespace MHServerEmu.Games.MythicRifts
     {
         private readonly HashSet<ulong> _participantPlayerDbIds = new();
         private readonly HashSet<ulong> _rewardedPlayerDbIds = new();
+        private readonly HashSet<ulong> _bossUnlockEligiblePlayerDbIds = new();
+        private readonly HashSet<ulong> _progressionEligiblePlayerDbIds = new();
 
         public MythicRiftRunConfig Config { get; }
         public MythicRiftRunStatus Status { get; private set; } = MythicRiftRunStatus.Pending;
@@ -32,6 +34,8 @@ namespace MHServerEmu.Games.MythicRifts
         public float RegionMobToPlayerDamageMultiplierBeforeScaling { get; private set; } = 1f;
         public IReadOnlyCollection<ulong> ParticipantPlayerDbIds => _participantPlayerDbIds;
         public IReadOnlyCollection<ulong> RewardedPlayerDbIds => _rewardedPlayerDbIds;
+        public IReadOnlyCollection<ulong> BossUnlockEligiblePlayerDbIds => _bossUnlockEligiblePlayerDbIds;
+        public IReadOnlyCollection<ulong> ProgressionEligiblePlayerDbIds => _progressionEligiblePlayerDbIds;
         public int ParticipantCount => _participantPlayerDbIds.Count;
         public int RewardedPlayerCount => _rewardedPlayerDbIds.Count;
         public bool IsInProgress => Status == MythicRiftRunStatus.Pending || Status == MythicRiftRunStatus.Active;
@@ -156,6 +160,32 @@ namespace MHServerEmu.Games.MythicRifts
         public void SetRewardOutcome(MythicRiftRewardOutcome rewardOutcome)
         {
             RewardOutcome = rewardOutcome;
+        }
+
+        public void SnapshotBossUnlockEligiblePlayers(IEnumerable<ulong> playerDbIds)
+        {
+            _bossUnlockEligiblePlayerDbIds.Clear();
+            if (playerDbIds == null)
+                return;
+
+            foreach (ulong playerDbId in playerDbIds)
+            {
+                if (playerDbId != 0)
+                    _bossUnlockEligiblePlayerDbIds.Add(playerDbId);
+            }
+        }
+
+        public void SnapshotProgressionEligiblePlayers(IEnumerable<ulong> playerDbIds)
+        {
+            _progressionEligiblePlayerDbIds.Clear();
+            if (playerDbIds == null)
+                return;
+
+            foreach (ulong playerDbId in playerDbIds)
+            {
+                if (playerDbId != 0 && _bossUnlockEligiblePlayerDbIds.Contains(playerDbId))
+                    _progressionEligiblePlayerDbIds.Add(playerDbId);
+            }
         }
 
         public bool HasExpired(TimeSpan currentTime)

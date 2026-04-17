@@ -93,6 +93,8 @@
 - attempt to teleport the player to the selected Rift region start target immediately after a successful armed beacon launch
 - abort a newly created run immediately if the direct beacon launch cannot resolve or reach a valid Rift start target
 - auto-bind pending runs against equivalent terminal region variants, not just exact prototype matches
+- award next-level progression competitively: a player must be inside the Rift when the kill quota unlocks the boss and still be inside the Rift when that boss dies
+- expose competitive progression snapshots in `rift run`, so admins can inspect how many players qualified at boss unlock and at boss death
 - emit custom in-game system messages when a Rift starts, when the quota unlocks the final boss, and when the run succeeds, fails, or aborts
 - retry the configured random boss spawn on later eligible kills if the first spawn attempt fails exactly on quota unlock
 
