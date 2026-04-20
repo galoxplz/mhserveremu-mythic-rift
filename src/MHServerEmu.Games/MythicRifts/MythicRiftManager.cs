@@ -109,6 +109,7 @@ namespace MHServerEmu.Games.MythicRifts
         private readonly Dictionary<ulong, MythicRiftRunState> _activeRuns = new();
         private readonly Dictionary<ulong, Event<EntityDeadGameEvent>.Action> _regionEntityDeadActions = new();
         private readonly Dictionary<ulong, int> _highestUnlockedRiftLevelByPlayer = new();
+        private readonly Dictionary<ulong, string> _lastCompletedMapContentIdByPlayer = new();
         private ulong _nextRunId = 1;
 
         public Game Game { get; }
@@ -201,9 +202,9 @@ namespace MHServerEmu.Games.MythicRifts
             return CreateRunConfig(content, bossContent, riftLevel, requestedPlayerCount, killQuota, timeLimit);
         }
 
-        public MythicRiftRunConfig CreateRandomDebugRunConfig(int riftLevel, int requestedPlayerCount, int killQuota, TimeSpan timeLimit)
+        public MythicRiftRunConfig CreateRandomDebugRunConfig(int riftLevel, int requestedPlayerCount, int killQuota, TimeSpan timeLimit, IReadOnlyCollection<string> excludedMapContentIds = null)
         {
-            MythicRiftContentEntry content = SelectRandomMapContent();
+            MythicRiftContentEntry content = SelectRandomMapContent(excludedMapContentIds);
             MythicRiftContentEntry bossContent = SelectRandomBossContent(content);
             if (content == null || bossContent == null)
                 return null;
@@ -231,9 +232,9 @@ namespace MHServerEmu.Games.MythicRifts
             return RegisterRun(config);
         }
 
-        public MythicRiftRunState CreateRandomDebugRun(int riftLevel, int requestedPlayerCount, int killQuota, TimeSpan timeLimit)
+        public MythicRiftRunState CreateRandomDebugRun(int riftLevel, int requestedPlayerCount, int killQuota, TimeSpan timeLimit, IReadOnlyCollection<string> excludedMapContentIds = null)
         {
-            MythicRiftRunConfig config = CreateRandomDebugRunConfig(riftLevel, requestedPlayerCount, killQuota, timeLimit);
+            MythicRiftRunConfig config = CreateRandomDebugRunConfig(riftLevel, requestedPlayerCount, killQuota, timeLimit, excludedMapContentIds);
             return RegisterRun(config);
         }
 
@@ -566,8 +567,12 @@ namespace MHServerEmu.Games.MythicRifts
                 return null;
             }
 
+            HashSet<string> excludedMapContentIds = useRandomContent
+                ? BuildRandomMapExclusions(player, party)
+                : null;
+
             MythicRiftRunState runState = useRandomContent
-                ? CreateRandomDebugRun(riftLevel, requestedPlayerCount, killQuota, timeLimit)
+                ? CreateRandomDebugRun(riftLevel, requestedPlayerCount, killQuota, timeLimit, excludedMapContentIds)
                 : CreateDebugRun(contentId, riftLevel, requestedPlayerCount, killQuota, timeLimit);
 
             if (runState == null)
@@ -583,11 +588,21 @@ namespace MHServerEmu.Games.MythicRifts
             return runState;
         }
 
-        private MythicRiftContentEntry SelectRandomMapContent()
+        private MythicRiftContentEntry SelectRandomMapContent(IReadOnlyCollection<string> excludedContentIds = null)
         {
             List<MythicRiftContentEntry> eligibleContent = _contentPool.Where(entry => entry.RandomEligible).ToList();
             if (eligibleContent.Count == 0)
                 return null;
+
+            if (excludedContentIds != null && excludedContentIds.Count > 0 && eligibleContent.Count > excludedContentIds.Count)
+            {
+                List<MythicRiftContentEntry> filteredContent = eligibleContent
+                    .Where(entry => excludedContentIds.Any(excludedId => string.Equals(excludedId, entry.Id, StringComparison.OrdinalIgnoreCase)) == false)
+                    .ToList();
+
+                if (filteredContent.Count > 0)
+                    eligibleContent = filteredContent;
+            }
 
             int index = Game.Random.Next(0, eligibleContent.Count);
             return eligibleContent[index];
@@ -853,6 +868,46 @@ namespace MHServerEmu.Games.MythicRifts
             }
         }
 
+        private HashSet<string> BuildRandomMapExclusions(Player requester, Party party)
+        {
+            HashSet<string> excludedContentIds = new(StringComparer.OrdinalIgnoreCase);
+            TryAddLastCompletedMapContentId(excludedContentIds, requester?.DatabaseUniqueId ?? 0);
+            if (party == null)
+                return excludedContentIds;
+
+            foreach (var kvp in party)
+                TryAddLastCompletedMapContentId(excludedContentIds, kvp.Value.PlayerDbId);
+
+            return excludedContentIds;
+        }
+
+        private void TryAddLastCompletedMapContentId(HashSet<string> excludedContentIds, ulong playerDbId)
+        {
+            if (excludedContentIds == null || playerDbId == 0)
+                return;
+
+            if (_lastCompletedMapContentIdByPlayer.TryGetValue(playerDbId, out string contentId) == false)
+                return;
+
+            if (string.IsNullOrWhiteSpace(contentId))
+                return;
+
+            excludedContentIds.Add(contentId);
+        }
+
+        private void TrackLastCompletedMapContent(MythicRiftRunState runState)
+        {
+            string contentId = runState?.Config?.Content?.Id;
+            if (string.IsNullOrWhiteSpace(contentId))
+                return;
+
+            foreach (ulong playerDbId in runState.ParticipantPlayerDbIds)
+            {
+                if (playerDbId != 0)
+                    _lastCompletedMapContentIdByPlayer[playerDbId] = contentId;
+            }
+        }
+
         private void CaptureBossUnlockEligibility(MythicRiftRunState runState)
         {
             if (runState == null)
@@ -1021,6 +1076,7 @@ namespace MHServerEmu.Games.MythicRifts
 
             ResolveRewardOutcome(runState);
             GrantProgressionForSuccessfulRun(runState);
+            TrackLastCompletedMapContent(runState);
             TryAutoGrantCompletionRewards(runState);
             TryRestoreRegionDifficultyScaling(runState);
             int eligibleUnlockCount = runState.ProgressionEligiblePlayerDbIds.Count;
@@ -1041,6 +1097,7 @@ namespace MHServerEmu.Games.MythicRifts
                 return false;
 
             ResolveRewardOutcome(runState);
+            TrackLastCompletedMapContent(runState);
             TryAutoGrantCompletionRewards(runState);
             TryRestoreRegionDifficultyScaling(runState);
             NotifyRunCompleted(runState, success: false, reason);
@@ -1057,6 +1114,7 @@ namespace MHServerEmu.Games.MythicRifts
             if (runState.Status != MythicRiftRunStatus.Aborted)
                 return false;
 
+            TrackLastCompletedMapContent(runState);
             TryRestoreRegionDifficultyScaling(runState);
             NotifyRunCompleted(runState, success: false, reason);
             Logger.Info($"Mythic Rift run {runState.Config.RunId} aborted. reason={reason}");

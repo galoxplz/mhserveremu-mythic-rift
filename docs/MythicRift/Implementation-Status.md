@@ -52,6 +52,7 @@
 - distinguish between the registered terminal catalog and the subset currently eligible for random selection
 - choose a random map source and a random boss source independently for random Rift runs
 - avoid selecting the same boss-source entry as the chosen map when the random pool offers alternatives
+- avoid immediately repeating the last completed Rift terminal map for the requester or party when another random map is available
 - use a default kill quota specific to the selected terminal content
 - calculate D3-like Rift level scaling
 - track and mirror the highest unlocked Rift level per player during the session
@@ -87,6 +88,7 @@
 - track the specific granted `Cosmic Rift Beacon` item instances server-side
 - let tracked beacon instances launch a Rift directly on use, without needing a prior intent-consume step
 - allow tracked beacon launches to fall back to player-level tracked charges when inventory stacking or item instance ids differ on the live server
+- make `rift itemintent` explicitly point admins to `rift beaconmode` when the direct beacon path has already intercepted the item use and no legacy intent is pending
 - support a scoped per-player beacon override so the next valid `PortalToRandomDungeon` use can create a Rift directly
 - support a scoped per-player fixed-content beacon override so a specific V1 terminal can be validated without random selection
 - keep normal `PortalToRandomDungeon` / Danger Room behavior intact unless that scoped override is explicitly armed first
