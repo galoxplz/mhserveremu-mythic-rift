@@ -209,7 +209,14 @@ namespace MHServerEmu.Commands.Implementations
 
             MythicRiftLauncherIntent intent = game.MythicRiftLauncherService.GetPendingIntent(player.DatabaseUniqueId);
             if (intent == null)
+            {
+                MythicRiftLauncherUseResult lastResult = game.MythicRiftLauncherService.GetLastArmedLaunchResult(player.DatabaseUniqueId);
+                int trackedBeaconCharges = game.MythicRiftLauncherService.GetTotalTrackedBeaconCharges(player.DatabaseUniqueId);
+                if (lastResult != null || trackedBeaconCharges > 0)
+                    return "No pending Mythic Rift launcher intent for this player. If you are testing direct beacon use, inspect `rift beaconmode` instead.";
+
                 return "No pending Mythic Rift launcher intent for this player.";
+            }
 
             int unlockedLevel = game.MythicRiftManager.GetHighestUnlockedRiftLevel(player.DatabaseUniqueId);
             CommandHelper.SendMessages(client, BuildLauncherIntentLines(intent, unlockedLevel));

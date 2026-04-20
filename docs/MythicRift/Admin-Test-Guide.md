@@ -61,6 +61,7 @@ Expected result:
 - `rift beaconmode` should report the created `runId`, selected `content`, `region`, and `entryTarget`
 - `rift run [runId]` should show a `bossSource` that may differ from the selected map content
 - `rift run [runId]` should show `competitiveEligibility=bossUnlock:X | bossKill:Y` so admins can verify who qualified for the next-level unlock rule
+- when an alternative exists in the random pool, the next random Rift should avoid immediately repeating the last terminal map played by the requester or party members
 - when the pool allows it, the random `bossSource` now avoids matching the selected map entry so admins can validate true map/boss mixing more easily
 - `rift run [runId]` should show `regionScalingApplied=true` once the run is bound to the live region
 - the tracked beacon charge should go down after a successful use
@@ -137,6 +138,11 @@ Expected result:
 ## Legacy Intent-Based Smoke Test
 
 Use this when you want to validate the older server-side intent capture flow.
+
+Important:
+
+- if direct beacon interception is working, `rift itemintent` may correctly report no pending intent
+- in that case, use `rift beaconmode` to inspect the direct launcher result instead
 
 1. Prepare the player:
 
