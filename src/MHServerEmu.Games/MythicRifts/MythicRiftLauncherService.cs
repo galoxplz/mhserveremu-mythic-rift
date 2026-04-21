@@ -458,7 +458,7 @@ namespace MHServerEmu.Games.MythicRifts
                     : $"teleport=failed ({result.TeleportErrorMessage ?? "unknown error"})";
 
             string bossName = ResolveBossDisplayName(config);
-            string message = $"[Cosmic Rift] Beacon accepted. map={config.Content.DisplayName} | boss={bossName} | level={config.RiftLevel} | timer={config.TimeLimit.TotalMinutes:0} min | {teleportSummary}";
+            string message = $"[Cosmic Rift] Beacon accepted. runId={config.RunId} | map={config.Content.DisplayName} | boss={bossName} | level={config.RiftLevel} | timer={config.TimeLimit.TotalMinutes:0} min | {teleportSummary}";
             Game.ChatManager.SendChatFromCustomSystem(player, message, showSender: false);
         }
 

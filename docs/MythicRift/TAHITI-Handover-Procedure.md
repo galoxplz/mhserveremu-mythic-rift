@@ -214,6 +214,7 @@ Expected current behavior:
 
 - the item use should stay in the Mythic Rift path instead of dropping a normal Danger Room scenario back into inventory
 - if you chain the next random Rift while still standing in the previous terminal, the selector should avoid that same terminal content when another map is available
+- if a test run needs to be stopped manually, admins can use `rift abort [runId]`
 
 ## Recommended Review Test Plan
 
@@ -341,6 +342,17 @@ Process:
 1. Start a Rift run.
 2. Disconnect all tracked participants.
 3. Wait a little over 2 minutes.
+
+## Current Review Notes
+
+These points should help TAHITI interpret tester feedback correctly.
+
+- reports that the beacon "sometimes becomes a regular Danger Room" belong to the older behavior that the newer interception pass was explicitly designed to stop
+- reports that the same dead terminal was selected again are also expected to improve on the newer random-selection pass, because it now excludes the player's current terminal region and last completed terminal map when other maps are available
+- inherited terminal boss loot is still used intentionally at this stage, so side drops such as cube shards are not a blocker by themselves
+- that reward behavior should be treated as a temporary prototype state until the final reward layer is tuned
+- current difficulty at higher Rift levels is still considered tuning-sensitive
+- for efficient review cycles, multiplayer and gameplay-flow validation should come before final high-level balance conclusions
 4. Reconnect and inspect:
 
 ```text
