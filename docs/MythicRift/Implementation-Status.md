@@ -53,6 +53,7 @@
 - choose a random map source and a random boss source independently for random Rift runs
 - avoid selecting the same boss-source entry as the chosen map when the random pool offers alternatives
 - avoid immediately repeating the last completed Rift terminal map for the requester or party when another random map is available
+- avoid re-rolling the terminal content that the requester or party is currently standing in when chaining the next random Rift from a still-open terminal region
 - use a default kill quota specific to the selected terminal content
 - calculate D3-like Rift level scaling
 - track and mirror the highest unlocked Rift level per player during the session
@@ -88,6 +89,9 @@
 - track the specific granted `Cosmic Rift Beacon` item instances server-side
 - let tracked beacon instances launch a Rift directly on use, without needing a prior intent-consume step
 - allow tracked beacon launches to fall back to player-level tracked charges when inventory stacking or item instance ids differ on the live server
+- suppress the native `PortalToRandomDungeon` / Danger Room `OnUse` continuation whenever Mythic Rift has explicitly intercepted that item use
+- consume the actual launcher stack only after the Mythic Rift launch has been committed cleanly, so a failed interception no longer leaks back into the native scenario flow
+- keep tracked beacon charges and scoped beacon overrides intact if the Rift launch fails before the teleport step is committed
 - make `rift itemintent` explicitly point admins to `rift beaconmode` when the direct beacon path has already intercepted the item use and no legacy intent is pending
 - support a scoped per-player beacon override so the next valid `PortalToRandomDungeon` use can create a Rift directly
 - support a scoped per-player fixed-content beacon override so a specific V1 terminal can be validated without random selection
@@ -142,6 +146,20 @@
     - `PortalToCowLevelOneTimeUse` as the best technical fallback
     - `PortalToBovineheim` mainly as a behavior reference rather than a final product-facing choice
     - `DevOnly` / `Test` / `Unused` items are real leads in the data, but are currently treated as research candidates, not final production choices
+  - current implemented seller pass for no-client-patch testing:
+    - interacting with a vendor inside the `Danger Room` hub now injects one `PortalToRandomDungeon`-based `Cosmic Rift Beacon` into that player's vendor stock
+    - the goal is to remove the admin-only item grant dependency before the final NPC choice is locked with TAHITI
+    - this is intentionally region-scoped for now, because it is safer than hard-coding a guessed vendor prototype name before live validation
+  - preferred final narrowing after TAHITI confirms the target NPC:
+    - `DangerRoomScenarioVendor`
+    - reason:
+      - it is already a dedicated Danger Room vendor path
+      - it is the closest semantic match for "buy a Rift entry consumable"
+      - it is safer than reusing a generic weapon / armor / junk vendor
+      - it should minimize the risk of leaking the item into unrelated vendors once the exact seller is locked
+  - current named-NPC fallback:
+    - `DangerRoomVendorWeaponMadisonJeffries`
+    - this is attractive for long-term feature identity, but is currently treated as the second choice because it is more likely to share broader vendor behavior than the dedicated scenario vendor path
   - current product identity:
     - `Cosmic Rift`
   - recommended future player-facing item name:
@@ -169,6 +187,9 @@
 
 Current practical launcher stage
 - The project is now at the stage where a server-granted `Cosmic Rift Beacon` can be used directly in-game to create a Rift run.
+- A first server-side seller pass now exists as well:
+  - a player can open a vendor inside the `Danger Room` hub, buy the injected beacon, and test the Rift flow without an admin grant command
+  - the final seller can still be narrowed later once TAHITI confirms which vendor should own the feature permanently
 - Important constraint:
   - this direct behavior is scoped to tracked beacon instances granted by the server
   - normal non-beacon `PortalToRandomDungeon` / Danger Room behavior must remain unchanged
@@ -216,11 +237,12 @@ Current practical launcher stage
 - For future local builds, prefer a command like:
 
 ```powershell
-dotnet build MHServerEmu.csproj -c Release -p:BaseIntermediateOutputPath=C:\Users\admin\Documents\Codex\build\iso-obj\ -p:MSBuildProjectExtensionsPath=C:\Users\admin\Documents\Codex\build\iso-obj\ -p:BaseOutputPath=C:\Users\admin\Documents\Codex\build\iso-bin\
+dotnet build MHServerEmu.csproj -c Release -p:GenerateAssemblyInfo=false -p:GenerateTargetFrameworkAttribute=false -p:BaseIntermediateOutputPath=C:\Users\admin\Documents\Codex\build\iso-obj\ -p:MSBuildProjectExtensionsPath=C:\Users\admin\Documents\Codex\build\iso-obj\ -p:BaseOutputPath=C:\Users\admin\Documents\Codex\build\iso-bin\
 ```
 
 - This keeps the repo cleaner and avoids access errors under `Desktop\PROJECT MHO`.
 - Setting `MSBuildProjectExtensionsPath` to the same isolated obj root also avoids intermittent MSBuild dependency-resolution issues seen with redirected outputs.
+- `GenerateAssemblyInfo=false` and `GenerateTargetFrameworkAttribute=false` are the safe fallback switches if redirected-output builds hit duplicate Gazillion assembly-attribute generation on this machine.
 - Verified state:
   - full `MHServerEmu` build OK
   - historical `Gazillion` warnings may still appear

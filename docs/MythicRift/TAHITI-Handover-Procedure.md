@@ -86,6 +86,8 @@ Current implemented prototype behavior:
 - server-side granting of the beacon item
 - direct beacon use in-game from a server-granted `PortalToRandomDungeon`
 - random terminal map plus separately selected random boss source
+- safe interception of `PortalToRandomDungeon` so the Mythic Rift path no longer falls back into the normal Danger Room scenario behavior after a successful Rift launch
+- safer chain-running from inside terminals because the random map picker now excludes the terminal region the requester / party is currently standing in
 - persistent unlocked Rift progression
 - chaining into higher Rift levels
 - competitive next-level progression based on who was inside the Rift at boss unlock and boss death
@@ -124,7 +126,7 @@ Use a writable output folder outside the repo for `bin` / `obj`.
 Recommended command:
 
 ```powershell
-dotnet build C:\Users\admin\Desktop\PROJECT MHO\MHServerEmu-master\src\MHServerEmu\MHServerEmu.csproj -c Release -p:BaseIntermediateOutputPath=C:\Users\admin\Documents\Codex\build\obj-cli\ -p:BaseOutputPath=C:\Users\admin\Documents\Codex\build\bin-cli\
+dotnet build C:\Users\admin\Desktop\PROJECT MHO\MHServerEmu-master\src\MHServerEmu\MHServerEmu.csproj -c Release -p:GenerateAssemblyInfo=false -p:GenerateTargetFrameworkAttribute=false -p:BaseIntermediateOutputPath=C:\Users\admin\Documents\Codex\build\obj-cli\ -p:BaseOutputPath=C:\Users\admin\Documents\Codex\build\bin-cli\
 ```
 
 Known verified state at this milestone:
@@ -132,6 +134,7 @@ Known verified state at this milestone:
 - full server build succeeds
 - historical Gazillion warnings may still appear
 - local direct in-repo build can occasionally hit a temporary Gazillion/VBCSCompiler file lock during rapid rebuilds
+- if redirected obj/bin builds hit duplicate Gazillion assembly attributes on this machine, keep the two `Generate*` switches shown above
 
 ## Important Current Identity Mapping
 
@@ -147,9 +150,37 @@ Current technical launcher base:
 
 - `PortalToRandomDungeon`
 
+Current implemented seller path:
+
+- server-scoped vendor injection inside the `Danger Room` hub
+
+Why it is implemented this way right now:
+
+- it removes the admin-only item grant dependency immediately
+- it stays fully server-side and does not need a client patch
+- it avoids hard-coding the wrong NPC before TAHITI confirms the final seller
+- it gives TAHITI a usable no-admin test flow first, then a simple narrowing pass later
+
+Preferred final seller once TAHITI confirms the exact NPC:
+
+- `DangerRoomScenarioVendor`
+
+Why this is still the preferred final fit:
+
+- it already belongs to the Danger Room ecosystem, which matches the current launcher restriction
+- it is a cleaner semantic match for selling a Rift-entry consumable than a generic reward, crafter, or weapon vendor
+- it is a safer integration target than reusing a broader hub vendor or a more generic NPC vendor path
+- it keeps `DangerRoomVendorWeaponMadisonJeffries` available later if TAHITI wants a stronger named-NPC identity after the first rollout is stable
+
+Current fallback seller for a more character-driven presentation:
+
+- `DangerRoomVendorWeaponMadisonJeffries`
+- use this only if TAHITI explicitly prefers a named NPC over the safer dedicated scenario-vendor path
+
 Important clarification:
 
 - the current test flow uses the existing `PortalToRandomDungeon` game item as the technical base
+- the newest server-side seller pass lets testers buy that launcher directly from a `Danger Room` hub vendor before any final NPC lock is chosen
 - if TAHITI later wants a cleaner visible in-game identity, that would likely be done as optional patcher-delivered game-file polish
 
 ## Fastest Test Flow
@@ -169,7 +200,7 @@ rift beacon
 rift validatecontent
 ```
 
-3. Use the granted `PortalToRandomDungeon` item in-game.
+3. Buy the injected launcher from a `Danger Room` hub vendor or use a granted `PortalToRandomDungeon` item in-game.
 
 4. Inspect the launched run:
 
@@ -178,6 +209,11 @@ rift beaconmode
 rift runs
 rift run [runId]
 ```
+
+Expected current behavior:
+
+- the item use should stay in the Mythic Rift path instead of dropping a normal Danger Room scenario back into inventory
+- if you chain the next random Rift while still standing in the previous terminal, the selector should avoid that same terminal content when another map is available
 
 ## Recommended Review Test Plan
 

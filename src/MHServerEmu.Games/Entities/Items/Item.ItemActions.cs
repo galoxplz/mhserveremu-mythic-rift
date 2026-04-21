@@ -34,101 +34,104 @@ namespace MHServerEmu.Games.Entities.Items
 
     public partial class Item
     {
-        private void TriggerItemActionOnUse(ItemActionPrototype actionProto, Player player, Avatar avatar, ref bool wasUsed, ref bool isConsumable)
+        private bool TriggerItemActionOnUse(ItemActionPrototype actionProto, Player player, Avatar avatar, ref bool wasUsed, ref bool isConsumable)
         {
             if (actionProto.TriggeringEvent != ItemEventType.OnUse)
-                return;
+                return false;
 
             switch (actionProto.ActionType)
             {
                 case ItemActionType.AssignPower:
                     wasUsed |= DoItemActionAssignPower();
-                    break;
+                    return false;
 
                 case ItemActionType.DestroySelf:
                     DoItemActionDestroySelf(ref isConsumable);    // This simply flags the item to be destroyed, so we don't need to update wasUsed here
-                    break;
+                    return false;
 
                 case ItemActionType.GuildUnlock:
                     wasUsed |= DoItemActionGuildUnlock(player);
-                    break;
+                    return false;
 
                 case ItemActionType.PrestigeMode:
                     wasUsed |= DoItemActionPrestigeMode(avatar);
-                    break;
+                    return false;
 
                 case ItemActionType.ReplaceSelfItem:
                     if (actionProto is not ItemActionReplaceSelfItemPrototype replaceSelfItemProto)
                     {
                         Logger.Warn("TriggerItemActionOnUse(): actionProto is not ItemActionReplaceSelfItemPrototype replaceSelfItemProto");
-                        return;
+                        return false;
                     }
 
                     wasUsed |= DoItemActionReplaceSelfItem(replaceSelfItemProto.Item, player, avatar);
-                    break;
+                    return false;
 
                 case ItemActionType.ReplaceSelfLootTable:
                     if (actionProto is not ItemActionReplaceSelfLootTablePrototype replaceSelfLootTableProto)
                     {
                         Logger.Warn("TriggerItemActionOnUse(): actionProto is not ItemActionReplaceSelfLootTablePrototype replaceSelfLootTableProto");
-                        return;
+                        return false;
                     }
 
                     wasUsed |= DoItemActionReplaceSelfLootTable(replaceSelfLootTableProto.LootTable, replaceSelfLootTableProto.UseCurrentAvatarLevelForRoll, player, avatar);
-                    break;
+                    return false;
 
                 case ItemActionType.ResetMissions:
                     wasUsed |= DoItemActionResetMissions(avatar);
-                    break;
+                    return false;
 
                 case ItemActionType.Respec:
                     wasUsed |= DoItemActionRespec();
-                    break;
+                    return false;
 
                 case ItemActionType.SaveDangerRoomScenario:
                     wasUsed |= DoItemActionSaveDangerRoomScenario();
-                    break;
+                    return false;
 
                 case ItemActionType.UnlockPermaBuff:
                     if (actionProto is not ItemActionUnlockPermaBuffPrototype unlockPermaBuffProto)
                     {
                         Logger.Warn("TriggerItemActionOnUse(): actionProto is not ItemActionUnlockPermaBuffPrototype unlockPermaBuffProto");
-                        return;
+                        return false;
                     }
 
                     wasUsed |= DoItemActionUnlockPermaBuff(unlockPermaBuffProto.PermaBuff, player);
-                    break;
+                    return false;
 
                 case ItemActionType.UsePower:
                     if (actionProto is not ItemActionUsePowerPrototype usePowerProto)
                     {
                         Logger.Warn("TriggerItemActionOnUse(): actionProto is not ItemActionUsePowerPrototype usePowerProto");
-                        return;
+                        return false;
                     }
 
-                    wasUsed |= DoItemActionUsePower(usePowerProto.Power, avatar);
-                    break;
+                    bool stopRemainingActions = false;
+                    wasUsed |= DoItemActionUsePower(usePowerProto.Power, avatar, out stopRemainingActions);
+                    return stopRemainingActions;
 
                 case ItemActionType.AwardTeamUpXP:
                     if (actionProto is not ItemActionAwardTeamUpXPPrototype awardTeamUpXPProto)
                     {
                         Logger.Warn("TriggerItemActionOnUse(): actionProto is not ItemActionAwardTeamUpXPPrototype awardTeamUpXPProto");
-                        return;
+                        return false;
                     }
 
                     wasUsed |= DoItemActionAwardTeamUpXP(avatar, awardTeamUpXPProto.XP);
-                    break;
+                    return false;
 
                 case ItemActionType.OpenUIPanel:
                     if (actionProto is not ItemActionOpenUIPanelPrototype openUIPanelProto)
                     {
                         Logger.Warn("TriggerItemActionOnUse(): actionProto is not ItemActionOpenUIPanelPrototype openUIPanelProto");
-                        return;
+                        return false;
                     }
 
                     wasUsed |= DoItemActionOpenUIPanel(player, openUIPanelProto.PanelName);
-                    break;
+                    return false;
             }
+
+            return false;
         }
 
         private bool TriggerItemActionOnUsePowerActivated(ItemActionPrototype itemActionProto)
@@ -264,22 +267,35 @@ namespace MHServerEmu.Games.Entities.Items
             return player.UnlockPermaBuff(permaBuffProtoRef);
         }
         
-        private bool DoItemActionUsePower(PrototypeId powerProtoRef, Avatar avatar)
+        private bool DoItemActionUsePower(PrototypeId powerProtoRef, Avatar avatar, out bool stopRemainingItemActions)
         {
+            stopRemainingItemActions = false;
             Player player = avatar.GetOwnerOfType<Player>();
             MythicRiftLauncherUseResult trackedBeaconResult = player != null
                 ? Game.MythicRiftLauncherService.TryHandleTrackedBeaconUse(player, this)
                 : null;
 
             if (trackedBeaconResult?.InterceptedItemUse == true)
+            {
+                stopRemainingItemActions = true;
+                if (trackedBeaconResult.Success && string.IsNullOrWhiteSpace(trackedBeaconResult.TeleportErrorMessage))
+                    DecrementStack();
+
                 return trackedBeaconResult.Success;
+            }
 
             MythicRiftLauncherUseResult armedLaunchResult = player != null
                 ? Game.MythicRiftLauncherService.TryHandleArmedLauncherUse(player, this)
                 : null;
 
-            if (armedLaunchResult?.Success == true)
-                return true;
+            if (armedLaunchResult != null)
+            {
+                stopRemainingItemActions = true;
+                if (armedLaunchResult.Success && string.IsNullOrWhiteSpace(armedLaunchResult.TeleportErrorMessage))
+                    DecrementStack();
+
+                return armedLaunchResult.Success;
+            }
 
             Power power = avatar.GetPower(powerProtoRef);
             if (power == null) return Logger.WarnReturn(false, "DoItemActionUsePower(): power == null");

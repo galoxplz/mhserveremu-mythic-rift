@@ -29,6 +29,7 @@ Current technical launcher base:
 - direct beacon use in-game from a server-granted `PortalToRandomDungeon`
 - random or fixed terminal selection from the V1 pool
 - random terminal map plus separately selected random boss source
+- safe launcher interception so a successful Rift click no longer falls through into the normal Danger Room scenario path
 - timed Rift runs
 - D3-inspired scaling
 - kill quota before boss unlock
@@ -38,6 +39,7 @@ Current technical launcher base:
 - persistent Rift level progression
 - chained progression from one Rift level to the next
 - server-side beacon granting
+- a first no-admin seller pass inside the `Danger Room` hub, so testers can buy the launcher directly from an in-game vendor
 - competitive next-level progression based on who was inside the Rift at boss unlock and boss death
 - automatic cleanup / safety behavior for stale runs
 
@@ -72,7 +74,7 @@ rift beacon
 rift validatecontent
 ```
 
-Use the granted `PortalToRandomDungeon` item in-game, then:
+Buy the injected launcher from a `Danger Room` hub vendor, or use a granted `PortalToRandomDungeon` item in-game, then:
 
 ```text
 rift beaconmode
@@ -105,6 +107,7 @@ Expected:
 
 - `competitiveEligibility=bossUnlock:X | bossKill:Y`
 - only players counted in `bossKill` should unlock the next difficulty
+- if the next random Rift is launched while the player is still inside the previous terminal, that same terminal content should be avoided when another random map is available
 
 ## What Still Needs Work Before A Near-Final V1
 
