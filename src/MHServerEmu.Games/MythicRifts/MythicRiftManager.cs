@@ -871,14 +871,27 @@ namespace MHServerEmu.Games.MythicRifts
         private HashSet<string> BuildRandomMapExclusions(Player requester, Party party)
         {
             HashSet<string> excludedContentIds = new(StringComparer.OrdinalIgnoreCase);
-            TryAddLastCompletedMapContentId(excludedContentIds, requester?.DatabaseUniqueId ?? 0);
+            TryAddPlayerRandomMapExclusions(excludedContentIds, requester);
             if (party == null)
                 return excludedContentIds;
 
             foreach (var kvp in party)
-                TryAddLastCompletedMapContentId(excludedContentIds, kvp.Value.PlayerDbId);
+            {
+                Player partyMember = Game.EntityManager.GetEntityByDbGuid<Player>(kvp.Value.PlayerDbId);
+                TryAddPlayerRandomMapExclusions(excludedContentIds, partyMember, kvp.Value.PlayerDbId);
+            }
 
             return excludedContentIds;
+        }
+
+        private void TryAddPlayerRandomMapExclusions(HashSet<string> excludedContentIds, Player player, ulong playerDbId = 0)
+        {
+            if (excludedContentIds == null)
+                return;
+
+            ulong resolvedPlayerDbId = player?.DatabaseUniqueId ?? playerDbId;
+            TryAddLastCompletedMapContentId(excludedContentIds, resolvedPlayerDbId);
+            TryAddCurrentRegionMapContentId(excludedContentIds, player?.GetRegion());
         }
 
         private void TryAddLastCompletedMapContentId(HashSet<string> excludedContentIds, ulong playerDbId)
@@ -893,6 +906,45 @@ namespace MHServerEmu.Games.MythicRifts
                 return;
 
             excludedContentIds.Add(contentId);
+        }
+
+        private void TryAddCurrentRegionMapContentId(HashSet<string> excludedContentIds, Region region)
+        {
+            if (excludedContentIds == null || region == null)
+                return;
+
+            MythicRiftContentEntry currentContent = ResolveContentByRegion(region);
+            string contentId = currentContent?.Id;
+            if (string.IsNullOrWhiteSpace(contentId))
+                return;
+
+            excludedContentIds.Add(contentId);
+        }
+
+        private MythicRiftContentEntry ResolveContentByRegion(Region region)
+        {
+            if (region == null)
+                return null;
+
+            return _contentPool.FirstOrDefault(content => ContentMatchesRegion(content, region));
+        }
+
+        private static bool ContentMatchesRegion(MythicRiftContentEntry content, Region region)
+        {
+            if (content == null || region == null)
+                return false;
+
+            if (region.PrototypeDataRef == content.RegionProtoRef)
+                return true;
+
+            RegionPrototype currentRegionProto = region.Prototype;
+            RegionPrototype expectedRegionProto = content.RegionProtoRef.As<RegionPrototype>();
+            if (RegionPrototype.Equivalent(expectedRegionProto, currentRegionProto))
+                return true;
+
+            RegionConnectionTargetPrototype startTargetProto = content.StartTargetProtoRef.As<RegionConnectionTargetPrototype>();
+            RegionPrototype startTargetRegionProto = startTargetProto?.Region.As<RegionPrototype>();
+            return RegionPrototype.Equivalent(startTargetRegionProto, currentRegionProto);
         }
 
         private void TrackLastCompletedMapContent(MythicRiftRunState runState)

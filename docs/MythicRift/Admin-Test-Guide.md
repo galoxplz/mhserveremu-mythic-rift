@@ -15,9 +15,34 @@ Current technical base:
 ## Current Testing Assumptions
 
 - no manual client patch is required for the current server-side test flow
-- the beacon is granted server-side
+- the beacon can now be obtained either from a Danger Room hub vendor or from a server grant command
 - the actual item still uses the game's existing `PortalToRandomDungeon` prototype as its technical base
 - the current prototype remains admin-oriented while the final player entry flow is still being refined
+
+## Preferred No-Admin Vendor Test
+
+Use this when you want to validate the newest server-only player flow with no admin item grant.
+
+1. Move a character to the `Danger Room` hub.
+2. Open a vendor there.
+3. Confirm that the vendor now offers one injected `PortalToRandomDungeon`-based launcher entry for this player.
+4. Buy the item from that vendor.
+5. Use the purchased item in-game.
+6. Inspect the launcher state and active run:
+
+```text
+rift beaconmode
+rift runs
+rift run [runId]
+```
+
+Expected result:
+
+- no admin grant command is required to obtain a test launcher item
+- the current seller pass is intentionally scoped to `Danger Room` hub vendors rather than a single hard-locked NPC
+- this keeps the implementation server-only and easy for TAHITI to iterate before they choose the permanent seller
+- after purchase, the item should launch through the Mythic Rift path exactly like a server-granted beacon
+- once the final seller is chosen, this region-scoped seller pass can be narrowed to that specific vendor with a small follow-up patch
 
 ## Preferred Direct Beacon Test
 
@@ -66,6 +91,7 @@ Expected result:
 - `rift run [runId]` should show `regionScalingApplied=true` once the run is bound to the live region
 - the tracked beacon charge should go down after a successful use
 - beacon interception should still work even if the live server stacks or reuses `PortalToRandomDungeon` item instances differently than the local dev environment
+- once Mythic Rift has intercepted the click, the item should no longer fall through into the normal Danger Room scenario result for that same use
 - for competitive progression, only players who were inside the Rift at boss unlock and still inside the Rift at boss death should unlock the next difficulty
 - the default `PortalToRandomDungeon` / Danger Room behavior is not changed globally for non-beacon use
 - the run should emit in-game custom system messages when it starts, when the boss is unlocked, and when it completes or fails
@@ -320,6 +346,8 @@ rift access 3
 rift progression
 ```
 
+8. If you launch the next random Rift while still standing inside the previous terminal, confirm that the next selected map is not that same terminal when another map is available.
+
 Expected behavior:
 
 - each completed run unlocks the next Rift level
@@ -457,6 +485,7 @@ At the current stage, this prototype already supports:
 
 - no manual client patch is required for the current test flow
 - no custom client-side vendor is required
+- the newest server build can now expose the launcher directly from a Danger Room hub vendor for no-admin flow testing
 - no database migration is required at this stage
 - the implementation is localized and reviewable as a server patch
 - if later game-file work is desired, it can be discussed separately as a patcher-delivered enhancement rather than a prerequisite

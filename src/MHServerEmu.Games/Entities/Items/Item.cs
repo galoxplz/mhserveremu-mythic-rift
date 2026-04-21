@@ -1133,7 +1133,8 @@ namespace MHServerEmu.Games.Entities.Items
                             if (!Verify.IsNotNull(actionProto))
                                 continue;
 
-                            TriggerItemActionOnUse(actionProto, player, avatar, ref wasUsed, ref isConsumable);
+                            if (TriggerItemActionOnUse(actionProto, player, avatar, ref wasUsed, ref isConsumable))
+                                break;
                         }
                     }
                     else if (choiceProto is ItemActionPrototype actionProto)
@@ -1153,7 +1154,8 @@ namespace MHServerEmu.Games.Entities.Items
                         if (!Verify.IsNotNull(actionProto))
                             continue;
 
-                        TriggerItemActionOnUse(actionProto, player, avatar, ref wasUsed, ref isConsumable);
+                        if (TriggerItemActionOnUse(actionProto, player, avatar, ref wasUsed, ref isConsumable))
+                            break;
                     }
                 }
             }

@@ -288,7 +288,7 @@ namespace MHServerEmu.Games.MythicRifts
                 NotifyLauncherUse(player, result);
             }
 
-            if (result?.Success == true)
+            if (IsCommittedLauncherUse(result))
                 _armedLaunchesByPlayerDbId.Remove(player.DatabaseUniqueId);
 
             return result;
@@ -334,14 +334,16 @@ namespace MHServerEmu.Games.MythicRifts
             result.ConsumedArmedLaunchMode = armedState != null;
 
             if (result.Success)
+                TryTeleportToRunEntry(player, result);
+
+            _lastArmedLaunchResultsByPlayerDbId[player.DatabaseUniqueId] = result;
+
+            if (IsCommittedLauncherUse(result))
             {
                 if (usingGenericTrackedChargeFallback)
                     ConsumeAnyTrackedBeaconCharge(player.DatabaseUniqueId);
                 else
                     ConsumeTrackedBeaconCharge(player.DatabaseUniqueId, item.Id);
-
-                TryTeleportToRunEntry(player, result);
-                _lastArmedLaunchResultsByPlayerDbId[player.DatabaseUniqueId] = result;
 
                 if (armedState != null)
                     _armedLaunchesByPlayerDbId.Remove(player.DatabaseUniqueId);
@@ -421,6 +423,11 @@ namespace MHServerEmu.Games.MythicRifts
         private static PrototypeId ResolveRunStartTarget(MythicRiftRunState runState)
         {
             return runState?.Config.StartTargetProtoRef ?? PrototypeId.Invalid;
+        }
+
+        private static bool IsCommittedLauncherUse(MythicRiftLauncherUseResult result)
+        {
+            return result?.Success == true && string.IsNullOrWhiteSpace(result.TeleportErrorMessage);
         }
 
         private void NotifyLauncherUse(Player player, MythicRiftLauncherUseResult result)

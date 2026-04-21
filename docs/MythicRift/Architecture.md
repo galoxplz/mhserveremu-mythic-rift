@@ -65,3 +65,6 @@
 
 - The entry layer can now support logical launcher definitions such as `default`, `capital-hub`, or a future `consumable-portal` flow without assuming a specific clickable object yet.
 - The current preferred launcher candidate is a `PortalToRandomDungeon`-style consumable because it appears easier to integrate cleanly than a shop-gated Bovineheim-specific item.
+- The first implemented no-client-patch seller pass is now a server-scoped `Danger Room` hub vendor injection, so testers can buy the launcher without admin grant commands before the final NPC is locked.
+- The preferred final seller target after TAHITI confirms the exact NPC is still `DangerRoomScenarioVendor`.
+- `DangerRoomVendorWeaponMadisonJeffries` remains the best named-NPC fallback if TAHITI later wants stronger feature identity after the safer vendor-path rollout is validated.
