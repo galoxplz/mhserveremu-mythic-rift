@@ -56,6 +56,8 @@
 - avoid re-rolling the terminal content that the requester or party is currently standing in when chaining the next random Rift from a still-open terminal region
 - use a default kill quota specific to the selected terminal content
 - calculate D3-like Rift level scaling
+- compress Mythic Rift levels onto a slower D3-equivalent curve for Marvel Heroes terminal balance
+- normalize D3 Greater Rift group health buckets to solo, so group health scaling becomes `1x / 2x / 3x / 4x` for `1 / 2 / 3 / 4-5` players
 - track and mirror the highest unlocked Rift level per player during the session
 - persist the highest unlocked Rift level inside the Player's persistent data
 - verify whether a player can access a given Rift level

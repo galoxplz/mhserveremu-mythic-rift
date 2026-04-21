@@ -1281,7 +1281,7 @@ namespace MHServerEmu.Games.MythicRifts
             if (runState == null)
                 return;
 
-            string message = $"[Cosmic Rift] Level {runState.Config.RiftLevel} started in {runState.Config.Content.DisplayName}. Final boss: {ResolveBossDisplayName(runState.Config)}. Quota: 0/{runState.Config.KillQuota}. Timer: {runState.Config.TimeLimit.TotalMinutes:0} min.";
+            string message = $"[Cosmic Rift] runId={runState.Config.RunId} | Level {runState.Config.RiftLevel} started in {runState.Config.Content.DisplayName}. Final boss: {ResolveBossDisplayName(runState.Config)}. Quota: 0/{runState.Config.KillQuota}. Timer: {runState.Config.TimeLimit.TotalMinutes:0} min.";
             NotifyRunPlayers(runState, message);
         }
 
@@ -1290,7 +1290,7 @@ namespace MHServerEmu.Games.MythicRifts
             if (runState == null)
                 return;
 
-            string message = $"[Cosmic Rift] Kill quota reached in {runState.Config.Content.DisplayName}. Final boss unlocked: {ResolveBossDisplayName(runState.Config)}.";
+            string message = $"[Cosmic Rift] runId={runState.Config.RunId} | Kill quota reached in {runState.Config.Content.DisplayName}. Final boss unlocked: {ResolveBossDisplayName(runState.Config)}.";
             NotifyRunPlayers(runState, message);
         }
 
@@ -1300,7 +1300,7 @@ namespace MHServerEmu.Games.MythicRifts
                 return;
 
             string outcome = success ? "SUCCESS" : runState.Status.ToString().ToUpperInvariant();
-            string message = $"[Cosmic Rift] {outcome} | map={runState.Config.Content.DisplayName} | boss={ResolveBossDisplayName(runState.Config)} | level={runState.Config.RiftLevel} | {statusMessage}";
+            string message = $"[Cosmic Rift] runId={runState.Config.RunId} | {outcome} | map={runState.Config.Content.DisplayName} | boss={ResolveBossDisplayName(runState.Config)} | level={runState.Config.RiftLevel} | {statusMessage}";
             NotifyRunPlayers(runState, message);
         }
 

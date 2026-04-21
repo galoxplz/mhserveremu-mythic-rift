@@ -98,6 +98,7 @@ Expected result:
 - the beacon use itself should also emit an immediate in-game confirmation showing the selected map, boss, level, timer, and teleport result
 - if the direct launch cannot enter the selected Rift terminal, the created pending run should now abort instead of staying stuck indefinitely
 - if a run is created after the player has already entered the matching terminal, it should still bind when that terminal is an equivalent runtime variant of the configured region
+- if a run becomes impossible or a tester wants to stop it manually, admins can use `rift abort [runId]`
 
 Optional random preview before launching:
 
@@ -318,13 +319,19 @@ rift prepbeacon 1 3
 rift progression
 ```
 
-2. Use one beacon and create the first run:
+2. Use one beacon in-game and inspect the created run:
 
 ```text
-rift itemintent
-rift consumeintentauto 10
+rift beaconmode
+rift runs
 rift progression
 ```
+
+Important:
+
+- when direct beacon interception is active, do not use `rift consumeintentauto`
+- the intended flow is now direct item use -> auto-created Rift run -> auto-teleport to the selected terminal
+- `rift itemintent` is only for the older legacy intent path or for smoke-testing fallback behavior
 
 3. Complete the run successfully.
 
@@ -335,7 +342,7 @@ rift access 2
 rift progression
 ```
 
-5. Use a second beacon and consume it again.
+5. Use a second beacon in-game.
 
 6. Complete the second run successfully.
 
@@ -351,8 +358,25 @@ rift progression
 Expected behavior:
 
 - each completed run unlocks the next Rift level
-- the next beacon consumption uses the player's highest unlocked level
+- the next beacon use resolves to the player's highest unlocked level automatically
+- the current intended loop is one beacon use per Rift run, not one beacon chaining multiple terminals by itself
 - a player or party cannot create a second pending or active Rift run while one is already in progress
+
+## Current Tuning Notes
+
+These notes are important when reviewing test-center feedback.
+
+- the current updated build is intended to keep successful beacon clicks inside the Mythic Rift flow instead of falling back into a normal Danger Room result
+- the current updated build also excludes the requester's current terminal region and last completed terminal map from the next random pick when alternatives exist
+- if a tester reports "sometimes it turned back into a regular Danger Room" or "I got the same dead terminal again with no mobs", first confirm they were on the newest build
+- boss loot is still inherited from the reused terminal boss loot tables for now, so observations such as cube shard drops are expected at this stage
+- this means the current prototype validates gameplay flow first, not final reward identity
+- the current frozen test tuning now keeps the D3 percentage logic but compresses one Mythic Rift level into `0.40` D3 Greater Rift levels so Marvel terminals scale more realistically
+- group health scaling is now explicitly locked to `1x / 2x / 3x / 4x` for `1 / 2 / 3 / 4-5` players
+- `rift scale [level] [players]` and `rift run [runId]` now expose `d3EquivalentLevel` and `groupHealth` so admins can inspect the applied snapshot directly
+- very high Rift levels are still expected to be aspirational rather than everyday test targets
+- practical gameplay and multiplayer validation should focus first on lower and mid levels such as `1`, `5`, `10`, and `25`, then `50` for stretch testing
+- if a run becomes impossible during testing, admins should abort it with `rift abort [runId]` instead of forcing a relog loop
 
 ## Session Safety and Cleanup Behavior
 

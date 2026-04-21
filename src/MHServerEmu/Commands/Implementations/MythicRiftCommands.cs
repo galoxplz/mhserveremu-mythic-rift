@@ -240,7 +240,7 @@ namespace MHServerEmu.Commands.Implementations
             MythicRiftDifficultySnapshot snapshot = MythicRiftScaling.BuildSnapshot(riftLevel, requestedPlayers);
 
             return string.Create(CultureInfo.InvariantCulture,
-                $"Rift level {snapshot.RiftLevel} | requested players={requestedPlayers} | effective players={snapshot.EffectivePlayerCount} | HP x{snapshot.HealthMultiplier:F3} | damage x{snapshot.DamageMultiplier:F3}");
+                $"Rift level {snapshot.RiftLevel} | requested players={requestedPlayers} | effective players={snapshot.EffectivePlayerCount} | d3EquivalentLevel={snapshot.EquivalentD3RiftLevel:F2} | groupHealth x{snapshot.GroupHealthMultiplier:F3} | HP x{snapshot.HealthMultiplier:F3} | damage x{snapshot.DamageMultiplier:F3}");
         }
 
         [Command("access")]
@@ -1444,7 +1444,7 @@ namespace MHServerEmu.Commands.Implementations
                 $"bossSource={runState.Config.BossContent?.DisplayName ?? "n/a"} ({runState.Config.BossContent?.Id ?? "n/a"}) | regionScalingApplied={runState.RegionDifficultyScalingApplied}",
                 $"level={runState.Config.RiftLevel} | requestedPlayers={runState.Config.RequestedPlayerCount} | effectivePlayers={runState.Config.EffectivePlayerCount}",
                 $"killQuota={runState.CurrentKillCount}/{runState.Config.KillQuota} | bossUnlocked={runState.BossUnlocked} | rewardsGranted={runState.RewardsGranted}",
-                $"timeLimit={runState.Config.TimeLimit.TotalMinutes:0} min | remaining={runState.GetTimeRemaining(currentTime).TotalMinutes:0.##} min | HP x{runState.Config.Difficulty.HealthMultiplier:F3} | damage x{runState.Config.Difficulty.DamageMultiplier:F3}",
+                $"timeLimit={runState.Config.TimeLimit.TotalMinutes:0} min | remaining={runState.GetTimeRemaining(currentTime).TotalMinutes:0.##} min | d3EquivalentLevel={runState.Config.Difficulty.EquivalentD3RiftLevel:F2} | groupHealth x{runState.Config.Difficulty.GroupHealthMultiplier:F3} | HP x{runState.Config.Difficulty.HealthMultiplier:F3} | damage x{runState.Config.Difficulty.DamageMultiplier:F3}",
                 $"regionId=0x{runState.RegionId:X} | bossEntityId=0x{runState.BossEntityId:X}",
                 $"participants={runState.ParticipantCount} | rewardedPlayers={runState.RewardedPlayerCount}",
                 $"competitiveEligibility=bossUnlock:{runState.BossUnlockEligiblePlayerDbIds.Count} | bossKill:{runState.ProgressionEligiblePlayerDbIds.Count}",
