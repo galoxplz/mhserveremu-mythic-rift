@@ -1,11 +1,16 @@
 using System.Globalization;
 using MHServerEmu.Commands.Attributes;
+using MHServerEmu.Core.Memory;
 using MHServerEmu.Core.Network;
 using MHServerEmu.DatabaseAccess.Models;
 using MHServerEmu.Games;
 using MHServerEmu.Games.Entities;
+using MHServerEmu.Games.Entities.Avatars;
+using MHServerEmu.Games.Entities.Inventories;
+using MHServerEmu.Games.Entities.Items;
 using MHServerEmu.Games.GameData;
 using MHServerEmu.Games.GameData.Prototypes;
+using MHServerEmu.Games.Loot;
 using MHServerEmu.Games.MythicRifts;
 using MHServerEmu.Games.Network;
 using MHServerEmu.Games.Regions;
@@ -723,7 +728,7 @@ namespace MHServerEmu.Commands.Implementations
         }
 
         [Command("requestportal")]
-        [CommandDescription("Requests a random Mythic Rift run through the officially chosen Cosmic Rift launcher base built on PortalToRandomDungeon.")]
+        [CommandDescription("Requests a random Mythic Rift run through the current chosen Cosmic Rift launcher base.")]
         [CommandUsage("rift requestportal [level] [minutes]")]
         [CommandUserLevel(AccountUserLevel.Admin)]
         [CommandInvokerType(CommandInvokerType.Client)]
@@ -745,7 +750,7 @@ namespace MHServerEmu.Commands.Implementations
             MythicRiftEntryResult result = game.MythicRiftEntryService.RequestRun(player, new MythicRiftEntryRequest
             {
                 EntryPointId = MythicRiftEntryService.PortalToRandomDungeonEntryPointId,
-                LauncherItemPrototypeName = "PortalToRandomDungeon",
+                LauncherItemPrototypeName = MythicRiftLauncherService.CosmicRiftBeaconPrototypeName,
                 RiftLevel = riftLevel,
                 TimeLimit = TimeSpan.FromMinutes(timeLimitMinutes)
             });
@@ -756,7 +761,7 @@ namespace MHServerEmu.Commands.Implementations
             MythicRiftRunState runState = result.RunState;
             List<string> lines = BuildRunLines(runState, game.CurrentTime, includeResolvedRefs: true);
             lines.InsertRange(0, BuildLaunchPlanLines(result.LaunchPlan));
-            lines.Insert(0, "Requested through official Cosmic Rift launcher base: PortalToRandomDungeon.");
+            lines.Insert(0, $"Requested through official Cosmic Rift launcher base: {MythicRiftLauncherService.CosmicRiftBeaconPrototypeName}.");
             CommandHelper.SendMessages(client, lines);
             return string.Empty;
         }
@@ -937,6 +942,146 @@ namespace MHServerEmu.Commands.Implementations
                     lines.Add($"lastArmedLaunchTeleportError={lastResult.TeleportErrorMessage}");
             }
 
+            CommandHelper.SendMessages(client, lines);
+            return string.Empty;
+        }
+
+        [Command("diagbeacon")]
+        [CommandDescription("Runs a server-side self-check for the current Cosmic Rift Beacon flow without requiring an actual client click. It validates prototype resolution, vendor item spec creation, temporary owned item usability, launcher recognition, and Rift request conversion, then cleans up the temporary run and item.")]
+        [CommandUsage("rift diagbeacon [level] [minutes]")]
+        [CommandUserLevel(AccountUserLevel.Admin)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        [CommandParamCount(2)]
+        public string DiagBeacon(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            Player player = playerConnection?.Player;
+            Avatar avatar = player?.CurrentAvatar;
+            if (game == null || player == null || avatar == null)
+                return "Game, player, or avatar not found.";
+
+            if (TryParsePositiveInt(@params[0], out int riftLevel) == false)
+                return "Invalid rift level.";
+
+            if (TryParsePositiveInt(@params[1], out int timeLimitMinutes) == false)
+                return "Invalid time limit.";
+
+            List<string> lines = new();
+            string chosenPrototypeName = MythicRiftLauncherService.CosmicRiftBeaconPrototypeName;
+            PrototypeId itemProtoRef = GameDatabase.GetPrototypeRefByName(chosenPrototypeName);
+            ItemPrototype itemProto = itemProtoRef.As<ItemPrototype>();
+            MythicRiftLauncherItemCandidate candidate = game.MythicRiftEntryService.LauncherItemCandidates
+                .FirstOrDefault(entry => string.Equals(entry.PrototypeName, chosenPrototypeName, StringComparison.OrdinalIgnoreCase));
+
+            lines.Add($"chosenBeaconPrototype={chosenPrototypeName} | legacyFallback={MythicRiftLauncherService.LegacyCosmicRiftBeaconPrototypeName}");
+            lines.Add($"prototypeResolved={(itemProtoRef != PrototypeId.Invalid)} | candidateRegistered={(candidate != null)} | candidateRecommendation={candidate?.Recommendation ?? "missing"}");
+
+            if (itemProto == null)
+            {
+                lines.Add("diagResult=failed | reason=item prototype could not be resolved from game data");
+                CommandHelper.SendMessages(client, lines);
+                return string.Empty;
+            }
+
+            lines.Add($"approvedForUse={itemProto.ApprovedForUse()} | liveTuningEnabled={itemProto.IsLiveTuningEnabled()} | vendorEnabled={itemProto.IsLiveTuningVendorEnabled()}");
+            lines.Add($"isUsable={itemProto.IsUsable} | destinationFromVendor={itemProto.DestinationFromVendor} | onUsePower={itemProto.GetOnUsePower().GetNameFormatted()} | nativePortalTarget={itemProto.GetPortalTarget().GetNameFormatted()}");
+
+            ItemSpec itemSpec = game.LootManager.CreateItemSpec(itemProtoRef, LootContext.Vendor, player);
+            lines.Add($"vendorItemSpecCreated={(itemSpec != null)}");
+            if (itemSpec == null)
+            {
+                lines.Add("diagResult=failed | reason=CreateItemSpec(Vendor) returned null");
+                CommandHelper.SendMessages(client, lines);
+                return string.Empty;
+            }
+
+            Inventory inventory = player.GetInventory(itemProto.DestinationFromVendor);
+            if (inventory == null)
+            {
+                lines.Add("diagResult=failed | reason=destination inventory could not be resolved for the beacon item");
+                CommandHelper.SendMessages(client, lines);
+                return string.Empty;
+            }
+
+            uint slot = inventory.GetFreeSlot(null, true);
+            if (slot == Inventory.InvalidSlot)
+            {
+                lines.Add($"diagResult=failed | reason=no free slot in destination inventory {inventory.PrototypeDataRef.GetNameFormatted()}");
+                CommandHelper.SendMessages(client, lines);
+                return string.Empty;
+            }
+
+            Item tempItem = null;
+            ulong tempRunId = 0;
+            bool tempRunRemoved = false;
+            bool trackedBeaconForgotten = false;
+
+            try
+            {
+                using EntitySettings settings = ObjectPoolManager.Instance.Get<EntitySettings>();
+                settings.EntityRef = itemProtoRef;
+                settings.ItemSpec = itemSpec;
+                settings.InventoryLocation = new(player.Id, inventory.PrototypeDataRef, slot);
+
+                if (player.IsInGame == false)
+                    settings.OptionFlags &= ~EntitySettingsOptionFlags.EnterGame;
+
+                tempItem = game.EntityManager.CreateEntity(settings) as Item;
+                lines.Add($"temporaryOwnedItemCreated={(tempItem != null)} | destinationInventory={inventory.PrototypeDataRef.GetNameFormatted()}");
+                if (tempItem == null)
+                {
+                    lines.Add("diagResult=failed | reason=temporary owned beacon instance could not be created");
+                    CommandHelper.SendMessages(client, lines);
+                    return string.Empty;
+                }
+
+                bool itemCanUse = tempItem.CanUse(avatar);
+                bool chosenPrototypeRecognized = game.MythicRiftLauncherService.IsChosenBeaconPrototype(tempItem.PrototypeDataRef);
+                bool trackedRegistration = game.MythicRiftLauncherService.TryRegisterTrackedBeaconItem(player, tempItem);
+                int trackedChargesAfterRegistration = game.MythicRiftLauncherService.GetTotalTrackedBeaconCharges(player.DatabaseUniqueId);
+
+                lines.Add($"temporaryOwnedItemId={tempItem.Id} | currentStack={tempItem.CurrentStackSize} | canUse={itemCanUse} | chosenPrototypeRecognized={chosenPrototypeRecognized}");
+                lines.Add($"trackedRegistration={trackedRegistration} | trackedChargesAfterRegistration={trackedChargesAfterRegistration}");
+
+                MythicRiftLauncherUseResult useResult = game.MythicRiftLauncherService.TryRequestRunFromItem(
+                    player,
+                    tempItem,
+                    riftLevel,
+                    TimeSpan.FromMinutes(timeLimitMinutes));
+
+                lines.Add($"requestFromOwnedItemSuccess={useResult.Success} | level={riftLevel} | timeLimit={timeLimitMinutes} min | requestError={useResult.ErrorMessage ?? string.Empty}");
+
+                if (useResult.EntryResult?.LaunchPlan != null)
+                    lines.AddRange(BuildLaunchPlanLines(useResult.EntryResult.LaunchPlan));
+
+                MythicRiftRunState runState = useResult.EntryResult?.RunState;
+                if (runState != null)
+                {
+                    tempRunId = runState.Config.RunId;
+                    lines.AddRange(BuildRunLines(runState, game.CurrentTime, includeResolvedRefs: true));
+                }
+
+                if (tempRunId != 0)
+                {
+                    tempRunRemoved = game.MythicRiftManager.RemoveRun(tempRunId);
+                    lines.Add($"temporaryRunRemoved={tempRunRemoved} | runId={tempRunId}");
+                }
+
+                lines.Add(useResult.Success
+                    ? "diagResult=ok | server-side beacon flow reached temporary owned item request conversion successfully"
+                    : "diagResult=failed | server-side beacon flow broke during temporary owned item request conversion");
+            }
+            finally
+            {
+                if (tempItem != null)
+                {
+                    trackedBeaconForgotten = game.MythicRiftLauncherService.ForgetTrackedBeaconItem(player.DatabaseUniqueId, tempItem.Id);
+                    tempItem.Destroy();
+                }
+            }
+
+            lines.Add($"temporaryItemDestroyed={(tempItem != null)} | trackedBeaconForgotten={trackedBeaconForgotten}");
             CommandHelper.SendMessages(client, lines);
             return string.Empty;
         }

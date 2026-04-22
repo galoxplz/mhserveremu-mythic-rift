@@ -10,13 +10,15 @@ Current player-facing identity:
 
 Current technical base:
 
-- `PortalToRandomDungeon`
+- `PortalToRandomMaxAffixDungeon`
 
 ## Current Testing Assumptions
 
 - no manual client patch is required for the current server-side test flow
 - the beacon can now be obtained either from a Danger Room hub vendor or from a server grant command
-- the actual item still uses the game's existing `PortalToRandomDungeon` prototype as its technical base
+- the actual item now prefers the game's `PortalToRandomMaxAffixDungeon` prototype as its technical base
+- `PortalToRandomDungeon` remains accepted as a legacy compatibility fallback for older test flows
+- because both prototypes appear to be `DesignState: DevelopmentOnly`, TAHITI should patch the chosen live test item to `DesignState=Live`
 - the current prototype remains admin-oriented while the final player entry flow is still being refined
 
 ## Preferred No-Admin Vendor Test
@@ -25,13 +27,14 @@ Use this when you want to validate the newest server-only player flow with no ad
 
 1. Move a character to the `Danger Room` hub.
 2. Open a vendor there.
-3. Confirm that the vendor now offers one injected `PortalToRandomDungeon`-based launcher entry for this player.
+3. Confirm that the vendor now offers one injected `PortalToRandomMaxAffixDungeon`-based launcher entry for this player.
 4. Buy the item from that vendor.
 5. Use the purchased item in-game.
 6. Inspect the launcher state and active run:
 
 ```text
 rift beaconmode
+rift diagbeacon 1 10
 rift runs
 rift run [runId]
 ```
@@ -42,10 +45,10 @@ Expected result:
 - the current seller pass is intentionally scoped to `Danger Room` hub vendors rather than a single hard-locked NPC
 - this keeps the implementation server-only and easy for TAHITI to iterate before they choose the permanent seller
 - after purchase, the item should launch through the Mythic Rift path exactly like a server-granted beacon
-- the purchased launcher is now intercepted at top-level item use, so vendor-bought `PortalToRandomDungeon` variants do not need to rely on reaching the exact `UsePower` branch before Rift launch begins
-- the same vendor purchase flow now also recognizes `PortalToRandomDungeon` stock added through TAHITI patcher files, not only items injected by the server-side seller pass
-- the same compatibility path now also accepts `PortalToRandomMaxAffixDungeon` if TAHITI decides to test that alternative launcher base through patcher-delivered vendor stock
+- the purchased launcher is now intercepted at top-level item use, so vendor-bought `PortalToRandomMaxAffixDungeon` variants do not need to rely on reaching the exact `UsePower` branch before Rift launch begins
+- the same vendor purchase flow still recognizes legacy `PortalToRandomDungeon` stock added through TAHITI patcher files, not only items injected by the server-side seller pass
 - once the final seller is chosen, this region-scoped seller pass can be narrowed to that specific vendor with a small follow-up patch
+- `rift diagbeacon 1 10` can now be used as a server-side self-check before live clicking the item, to verify prototype resolution, vendor item spec creation, temporary owned-item usability, launcher recognition, and Rift request conversion without depending on a successful client click
 
 ## Preferred Direct Beacon Test
 
@@ -70,7 +73,7 @@ rift validatecontent
 rift beaconmode
 ```
 
-4. Use the granted `PortalToRandomDungeon` item in-game.
+4. Use the granted `PortalToRandomMaxAffixDungeon` item in-game.
 
 5. Inspect the launcher state and active run:
 
@@ -84,6 +87,7 @@ Expected result:
 
 - the granted beacon item itself creates the Rift run directly on use
 - `rift beaconmode` should report at least `trackedCosmicRiftBeaconCharges=1` before use
+- `rift diagbeacon 1 10` should report `diagResult=ok` before the live in-game click if the current server-side beacon setup is healthy
 - `rift beaconmode` should report `teleportAttempted=true`
 - `rift beaconmode` should report `teleportSucceeded=true`
 - `rift beaconmode` should report the created `runId`, selected `content`, `region`, and `entryTarget`
@@ -93,10 +97,10 @@ Expected result:
 - when the pool allows it, the random `bossSource` now avoids matching the selected map entry so admins can validate true map/boss mixing more easily
 - `rift run [runId]` should show `regionScalingApplied=true` once the run is bound to the live region
 - the tracked beacon charge should go down after a successful use
-- beacon interception should still work even if the live server stacks or reuses `PortalToRandomDungeon` item instances differently than the local dev environment
-- once Mythic Rift has intercepted the click, the item should no longer fall through into the normal Danger Room scenario result for that same use
+- beacon interception should still work even if the live server stacks or reuses `PortalToRandomMaxAffixDungeon` item instances differently than the local dev environment
+- once Mythic Rift has intercepted the click, the item should no longer fall through into any normal scenario result for that same use
 - for competitive progression, only players who were inside the Rift at boss unlock and still inside the Rift at boss death should unlock the next difficulty
-- the default `PortalToRandomDungeon` / Danger Room behavior is not changed globally for non-beacon use
+- legacy `PortalToRandomDungeon` / Danger Room behavior is not changed globally for non-beacon use
 - the run should emit in-game custom system messages when it starts, when the boss is unlocked, and when it completes or fails
 - the beacon use itself should also emit an immediate in-game confirmation showing the selected map, boss, level, timer, and teleport result
 - if the direct launch cannot enter the selected Rift terminal, the created pending run should now abort instead of staying stuck indefinitely
@@ -147,7 +151,7 @@ rift beaconmode
 
 Then:
 
-1. Use the granted `PortalToRandomDungeon` item in-game.
+1. Use the granted `PortalToRandomMaxAffixDungeon` item in-game.
 2. Inspect the result:
 
 ```text
@@ -180,7 +184,7 @@ Important:
 rift prepbeacon 1 1
 ```
 
-2. Use the granted `PortalToRandomDungeon` item in-game.
+2. Use the granted `PortalToRandomMaxAffixDungeon` item in-game.
 
 3. Confirm that the launcher intent was captured:
 

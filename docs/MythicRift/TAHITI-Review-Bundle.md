@@ -14,7 +14,7 @@ Current launcher identity:
 
 Current technical launcher base:
 
-- `PortalToRandomDungeon`
+- `PortalToRandomMaxAffixDungeon`
 
 ## Why It Should Be Easy To Review
 
@@ -26,7 +26,7 @@ Current technical launcher base:
 
 ## What Already Works
 
-- direct beacon use in-game from a server-granted `PortalToRandomDungeon`
+- direct beacon use in-game from a server-granted `PortalToRandomMaxAffixDungeon`
 - random or fixed terminal selection from the V1 pool
 - random terminal map plus separately selected random boss source
 - safe launcher interception so a successful Rift click no longer falls through into the normal Danger Room scenario path
@@ -76,7 +76,7 @@ rift beacon
 rift validatecontent
 ```
 
-Buy the injected launcher from a `Danger Room` hub vendor, or use a granted `PortalToRandomDungeon` item in-game, then:
+Buy the injected launcher from a `Danger Room` hub vendor, or use a granted `PortalToRandomMaxAffixDungeon` item in-game, then:
 
 ```text
 rift beaconmode

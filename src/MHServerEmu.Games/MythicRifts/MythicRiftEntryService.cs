@@ -173,9 +173,9 @@ namespace MHServerEmu.Games.MythicRifts
                 AllowsFixedContentSelection = false,
                 IsPatcherFriendly = true,
                 LaunchModel = "consumable-portal",
-                CandidateItemPrototypeName = "PortalToRandomDungeon",
+                CandidateItemPrototypeName = MythicRiftLauncherService.CosmicRiftBeaconPrototypeName,
                 CandidateTransitionPrototypeName = "CowLevelTransition",
-                Notes = "Official current direction for the feature: Cosmic Rift uses PortalToRandomDungeon as its technical launcher base, with a private direct portal flow inspired by Bovineheim/Cow Level and a future player-facing identity such as Cosmic Rift Beacon."
+                Notes = "Official current direction for the feature: Cosmic Rift uses PortalToRandomMaxAffixDungeon as its preferred technical launcher base, keeps PortalToRandomDungeon as a compatibility fallback, and still follows a private direct portal flow inspired by Bovineheim/Cow Level."
             });
         }
 
@@ -183,28 +183,28 @@ namespace MHServerEmu.Games.MythicRifts
         {
             RegisterLauncherItemCandidate(new MythicRiftLauncherItemCandidate
             {
-                PrototypeName = "PortalToRandomDungeon",
+                PrototypeName = MythicRiftLauncherService.CosmicRiftBeaconPrototypeName,
                 DisplayName = "Cosmic Rift Beacon Base",
-                SourceFamily = "DangerRoom / RandomDungeon",
-                IsLikelyUnusedOrLowRisk = false,
-                IsShopLinked = false,
-                SupportsRandomThemeIdentity = true,
-                PatcherFriendly = true,
-                Recommendation = "chosen",
-                Notes = "Official chosen launcher base for the project. It already fits random content, avoids Bovineheim shop flavor, and is the cleanest path toward a future Cosmic Rift Beacon item delivered through the Patcher."
-            });
-
-            RegisterLauncherItemCandidate(new MythicRiftLauncherItemCandidate
-            {
-                PrototypeName = "PortalToRandomMaxAffixDungeon",
-                DisplayName = "Portal To Random Max Affix Dungeon",
                 SourceFamily = "DangerRoom / RandomDungeon",
                 IsLikelyUnusedOrLowRisk = true,
                 IsShopLinked = false,
                 SupportsRandomThemeIdentity = true,
                 PatcherFriendly = true,
-                Recommendation = "strong-fallback",
-                Notes = "Promising alternative identified during TAHITI review. It appears unreferenced in game data, still matches the random-dungeon identity well, and may be a cleaner long-term base than PortalToRandomDungeon if TAHITI decides to patch around its DevelopmentOnly state."
+                Recommendation = "chosen",
+                Notes = "Official chosen launcher base for the project. It matches the random-dungeon identity, appears unreferenced in normal gameplay, and should be the safest long-term item base once TAHITI patches its DesignState to Live."
+            });
+
+            RegisterLauncherItemCandidate(new MythicRiftLauncherItemCandidate
+            {
+                PrototypeName = MythicRiftLauncherService.LegacyCosmicRiftBeaconPrototypeName,
+                DisplayName = "Legacy Danger Room Portal Base",
+                SourceFamily = "DangerRoom / RandomDungeon",
+                IsLikelyUnusedOrLowRisk = false,
+                IsShopLinked = false,
+                SupportsRandomThemeIdentity = true,
+                PatcherFriendly = true,
+                Recommendation = "compatibility",
+                Notes = "Kept as a compatibility fallback because earlier prototype work and some Danger Room testing already used it. Mythic Rift still recognizes it, but the preferred long-term launcher base is PortalToRandomMaxAffixDungeon so normal Danger Room behavior stays easier to isolate."
             });
 
             RegisterLauncherItemCandidate(new MythicRiftLauncherItemCandidate

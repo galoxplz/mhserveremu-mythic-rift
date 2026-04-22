@@ -18,13 +18,14 @@ namespace MHServerEmu.Games.MythicRifts
     public sealed class MythicRiftLauncherService
     {
         public const string CosmicRiftBeaconDisplayName = "Cosmic Rift Beacon";
-        public const string CosmicRiftBeaconPrototypeName = "PortalToRandomDungeon";
-        public const string AlternateCosmicRiftBeaconPrototypeName = "PortalToRandomMaxAffixDungeon";
+        public const string PreferredCosmicRiftBeaconPrototypeName = "PortalToRandomMaxAffixDungeon";
+        public const string LegacyCosmicRiftBeaconPrototypeName = "PortalToRandomDungeon";
+        public const string CosmicRiftBeaconPrototypeName = PreferredCosmicRiftBeaconPrototypeName;
         public static readonly TimeSpan DefaultLauncherTimeLimit = TimeSpan.FromMinutes(10);
         private static readonly string[] SupportedCosmicRiftBeaconPrototypeNames =
         {
             CosmicRiftBeaconPrototypeName,
-            AlternateCosmicRiftBeaconPrototypeName
+            LegacyCosmicRiftBeaconPrototypeName
         };
         private readonly Dictionary<string, string> _candidateToEntryPointId = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<ulong, MythicRiftLauncherIntent> _pendingIntentsByPlayerDbId = new();
@@ -177,6 +178,21 @@ namespace MHServerEmu.Games.MythicRifts
                 return 0;
 
             return chargesByItemId.Values.Sum(value => Math.Max(value, 0));
+        }
+
+        public bool ForgetTrackedBeaconItem(ulong playerDbId, ulong itemEntityId)
+        {
+            if (playerDbId == 0 || itemEntityId == Entity.InvalidId)
+                return false;
+
+            if (_trackedBeaconChargesByPlayerDbId.TryGetValue(playerDbId, out Dictionary<ulong, int> chargesByItemId) == false)
+                return false;
+
+            bool removed = chargesByItemId.Remove(itemEntityId);
+            if (removed && chargesByItemId.Count == 0)
+                _trackedBeaconChargesByPlayerDbId.Remove(playerDbId);
+
+            return removed;
         }
 
         public bool TryRegisterTrackedBeaconItem(Player player, Item item)
@@ -701,8 +717,8 @@ namespace MHServerEmu.Games.MythicRifts
 
         private void RegisterDefaultMappings()
         {
-            RegisterCandidateMapping("PortalToRandomDungeon", MythicRiftEntryService.PortalToRandomDungeonEntryPointId);
-            RegisterCandidateMapping("PortalToRandomMaxAffixDungeon", MythicRiftEntryService.PortalToRandomDungeonEntryPointId);
+            RegisterCandidateMapping(CosmicRiftBeaconPrototypeName, MythicRiftEntryService.PortalToRandomDungeonEntryPointId);
+            RegisterCandidateMapping(LegacyCosmicRiftBeaconPrototypeName, MythicRiftEntryService.PortalToRandomDungeonEntryPointId);
             RegisterCandidateMapping("PortalToCowLevelOneTimeUse", MythicRiftEntryService.PortalToRandomDungeonEntryPointId);
             RegisterCandidateMapping("PortalToCowLevel", MythicRiftEntryService.PortalToRandomDungeonEntryPointId);
         }

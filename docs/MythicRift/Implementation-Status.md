@@ -14,7 +14,7 @@
 - The server build is stable again as long as bin/obj outputs are redirected to a writable folder outside the repo.
 - A dedicated server-side entry layer now exists to prepare a future player-facing entry point without assuming a specific clickable object yet.
 - Logical entry points can now be registered server-side even though no concrete in-game launcher has been chosen yet.
-- A more concrete TAHITI-friendly direction now exists: a consumable portal launcher modeled after `PortalToRandomDungeon`, reusing a private direct-portal flow similar to Bovineheim/Cow Level.
+- A more concrete TAHITI-friendly direction now exists: a consumable portal launcher modeled after `PortalToRandomMaxAffixDungeon`, while still keeping `PortalToRandomDungeon` as a compatibility fallback, and reusing a private direct-portal flow similar to Bovineheim/Cow Level.
 - Random Rift runs now decouple the selected terminal map from the selected boss source, so the current prototype can produce a random dungeon with a different random terminal boss.
 
 ## Main Files
@@ -91,13 +91,13 @@
 - track the specific granted `Cosmic Rift Beacon` item instances server-side
 - let tracked beacon instances launch a Rift directly on use, without needing a prior intent-consume step
 - allow tracked beacon launches to fall back to player-level tracked charges when inventory stacking or item instance ids differ on the live server
-- suppress the native `PortalToRandomDungeon` / Danger Room `OnUse` continuation whenever Mythic Rift has explicitly intercepted that item use
+- suppress the native scenario continuation whenever Mythic Rift has explicitly intercepted a compatible beacon item use
 - consume the actual launcher stack only after the Mythic Rift launch has been committed cleanly, so a failed interception no longer leaks back into the native scenario flow
 - keep tracked beacon charges and scoped beacon overrides intact if the Rift launch fails before the teleport step is committed
 - make `rift itemintent` explicitly point admins to `rift beaconmode` when the direct beacon path has already intercepted the item use and no legacy intent is pending
-- support a scoped per-player beacon override so the next valid `PortalToRandomDungeon` use can create a Rift directly
+- support a scoped per-player beacon override so the next valid chosen beacon use can create a Rift directly
 - support a scoped per-player fixed-content beacon override so a specific V1 terminal can be validated without random selection
-- keep normal `PortalToRandomDungeon` / Danger Room behavior intact unless that scoped override is explicitly armed first
+- keep normal legacy `PortalToRandomDungeon` / Danger Room behavior intact unless that scoped override is explicitly armed first
 - attempt to teleport the player to the selected Rift region start target immediately after a successful armed beacon launch
 - abort a newly created run immediately if the direct beacon launch cannot resolve or reach a valid Rift start target
 - auto-bind pending runs against equivalent terminal region variants, not just exact prototype matches
@@ -139,23 +139,23 @@
   - run request commands now go through a dedicated server-side entry service, which will make it easier to connect a future capital-hub launcher or patcher-compatible interactable
   - a logical entry point concept already exists with working placeholders such as `default` and `capital-hub`
   - an additional logical entry point now exists for a future `consumable-portal` launcher
-  - this working direction currently uses `PortalToRandomDungeon` as the best candidate for a simple-to-obtain launcher item
+  - this working direction now prefers `PortalToRandomMaxAffixDungeon` as the safest launcher item base for isolated Rift behavior
   - that launcher is intentionally random-only, which matches the GRIFT concept well
   - a server-side `launch plan` concept now exists as well, so the future consumable flow can already describe the expected item, private portal, launch model, and patcher compatibility before the final game-file implementation is chosen
   - an initial shortlist of launcher item candidates is now registered server-side so the item research done in extracted game data remains visible inside the project itself
   - current recommendation:
-    - `PortalToRandomDungeon` as the officially chosen base
-    - `PortalToRandomMaxAffixDungeon` as the strongest newly identified alternative from TAHITI review
+    - `PortalToRandomMaxAffixDungeon` as the officially chosen base
+    - `PortalToRandomDungeon` as the legacy compatibility fallback from earlier Danger Room-based testing
     - `PortalToCowLevelOneTimeUse` as the best technical fallback
     - `PortalToBovineheim` mainly as a behavior reference rather than a final product-facing choice
     - `DevOnly` / `Test` / `Unused` items are real leads in the data, but are currently treated as research candidates, not final production choices
   - important note from MonEll's Calligraphy review:
-    - `PortalToRandomDungeon` is marked `DesignState: DevelopmentOnly`
     - `PortalToRandomMaxAffixDungeon` also appears to be `DevelopmentOnly`
+    - `PortalToRandomDungeon` is also marked `DesignState: DevelopmentOnly`
     - the codebase-wide approval threshold is currently `Live`, so neither prototype is ideal as a final long-term launcher without TAHITI-side patching or an approved substitute
-    - `PortalToRandomMaxAffixDungeon` still looks attractive because MonEll reports that it is not referenced anywhere else, which lowers the risk of colliding with an existing live gameplay path
+    - `PortalToRandomMaxAffixDungeon` is now treated as the preferred base because MonEll reports that it is not referenced anywhere else, which lowers the risk of colliding with an existing live gameplay path
   - current implemented seller pass for no-client-patch testing:
-    - interacting with a vendor inside the `Danger Room` hub now injects one `PortalToRandomDungeon`-based `Cosmic Rift Beacon` into that player's vendor stock
+    - interacting with a vendor inside the `Danger Room` hub now injects one `PortalToRandomMaxAffixDungeon`-based `Cosmic Rift Beacon` into that player's vendor stock
     - the goal is to remove the admin-only item grant dependency before the final NPC choice is locked with TAHITI
     - this is intentionally region-scoped for now, because it is safer than hard-coding a guessed vendor prototype name before live validation
   - preferred final narrowing after TAHITI confirms the target NPC:
@@ -198,7 +198,7 @@ Current practical launcher stage
 - A first server-side seller pass now exists as well:
   - a player can open a vendor inside the `Danger Room` hub, buy the injected beacon, and test the Rift flow without an admin grant command
   - the final seller can still be narrowed later once TAHITI confirms which vendor should own the feature permanently
-- Vendor-bought beacons are now intercepted from top-level item use as well, so `PortalToRandomDungeon` variants that do not reliably fall through the same `UsePower` path still route into Mythic Rift correctly.
+- Vendor-bought beacons are now intercepted from top-level item use as well, so both the chosen `PortalToRandomMaxAffixDungeon` base and the legacy `PortalToRandomDungeon` compatibility base still route into Mythic Rift correctly.
 - Important constraint:
   - this direct behavior is scoped to tracked beacon instances granted by the server
   - normal non-beacon `PortalToRandomDungeon` / Danger Room behavior must remain unchanged
@@ -237,7 +237,7 @@ Current practical launcher stage
 - It introduces no database migration at this stage.
 - It is explicitly framed to avoid dependence on a manual client patch.
 - If game files are needed later, they should ideally be deployable through the Patcher.
-- The current preferred player-facing direction is now an item-driven portal flow based on `PortalToRandomDungeon`, because it looks easier to integrate cleanly than a shop-gated Bovineheim-specific item.
+- The current preferred player-facing direction is now an item-driven portal flow based on `PortalToRandomMaxAffixDungeon`, with `PortalToRandomDungeon` retained only as a compatibility path, because that should isolate the Rift launcher more cleanly than a shop-gated Bovineheim-specific item.
 
 ## Build / SDK Note
 
