@@ -60,6 +60,11 @@ namespace MHServerEmu.Games.MythicRifts
                 string.Equals(candidate.PrototypeName, CosmicRiftBeaconPrototypeName, StringComparison.OrdinalIgnoreCase));
         }
 
+        public bool IsChosenBeaconPrototype(PrototypeId prototypeRef)
+        {
+            return PrototypeNameMatches(prototypeRef, CosmicRiftBeaconPrototypeName);
+        }
+
         public MythicRiftLauncherIntent RegisterLauncherItemUse(Player player, Item item)
         {
             if (player == null || item == null)
@@ -167,7 +172,7 @@ namespace MHServerEmu.Games.MythicRifts
             if (player == null || item == null)
                 return false;
 
-            if (PrototypeNameMatches(item.PrototypeDataRef, CosmicRiftBeaconPrototypeName) == false)
+            if (IsChosenBeaconPrototype(item.PrototypeDataRef) == false)
                 return false;
 
             AddTrackedBeaconCharges(player.DatabaseUniqueId, item.Id, Math.Max(item.CurrentStackSize, 1));

@@ -1081,6 +1081,8 @@ namespace MHServerEmu.Games.Entities
             if (Game.MythicRiftLauncherService.TryRegisterTrackedBeaconItem(this, clonedItem) == false)
                 return Logger.WarnReturn(false, $"BuyMythicRiftVendorItem(): Failed to register purchased Rift beacon [{clonedItem}]");
 
+            Logger.Info($"[MythicRiftVendor] Registered purchased beacon playerDbId={DatabaseUniqueId} itemId={clonedItem.Id} prototype={clonedItem.PrototypeDataRef.GetNameFormatted()} totalTrackedCharges={Game.MythicRiftLauncherService.GetTotalTrackedBeaconCharges(DatabaseUniqueId)}");
+
             int count = clonedItem.CurrentStackSize;
             GetRegion()?.PlayerBoughtItemEvent.Invoke(new(this, clonedItem, count));
 
@@ -1203,12 +1205,16 @@ namespace MHServerEmu.Games.Entities
             if (item == null || vendor == null)
                 return false;
 
-            CleanupTrackedMythicRiftVendorItems();
-
-            if (_mythicRiftVendorItemIds.Contains(item.Id) == false)
+            if (ShouldInjectMythicRiftVendorStock(vendor) == false)
                 return false;
 
-            return ShouldInjectMythicRiftVendorStock(vendor);
+            // Accept both server-injected stock and patcher-added stock as long as the vendor is in the
+            // scoped Danger Room seller path and the sold prototype is the chosen Cosmic Rift beacon base.
+            if (Game.MythicRiftLauncherService.IsChosenBeaconPrototype(item.PrototypeDataRef))
+                return true;
+
+            CleanupTrackedMythicRiftVendorItems();
+            return _mythicRiftVendorItemIds.Contains(item.Id);
         }
 
         private void CleanupTrackedMythicRiftVendorItems()
