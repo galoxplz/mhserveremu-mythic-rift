@@ -14,7 +14,7 @@
 - The run is timed.
 - Progression is potentially infinite by level.
 - End rewards should reuse existing boss loot and world drops as much as possible, with SIF/RIF bonus on top.
-- The current preferred TAHITI-facing direction is now a `consumable item -> private portal -> Rift region` flow, using `PortalToRandomDungeon` as the best candidate object model and Bovineheim/Cow Level as the portal-flow reference.
+- The current preferred TAHITI-facing direction is now a `consumable item -> private portal -> Rift region` flow, using `PortalToRandomMaxAffixDungeon` as the preferred object model, keeping `PortalToRandomDungeon` only as a compatibility fallback, and using Bovineheim/Cow Level as the portal-flow reference.
 
 ## Architecture Principles
 
@@ -64,7 +64,7 @@
 ## Entry Point Note
 
 - The entry layer can now support logical launcher definitions such as `default`, `capital-hub`, or a future `consumable-portal` flow without assuming a specific clickable object yet.
-- The current preferred launcher candidate is a `PortalToRandomDungeon`-style consumable because it appears easier to integrate cleanly than a shop-gated Bovineheim-specific item.
+- The current preferred launcher candidate is now `PortalToRandomMaxAffixDungeon`, because it appears easier to isolate from normal gameplay than the older `PortalToRandomDungeon`-based path while still fitting the same random-dungeon consumable model.
 - The first implemented no-client-patch seller pass is now a server-scoped `Danger Room` hub vendor injection, so testers can buy the launcher without admin grant commands before the final NPC is locked.
 - The preferred final seller target after TAHITI confirms the exact NPC is still `DangerRoomScenarioVendor`.
 - `DangerRoomVendorWeaponMadisonJeffries` remains the best named-NPC fallback if TAHITI later wants stronger feature identity after the safer vendor-path rollout is validated.

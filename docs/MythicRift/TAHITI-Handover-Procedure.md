@@ -15,7 +15,7 @@ It is written for a technical reviewer such as MonEll who needs to understand:
 
 ## One-Sentence Summary
 
-This is a server-side endgame prototype inspired by Diablo 3 Greater Rifts, built on top of existing Marvel Heroes Omega terminal content, using `PortalToRandomDungeon` as the current technical launcher base and `Cosmic Rift Beacon` as the planned player-facing identity.
+This is a server-side endgame prototype inspired by Diablo 3 Greater Rifts, built on top of existing Marvel Heroes Omega terminal content, using `PortalToRandomMaxAffixDungeon` as the current preferred technical launcher base, keeping `PortalToRandomDungeon` as a compatibility fallback, and `Cosmic Rift Beacon` as the planned player-facing identity.
 
 ## Recommended Way To Present It
 
@@ -24,7 +24,7 @@ Suggested structure when introducing it:
 1. Explain that it is intentionally server-first.
 2. Explain that the current test flow does not require a manual client patch.
 3. Explain that it reuses existing terminal content rather than inventing a fully custom dungeon stack from scratch.
-4. Explain that the current launcher identity is `Cosmic Rift Beacon`, but the visible in-game item is still based on `PortalToRandomDungeon`.
+4. Explain that the current launcher identity is `Cosmic Rift Beacon`, but the visible in-game item is now preferably based on `PortalToRandomMaxAffixDungeon`, with `PortalToRandomDungeon` still supported as a legacy compatibility path.
 5. Explain that this is now a reviewable prototype milestone, not just a design concept.
 
 ## Suggested Intro Message
@@ -36,7 +36,7 @@ This branch contains the current reviewable prototype for Cosmic Rift, a Diablo 
 
 The implementation is intentionally server-first and localized. The current test flow does not require a manual client patch and can be exercised through server-side commands plus existing game behavior.
 
-The current launcher model uses PortalToRandomDungeon as the technical base, with Cosmic Rift Beacon as the intended player-facing identity later on.
+The current launcher model uses PortalToRandomMaxAffixDungeon as the preferred technical base, with PortalToRandomDungeon kept for compatibility and Cosmic Rift Beacon as the intended player-facing identity later on.
 
 At this stage, the prototype already supports timed runs, kill quota before boss unlock, boss completion, reward resolution, persistent Rift progression, chained higher-difficulty runs, server-side beacon granting, and basic group/session safety behavior.
 
@@ -84,9 +84,9 @@ Current implemented prototype behavior:
 - end reward resolution
 - timed success SIF/RIF bonus
 - server-side granting of the beacon item
-- direct beacon use in-game from a server-granted `PortalToRandomDungeon`
+- direct beacon use in-game from a server-granted `PortalToRandomMaxAffixDungeon`
 - random terminal map plus separately selected random boss source
-- safe interception of `PortalToRandomDungeon` so the Mythic Rift path no longer falls back into the normal Danger Room scenario behavior after a successful Rift launch
+- safe interception of the chosen beacon base so the Mythic Rift path no longer falls back into a normal scenario behavior after a successful Rift launch
 - safer chain-running from inside terminals because the random map picker now excludes the terminal region the requester / party is currently standing in
 - persistent unlocked Rift progression
 - chaining into higher Rift levels
@@ -148,7 +148,7 @@ Planned player-facing launcher name:
 
 Current technical launcher base:
 
-- `PortalToRandomDungeon`
+- `PortalToRandomMaxAffixDungeon`
 
 Current implemented seller path:
 
@@ -179,7 +179,7 @@ Current fallback seller for a more character-driven presentation:
 
 Important clarification:
 
-- the current test flow uses the existing `PortalToRandomDungeon` game item as the technical base
+- the current test flow prefers the existing `PortalToRandomMaxAffixDungeon` game item as the technical base
 - the newest server-side seller pass lets testers buy that launcher directly from a `Danger Room` hub vendor before any final NPC lock is chosen
 - if TAHITI later wants a cleaner visible in-game identity, that would likely be done as optional patcher-delivered game-file polish
 
@@ -200,7 +200,7 @@ rift beacon
 rift validatecontent
 ```
 
-3. Buy the injected launcher from a `Danger Room` hub vendor or use a granted `PortalToRandomDungeon` item in-game.
+3. Buy the injected launcher from a `Danger Room` hub vendor or use a granted `PortalToRandomMaxAffixDungeon` item in-game.
 
 4. Inspect the launched run:
 
