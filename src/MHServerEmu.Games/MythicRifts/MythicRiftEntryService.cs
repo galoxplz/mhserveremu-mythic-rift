@@ -80,12 +80,11 @@ namespace MHServerEmu.Games.MythicRifts
                 };
             }
 
-            if (request.HasLauncherItemPrototypeName && string.IsNullOrWhiteSpace(entryPoint.CandidateItemPrototypeName) == false
-                && string.Equals(request.LauncherItemPrototypeName, entryPoint.CandidateItemPrototypeName, StringComparison.OrdinalIgnoreCase) == false)
+            if (request.HasLauncherItemPrototypeName && entryPoint.AcceptsLauncherItemPrototypeName(request.LauncherItemPrototypeName) == false)
             {
                 return new MythicRiftEntryResult
                 {
-                    ErrorMessage = $"Entry point {entryPoint.DisplayName} expects launcher item {entryPoint.CandidateItemPrototypeName}."
+                    ErrorMessage = $"Entry point {entryPoint.DisplayName} expects launcher item {DescribeAcceptedLauncherItems(entryPoint)}."
                 };
             }
 
@@ -117,6 +116,12 @@ namespace MHServerEmu.Games.MythicRifts
             return _entryPoints.TryGetValue(entryPointId, out MythicRiftEntryPointDefinition entryPoint)
                 ? entryPoint
                 : null;
+        }
+
+        public bool EntryPointAcceptsLauncherItem(string entryPointId, string launcherItemPrototypeName)
+        {
+            MythicRiftEntryPointDefinition entryPoint = GetEntryPoint(entryPointId);
+            return entryPoint?.AcceptsLauncherItemPrototypeName(launcherItemPrototypeName) == true;
         }
 
         public MythicRiftPortalLaunchPlan BuildLaunchPlan(string entryPointId, MythicRiftEntryRequest request = null)
@@ -174,6 +179,11 @@ namespace MHServerEmu.Games.MythicRifts
                 IsPatcherFriendly = true,
                 LaunchModel = "consumable-portal",
                 CandidateItemPrototypeName = MythicRiftLauncherService.CosmicRiftBeaconPrototypeName,
+                AcceptedCandidateItemPrototypeNames = new[]
+                {
+                    MythicRiftLauncherService.CosmicRiftBeaconPrototypeName,
+                    MythicRiftLauncherService.LegacyCosmicRiftBeaconPrototypeName
+                },
                 CandidateTransitionPrototypeName = "CowLevelTransition",
                 Notes = "Official current direction for the feature: Cosmic Rift uses PortalToRandomMaxAffixDungeon as its preferred technical launcher base, keeps PortalToRandomDungeon as a compatibility fallback, and still follows a private direct portal flow inspired by Bovineheim/Cow Level."
             });
@@ -281,6 +291,20 @@ namespace MHServerEmu.Games.MythicRifts
                 IsPatcherFriendly = entryPoint.IsPatcherFriendly,
                 Notes = entryPoint.Notes
             };
+        }
+
+        private static string DescribeAcceptedLauncherItems(MythicRiftEntryPointDefinition entryPoint)
+        {
+            if (entryPoint == null)
+                return "n/a";
+
+            IReadOnlyList<string> acceptedCandidateItemPrototypeNames = entryPoint.AcceptedCandidateItemPrototypeNames;
+            if (acceptedCandidateItemPrototypeNames != null && acceptedCandidateItemPrototypeNames.Count > 0)
+                return string.Join(" or ", acceptedCandidateItemPrototypeNames);
+
+            return string.IsNullOrWhiteSpace(entryPoint.CandidateItemPrototypeName)
+                ? "n/a"
+                : entryPoint.CandidateItemPrototypeName;
         }
     }
 }

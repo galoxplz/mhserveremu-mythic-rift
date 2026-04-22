@@ -10,11 +10,13 @@ namespace MHServerEmu.Games.Tests.MythicRifts
         {
             MythicRiftEntryService entryService = new(null);
 
-            var entryPoint = entryService.GetEntryPoint(MythicRiftEntryService.PortalToRandomDungeonEntryPointId);
+            MythicRiftEntryPointDefinition entryPoint = entryService.GetEntryPoint(MythicRiftEntryService.PortalToRandomDungeonEntryPointId);
 
             Assert.NotNull(entryPoint);
             Assert.Equal(MythicRiftLauncherService.CosmicRiftBeaconPrototypeName, entryPoint.CandidateItemPrototypeName);
             Assert.Equal(MythicRiftLauncherService.PreferredCosmicRiftBeaconPrototypeName, entryPoint.CandidateItemPrototypeName);
+            Assert.True(entryPoint.AcceptsLauncherItemPrototypeName(MythicRiftLauncherService.CosmicRiftBeaconPrototypeName));
+            Assert.True(entryPoint.AcceptsLauncherItemPrototypeName(MythicRiftLauncherService.LegacyCosmicRiftBeaconPrototypeName));
         }
 
         [Fact]

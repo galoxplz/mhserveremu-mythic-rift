@@ -27,6 +27,7 @@ using MHServerEmu.Games.GameData.Prototypes;
 using MHServerEmu.Games.Leaderboards;
 using MHServerEmu.Games.MetaGames;
 using MHServerEmu.Games.MTXStore;
+using MHServerEmu.Games.MythicRifts;
 using MHServerEmu.Games.Navi;
 using MHServerEmu.Games.Powers;
 using MHServerEmu.Games.Properties;
@@ -869,6 +870,22 @@ namespace MHServerEmu.Games.Network
             if (avatar.IsInWorld == false) return true;
 
             PrototypeId powerProtoRef = (PrototypeId)tryActivatePower.PowerPrototypeId;
+
+            if (tryActivatePower.HasItemSourceId)
+            {
+                Item sourceItem = Game?.EntityManager?.GetEntity<Item>(tryActivatePower.ItemSourceId);
+                if (sourceItem != null && sourceItem.OnUsePower == powerProtoRef && sourceItem.CanUse(avatar))
+                {
+                    MythicRiftLauncherUseResult launcherUseResult = Game.MythicRiftLauncherService.TryHandleItemUse(Player, sourceItem, out bool interceptedItemUse);
+                    if (interceptedItemUse)
+                    {
+                        if (launcherUseResult?.Success == true && string.IsNullOrWhiteSpace(launcherUseResult.TeleportErrorMessage))
+                            sourceItem.DecrementStack();
+
+                        return true;
+                    }
+                }
+            }
 
             // Build settings from the protobuf
             PowerActivationSettings settings = new(avatar.RegionLocation.Position);
