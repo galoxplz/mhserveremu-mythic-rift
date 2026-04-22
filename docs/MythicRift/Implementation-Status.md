@@ -192,6 +192,7 @@ Current practical launcher stage
 - A first server-side seller pass now exists as well:
   - a player can open a vendor inside the `Danger Room` hub, buy the injected beacon, and test the Rift flow without an admin grant command
   - the final seller can still be narrowed later once TAHITI confirms which vendor should own the feature permanently
+- Vendor-bought beacons are now intercepted from top-level item use as well, so `PortalToRandomDungeon` variants that do not reliably fall through the same `UsePower` path still route into Mythic Rift correctly.
 - Important constraint:
   - this direct behavior is scoped to tracked beacon instances granted by the server
   - normal non-beacon `PortalToRandomDungeon` / Danger Room behavior must remain unchanged
