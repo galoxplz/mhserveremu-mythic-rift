@@ -162,6 +162,18 @@ namespace MHServerEmu.Games.MythicRifts
             return chargesByItemId.Values.Sum(value => Math.Max(value, 0));
         }
 
+        public bool TryRegisterTrackedBeaconItem(Player player, Item item)
+        {
+            if (player == null || item == null)
+                return false;
+
+            if (PrototypeNameMatches(item.PrototypeDataRef, CosmicRiftBeaconPrototypeName) == false)
+                return false;
+
+            AddTrackedBeaconCharges(player.DatabaseUniqueId, item.Id, Math.Max(item.CurrentStackSize, 1));
+            return true;
+        }
+
         public MythicRiftLauncherUseResult ConsumePendingIntent(Player player, int riftLevel, TimeSpan timeLimit)
         {
             if (player == null)
