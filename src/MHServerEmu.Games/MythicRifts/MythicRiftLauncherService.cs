@@ -349,6 +349,27 @@ namespace MHServerEmu.Games.MythicRifts
             return result;
         }
 
+        public MythicRiftLauncherUseResult TryHandleItemUse(Player player, Item item, out bool interceptedItemUse)
+        {
+            interceptedItemUse = false;
+
+            MythicRiftLauncherUseResult trackedBeaconResult = TryHandleTrackedBeaconUse(player, item);
+            if (trackedBeaconResult?.InterceptedItemUse == true)
+            {
+                interceptedItemUse = true;
+                return trackedBeaconResult;
+            }
+
+            MythicRiftLauncherUseResult armedLaunchResult = TryHandleArmedLauncherUse(player, item);
+            if (armedLaunchResult != null)
+            {
+                interceptedItemUse = true;
+                return armedLaunchResult;
+            }
+
+            return null;
+        }
+
         public MythicRiftLauncherUseResult TryHandleTrackedBeaconUse(Player player, Item item)
         {
             if (player == null || item == null)
@@ -563,7 +584,7 @@ namespace MHServerEmu.Games.MythicRifts
             riftLevel = NormalizeRiftLevel(player, riftLevel);
             timeLimit = NormalizeTimeLimit(timeLimit);
 
-            if (_candidateToEntryPointId.TryGetValue(itemPrototypeName, out string entryPointId) == false)
+            if (TryResolveCandidateMapping(itemPrototypeName, out string resolvedCandidatePrototypeName, out string entryPointId) == false)
             {
                 return new MythicRiftLauncherUseResult
                 {
@@ -572,36 +593,25 @@ namespace MHServerEmu.Games.MythicRifts
                 };
             }
 
-            ItemPrototype itemProto = null;
-            foreach (PrototypeId candidateProtoRef in GameDatabase.DataDirectory.IteratePrototypesInHierarchy<ItemPrototype>())
-            {
-                ItemPrototype candidateProto = candidateProtoRef.As<ItemPrototype>();
-                if (candidateProto == null)
-                    continue;
-
-                if (PrototypeNameMatches(candidateProto.DataRef, itemPrototypeName))
-                {
-                    itemProto = candidateProto;
-                    break;
-                }
-            }
+            PrototypeId itemProtoRef = ResolveItemPrototypeRef(resolvedCandidatePrototypeName);
+            ItemPrototype itemProto = itemProtoRef.As<ItemPrototype>();
 
             if (itemProto == null)
             {
                 return new MythicRiftLauncherUseResult
                 {
-                    ItemPrototypeName = itemPrototypeName,
-                    ErrorMessage = $"Item prototype not found in game data: {itemPrototypeName}"
+                    ItemPrototypeName = resolvedCandidatePrototypeName,
+                    ErrorMessage = $"Item prototype not found in game data: {resolvedCandidatePrototypeName}"
                 };
             }
 
             MythicRiftLauncherItemCandidate candidate = EntryService.LauncherItemCandidates.FirstOrDefault(entry =>
-                string.Equals(entry.PrototypeName, itemPrototypeName, StringComparison.OrdinalIgnoreCase));
+                string.Equals(entry.PrototypeName, resolvedCandidatePrototypeName, StringComparison.OrdinalIgnoreCase));
 
             MythicRiftEntryResult entryResult = EntryService.RequestRun(player, new MythicRiftEntryRequest
             {
                 EntryPointId = entryPointId,
-                LauncherItemPrototypeName = itemPrototypeName,
+                LauncherItemPrototypeName = resolvedCandidatePrototypeName,
                 RiftLevel = riftLevel,
                 TimeLimit = timeLimit
             });
@@ -610,7 +620,7 @@ namespace MHServerEmu.Games.MythicRifts
             {
                 EntryResult = entryResult,
                 Candidate = candidate,
-                ItemPrototypeName = itemPrototypeName,
+                ItemPrototypeName = resolvedCandidatePrototypeName,
                 PortalTargetRegionProtoRef = itemProto.GetPortalTarget(),
                 ResolvedRiftLevel = riftLevel,
                 ResolvedTimeLimit = timeLimit,
@@ -705,6 +715,37 @@ namespace MHServerEmu.Games.MythicRifts
                 if (PrototypeNameMatches(prototypeRef, candidatePrototypeName) == false)
                     continue;
 
+                entryPointId = candidateEntryPointId;
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool TryResolveCandidateMapping(string itemPrototypeName, out string resolvedCandidatePrototypeName, out string entryPointId)
+        {
+            resolvedCandidatePrototypeName = null;
+            entryPointId = null;
+
+            if (string.IsNullOrWhiteSpace(itemPrototypeName))
+                return false;
+
+            if (_candidateToEntryPointId.TryGetValue(itemPrototypeName, out entryPointId))
+            {
+                resolvedCandidatePrototypeName = itemPrototypeName;
+                return true;
+            }
+
+            PrototypeId prototypeRef = ResolveItemPrototypeRef(itemPrototypeName);
+            if (prototypeRef == PrototypeId.Invalid)
+                return false;
+
+            foreach ((string candidatePrototypeName, string candidateEntryPointId) in _candidateToEntryPointId)
+            {
+                if (PrototypeNameMatches(prototypeRef, candidatePrototypeName) == false)
+                    continue;
+
+                resolvedCandidatePrototypeName = candidatePrototypeName;
                 entryPointId = candidateEntryPointId;
                 return true;
             }

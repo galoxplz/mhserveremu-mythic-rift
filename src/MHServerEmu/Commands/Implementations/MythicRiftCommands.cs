@@ -969,13 +969,43 @@ namespace MHServerEmu.Commands.Implementations
 
             List<string> lines = new();
             string chosenPrototypeName = MythicRiftLauncherService.CosmicRiftBeaconPrototypeName;
+            string legacyPrototypeName = MythicRiftLauncherService.LegacyCosmicRiftBeaconPrototypeName;
+            PrototypeId preferredPrototypeRef = game.MythicRiftLauncherService.ResolvePrototypeRefByName(MythicRiftLauncherService.PreferredCosmicRiftBeaconPrototypeName);
+            PrototypeId legacyPrototypeRef = game.MythicRiftLauncherService.ResolvePrototypeRefByName(legacyPrototypeName);
             PrototypeId itemProtoRef = game.MythicRiftLauncherService.ResolveChosenBeaconPrototypeRef();
             ItemPrototype itemProto = itemProtoRef.As<ItemPrototype>();
+            MythicRiftEntryPointDefinition portalEntryPoint = game.MythicRiftEntryService.GetEntryPoint(MythicRiftEntryService.PortalToRandomDungeonEntryPointId);
             MythicRiftLauncherItemCandidate candidate = game.MythicRiftEntryService.LauncherItemCandidates
                 .FirstOrDefault(entry => string.Equals(entry.PrototypeName, chosenPrototypeName, StringComparison.OrdinalIgnoreCase));
+            MythicRiftLauncherItemCandidate legacyCandidate = game.MythicRiftEntryService.LauncherItemCandidates
+                .FirstOrDefault(entry => string.Equals(entry.PrototypeName, legacyPrototypeName, StringComparison.OrdinalIgnoreCase));
+            string acceptedLaunchers = portalEntryPoint?.AcceptedCandidateItemPrototypeNames != null && portalEntryPoint.AcceptedCandidateItemPrototypeNames.Count > 0
+                ? string.Join(",", portalEntryPoint.AcceptedCandidateItemPrototypeNames)
+                : portalEntryPoint?.CandidateItemPrototypeName ?? "n/a";
+            bool chosenAcceptedByEntryPoint = game.MythicRiftEntryService.EntryPointAcceptsLauncherItem(MythicRiftEntryService.PortalToRandomDungeonEntryPointId, chosenPrototypeName);
+            bool legacyAcceptedByEntryPoint = game.MythicRiftEntryService.EntryPointAcceptsLauncherItem(MythicRiftEntryService.PortalToRandomDungeonEntryPointId, legacyPrototypeName);
+            string currentRegionName = player.GetRegion()?.PrototypeDataRef.GetNameFormatted() ?? "n/a";
 
-            lines.Add($"chosenBeaconPrototype={chosenPrototypeName} | legacyFallback={MythicRiftLauncherService.LegacyCosmicRiftBeaconPrototypeName}");
+            lines.Add("diagScope=server-side beacon validation only | confirms=request conversion prerequisites | excludes=final client click and region bind");
+            lines.Add($"chosenBeaconPrototype={chosenPrototypeName} | legacyFallback={legacyPrototypeName}");
             lines.Add($"prototypeResolved={(itemProtoRef != PrototypeId.Invalid)} | candidateRegistered={(candidate != null)} | candidateRecommendation={candidate?.Recommendation ?? "missing"}");
+            lines.Add($"preferredPrototypeResolved={(preferredPrototypeRef != PrototypeId.Invalid)} | legacyPrototypeResolved={(legacyPrototypeRef != PrototypeId.Invalid)} | resolvedPrototypeRef={itemProtoRef.GetNameFormatted()}");
+            lines.Add($"portalEntryPointRegistered={(portalEntryPoint != null)} | currentRegion={currentRegionName} | acceptedLaunchers={acceptedLaunchers}");
+            lines.Add($"chosenAcceptedByEntryPoint={chosenAcceptedByEntryPoint} | legacyAcceptedByEntryPoint={legacyAcceptedByEntryPoint} | legacyCandidateRegistered={(legacyCandidate != null)} | legacyCandidateRecommendation={legacyCandidate?.Recommendation ?? "missing"}");
+
+            if (portalEntryPoint == null)
+            {
+                lines.Add("diagResult=failed | reason=portal-to-random-dungeon entry point is not registered");
+                CommandHelper.SendMessages(client, lines);
+                return string.Empty;
+            }
+
+            if (candidate == null || chosenAcceptedByEntryPoint == false)
+            {
+                lines.Add("diagResult=failed | reason=chosen beacon candidate is not wired cleanly into the consumable portal entry point");
+                CommandHelper.SendMessages(client, lines);
+                return string.Empty;
+            }
 
             if (itemProto == null)
             {
@@ -984,8 +1014,49 @@ namespace MHServerEmu.Commands.Implementations
                 return string.Empty;
             }
 
-            lines.Add($"approvedForUse={itemProto.ApprovedForUse()} | liveTuningEnabled={itemProto.IsLiveTuningEnabled()} | vendorEnabled={itemProto.IsLiveTuningVendorEnabled()}");
-            lines.Add($"isUsable={itemProto.IsUsable} | destinationFromVendor={itemProto.DestinationFromVendor} | onUsePower={itemProto.GetOnUsePower().GetNameFormatted()} | nativePortalTarget={itemProto.GetPortalTarget().GetNameFormatted()}");
+            bool approvedForUse = itemProto.ApprovedForUse();
+            bool liveTuningEnabled = itemProto.IsLiveTuningEnabled();
+            bool vendorEnabled = itemProto.IsLiveTuningVendorEnabled();
+            bool isUsable = itemProto.IsUsable;
+            PrototypeId onUsePowerProtoRef = itemProto.GetOnUsePower();
+
+            lines.Add($"approvedForUse={approvedForUse} | liveTuningEnabled={liveTuningEnabled} | vendorEnabled={vendorEnabled}");
+            lines.Add($"isUsable={isUsable} | destinationFromVendor={itemProto.DestinationFromVendor} | onUsePower={onUsePowerProtoRef.GetNameFormatted()} | nativePortalTarget={itemProto.GetPortalTarget().GetNameFormatted()}");
+
+            if (approvedForUse == false)
+            {
+                lines.Add("diagResult=failed | reason=beacon item prototype is not approved for use in this runtime");
+                CommandHelper.SendMessages(client, lines);
+                return string.Empty;
+            }
+
+            if (liveTuningEnabled == false)
+            {
+                lines.Add("diagResult=failed | reason=beacon item is not live-tuning enabled in this runtime");
+                CommandHelper.SendMessages(client, lines);
+                return string.Empty;
+            }
+
+            if (vendorEnabled == false)
+            {
+                lines.Add("diagResult=failed | reason=beacon item is not vendor-enabled in live tuning for this runtime");
+                CommandHelper.SendMessages(client, lines);
+                return string.Empty;
+            }
+
+            if (isUsable == false)
+            {
+                lines.Add("diagResult=failed | reason=beacon item prototype is not usable");
+                CommandHelper.SendMessages(client, lines);
+                return string.Empty;
+            }
+
+            if (onUsePowerProtoRef == PrototypeId.Invalid)
+            {
+                lines.Add("diagResult=failed | reason=beacon item has no OnUse power");
+                CommandHelper.SendMessages(client, lines);
+                return string.Empty;
+            }
 
             ItemSpec itemSpec = game.LootManager.CreateItemSpec(itemProtoRef, LootContext.Vendor, player);
             lines.Add($"vendorItemSpecCreated={(itemSpec != null)}");
@@ -1036,13 +1107,45 @@ namespace MHServerEmu.Commands.Implementations
                     return string.Empty;
                 }
 
+                bool itemCanUseIgnoringPower = tempItem.CanUse(avatar, checkPower: false);
                 bool itemCanUse = tempItem.CanUse(avatar);
+                bool launcherCanHandleItem = game.MythicRiftLauncherService.CanHandleItem(tempItem);
+                MythicRiftLauncherItemCandidate resolvedItemCandidate = game.MythicRiftLauncherService.ResolveCandidate(tempItem);
                 bool chosenPrototypeRecognized = game.MythicRiftLauncherService.IsChosenBeaconPrototype(tempItem.PrototypeDataRef);
+                lines.Add($"temporaryOwnedItemId={tempItem.Id} | currentStack={tempItem.CurrentStackSize} | canUseIgnoringPower={itemCanUseIgnoringPower} | canUse={itemCanUse} | launcherCanHandle={launcherCanHandleItem} | chosenPrototypeRecognized={chosenPrototypeRecognized}");
+                lines.Add($"resolvedItemCandidate={resolvedItemCandidate?.PrototypeName ?? "none"} | resolvedItemRecommendation={resolvedItemCandidate?.Recommendation ?? "none"}");
+
+                if (itemCanUseIgnoringPower == false)
+                {
+                    lines.Add("diagResult=failed | reason=temporary owned beacon item cannot be used even before power validation");
+                    CommandHelper.SendMessages(client, lines);
+                    return string.Empty;
+                }
+
+                if (itemCanUse == false)
+                {
+                    lines.Add("diagResult=failed | reason=temporary owned beacon item fails full CanUse validation");
+                    CommandHelper.SendMessages(client, lines);
+                    return string.Empty;
+                }
+
+                if (launcherCanHandleItem == false || chosenPrototypeRecognized == false || resolvedItemCandidate == null)
+                {
+                    lines.Add("diagResult=failed | reason=temporary owned beacon item is not accepted by Mythic Rift launcher candidate resolution");
+                    CommandHelper.SendMessages(client, lines);
+                    return string.Empty;
+                }
+
                 bool trackedRegistration = game.MythicRiftLauncherService.TryRegisterTrackedBeaconItem(player, tempItem);
                 int trackedChargesAfterRegistration = game.MythicRiftLauncherService.GetTotalTrackedBeaconCharges(player.DatabaseUniqueId);
-
-                lines.Add($"temporaryOwnedItemId={tempItem.Id} | currentStack={tempItem.CurrentStackSize} | canUse={itemCanUse} | chosenPrototypeRecognized={chosenPrototypeRecognized}");
                 lines.Add($"trackedRegistration={trackedRegistration} | trackedChargesAfterRegistration={trackedChargesAfterRegistration}");
+
+                if (trackedRegistration == false || trackedChargesAfterRegistration <= 0)
+                {
+                    lines.Add("diagResult=failed | reason=temporary owned beacon item could not be registered as a tracked Mythic Rift beacon");
+                    CommandHelper.SendMessages(client, lines);
+                    return string.Empty;
+                }
 
                 MythicRiftLauncherUseResult useResult = game.MythicRiftLauncherService.TryRequestRunFromItem(
                     player,
