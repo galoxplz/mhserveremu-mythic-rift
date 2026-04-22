@@ -257,6 +257,39 @@ namespace MHServerEmu.Games.Entities.Items
             return false;
         }
 
+        private bool TryHandleMythicRiftItemUse(Player player, out bool interceptedItemUse)
+        {
+            interceptedItemUse = false;
+
+            MythicRiftLauncherUseResult trackedBeaconResult = player != null
+                ? Game.MythicRiftLauncherService.TryHandleTrackedBeaconUse(player, this)
+                : null;
+
+            if (trackedBeaconResult?.InterceptedItemUse == true)
+            {
+                interceptedItemUse = true;
+                if (trackedBeaconResult.Success && string.IsNullOrWhiteSpace(trackedBeaconResult.TeleportErrorMessage))
+                    DecrementStack();
+
+                return trackedBeaconResult.Success;
+            }
+
+            MythicRiftLauncherUseResult armedLaunchResult = player != null
+                ? Game.MythicRiftLauncherService.TryHandleArmedLauncherUse(player, this)
+                : null;
+
+            if (armedLaunchResult != null)
+            {
+                interceptedItemUse = true;
+                if (armedLaunchResult.Success && string.IsNullOrWhiteSpace(armedLaunchResult.TeleportErrorMessage))
+                    DecrementStack();
+
+                return armedLaunchResult.Success;
+            }
+
+            return false;
+        }
+
         private bool DoItemActionUnlockPermaBuff(PrototypeId permaBuffProtoRef, Player player)
         {
             if (permaBuffProtoRef == PrototypeId.Invalid) return Logger.WarnReturn(false, "ItemActionUnlockPermaBuffPrototype(): permaBuffProtoRef == PrototypeId.Invalid");
@@ -271,30 +304,13 @@ namespace MHServerEmu.Games.Entities.Items
         {
             stopRemainingItemActions = false;
             Player player = avatar.GetOwnerOfType<Player>();
-            MythicRiftLauncherUseResult trackedBeaconResult = player != null
-                ? Game.MythicRiftLauncherService.TryHandleTrackedBeaconUse(player, this)
-                : null;
 
-            if (trackedBeaconResult?.InterceptedItemUse == true)
+            bool interceptedItemUse = false;
+            bool mythicRiftUseSuccess = TryHandleMythicRiftItemUse(player, out interceptedItemUse);
+            if (interceptedItemUse)
             {
                 stopRemainingItemActions = true;
-                if (trackedBeaconResult.Success && string.IsNullOrWhiteSpace(trackedBeaconResult.TeleportErrorMessage))
-                    DecrementStack();
-
-                return trackedBeaconResult.Success;
-            }
-
-            MythicRiftLauncherUseResult armedLaunchResult = player != null
-                ? Game.MythicRiftLauncherService.TryHandleArmedLauncherUse(player, this)
-                : null;
-
-            if (armedLaunchResult != null)
-            {
-                stopRemainingItemActions = true;
-                if (armedLaunchResult.Success && string.IsNullOrWhiteSpace(armedLaunchResult.TeleportErrorMessage))
-                    DecrementStack();
-
-                return armedLaunchResult.Success;
+                return mythicRiftUseSuccess;
             }
 
             Power power = avatar.GetPower(powerProtoRef);

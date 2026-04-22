@@ -1134,6 +1134,11 @@ namespace MHServerEmu.Games.Entities.Items
             if (PlayerCanUse(player, avatar) != InteractionValidateResult.Success)
                 return false;
 
+            bool interceptedItemUse = false;
+            bool mythicRiftUseSuccess = TryHandleMythicRiftItemUse(player, out interceptedItemUse);
+            if (interceptedItemUse)
+                return mythicRiftUseSuccess;
+
             bool wasUsed = false;
             bool isConsumable = false;
 

@@ -42,6 +42,7 @@ Expected result:
 - the current seller pass is intentionally scoped to `Danger Room` hub vendors rather than a single hard-locked NPC
 - this keeps the implementation server-only and easy for TAHITI to iterate before they choose the permanent seller
 - after purchase, the item should launch through the Mythic Rift path exactly like a server-granted beacon
+- the purchased launcher is now intercepted at top-level item use, so vendor-bought `PortalToRandomDungeon` variants do not need to rely on reaching the exact `UsePower` branch before Rift launch begins
 - once the final seller is chosen, this region-scoped seller pass can be narrowed to that specific vendor with a small follow-up patch
 
 ## Preferred Direct Beacon Test
