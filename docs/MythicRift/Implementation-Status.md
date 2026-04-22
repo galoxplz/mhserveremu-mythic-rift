@@ -145,9 +145,15 @@
   - an initial shortlist of launcher item candidates is now registered server-side so the item research done in extracted game data remains visible inside the project itself
   - current recommendation:
     - `PortalToRandomDungeon` as the officially chosen base
+    - `PortalToRandomMaxAffixDungeon` as the strongest newly identified alternative from TAHITI review
     - `PortalToCowLevelOneTimeUse` as the best technical fallback
     - `PortalToBovineheim` mainly as a behavior reference rather than a final product-facing choice
     - `DevOnly` / `Test` / `Unused` items are real leads in the data, but are currently treated as research candidates, not final production choices
+  - important note from MonEll's Calligraphy review:
+    - `PortalToRandomDungeon` is marked `DesignState: DevelopmentOnly`
+    - `PortalToRandomMaxAffixDungeon` also appears to be `DevelopmentOnly`
+    - the codebase-wide approval threshold is currently `Live`, so neither prototype is ideal as a final long-term launcher without TAHITI-side patching or an approved substitute
+    - `PortalToRandomMaxAffixDungeon` still looks attractive because MonEll reports that it is not referenced anywhere else, which lowers the risk of colliding with an existing live gameplay path
   - current implemented seller pass for no-client-patch testing:
     - interacting with a vendor inside the `Danger Room` hub now injects one `PortalToRandomDungeon`-based `Cosmic Rift Beacon` into that player's vendor stock
     - the goal is to remove the admin-only item grant dependency before the final NPC choice is locked with TAHITI

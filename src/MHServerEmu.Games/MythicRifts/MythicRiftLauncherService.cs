@@ -19,7 +19,13 @@ namespace MHServerEmu.Games.MythicRifts
     {
         public const string CosmicRiftBeaconDisplayName = "Cosmic Rift Beacon";
         public const string CosmicRiftBeaconPrototypeName = "PortalToRandomDungeon";
+        public const string AlternateCosmicRiftBeaconPrototypeName = "PortalToRandomMaxAffixDungeon";
         public static readonly TimeSpan DefaultLauncherTimeLimit = TimeSpan.FromMinutes(10);
+        private static readonly string[] SupportedCosmicRiftBeaconPrototypeNames =
+        {
+            CosmicRiftBeaconPrototypeName,
+            AlternateCosmicRiftBeaconPrototypeName
+        };
         private readonly Dictionary<string, string> _candidateToEntryPointId = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<ulong, MythicRiftLauncherIntent> _pendingIntentsByPlayerDbId = new();
         private readonly Dictionary<ulong, MythicRiftArmedLauncherState> _armedLaunchesByPlayerDbId = new();
@@ -62,7 +68,13 @@ namespace MHServerEmu.Games.MythicRifts
 
         public bool IsChosenBeaconPrototype(PrototypeId prototypeRef)
         {
-            return PrototypeNameMatches(prototypeRef, CosmicRiftBeaconPrototypeName);
+            foreach (string prototypeName in SupportedCosmicRiftBeaconPrototypeNames)
+            {
+                if (PrototypeNameMatches(prototypeRef, prototypeName))
+                    return true;
+            }
+
+            return false;
         }
 
         public MythicRiftLauncherIntent RegisterLauncherItemUse(Player player, Item item)
@@ -690,6 +702,7 @@ namespace MHServerEmu.Games.MythicRifts
         private void RegisterDefaultMappings()
         {
             RegisterCandidateMapping("PortalToRandomDungeon", MythicRiftEntryService.PortalToRandomDungeonEntryPointId);
+            RegisterCandidateMapping("PortalToRandomMaxAffixDungeon", MythicRiftEntryService.PortalToRandomDungeonEntryPointId);
             RegisterCandidateMapping("PortalToCowLevelOneTimeUse", MythicRiftEntryService.PortalToRandomDungeonEntryPointId);
             RegisterCandidateMapping("PortalToCowLevel", MythicRiftEntryService.PortalToRandomDungeonEntryPointId);
         }
