@@ -1078,6 +1078,9 @@ namespace MHServerEmu.Games.Entities
             if (clonedItem == null)
                 return Logger.WarnReturn(false, $"BuyMythicRiftVendorItem(): Failed to clone item [{vendorItem}]");
 
+            if (Game.MythicRiftLauncherService.TryRegisterTrackedBeaconItem(this, clonedItem) == false)
+                return Logger.WarnReturn(false, $"BuyMythicRiftVendorItem(): Failed to register purchased Rift beacon [{clonedItem}]");
+
             int count = clonedItem.CurrentStackSize;
             GetRegion()?.PlayerBoughtItemEvent.Invoke(new(this, clonedItem, count));
 
