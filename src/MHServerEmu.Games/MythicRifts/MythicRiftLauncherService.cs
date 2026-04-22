@@ -67,6 +67,16 @@ namespace MHServerEmu.Games.MythicRifts
                 string.Equals(candidate.PrototypeName, CosmicRiftBeaconPrototypeName, StringComparison.OrdinalIgnoreCase));
         }
 
+        public PrototypeId ResolveChosenBeaconPrototypeRef()
+        {
+            return ResolvePrototypeRefByName(CosmicRiftBeaconPrototypeName);
+        }
+
+        public PrototypeId ResolvePrototypeRefByName(string itemPrototypeName)
+        {
+            return ResolveItemPrototypeRef(itemPrototypeName);
+        }
+
         public bool IsChosenBeaconPrototype(PrototypeId prototypeRef)
         {
             foreach (string prototypeName in SupportedCosmicRiftBeaconPrototypeNames)
@@ -625,7 +635,7 @@ namespace MHServerEmu.Games.MythicRifts
                 return false;
             }
 
-            itemProtoRef = ResolveItemPrototypeRef(CosmicRiftBeaconPrototypeName);
+            itemProtoRef = ResolveChosenBeaconPrototypeRef();
             if (itemProtoRef == PrototypeId.Invalid)
             {
                 errorMessage = $"Chosen launcher prototype not found in game data: {CosmicRiftBeaconPrototypeName}";

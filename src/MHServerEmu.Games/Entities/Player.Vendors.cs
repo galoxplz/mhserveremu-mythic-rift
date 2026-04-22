@@ -1112,7 +1112,7 @@ namespace MHServerEmu.Games.Entities
         {
             if (vendorTypeProto == null) return Logger.WarnReturn(false, "TryAddMythicRiftVendorItem(): vendorTypeProto == null");
 
-            PrototypeId itemProtoRef = GameDatabase.GetPrototypeRefByName(MythicRiftLauncherService.CosmicRiftBeaconPrototypeName);
+            PrototypeId itemProtoRef = Game.MythicRiftLauncherService.ResolveChosenBeaconPrototypeRef();
             if (itemProtoRef == PrototypeId.Invalid)
                 return Logger.WarnReturn(false, $"TryAddMythicRiftVendorItem(): Failed to resolve {MythicRiftLauncherService.CosmicRiftBeaconPrototypeName}");
 

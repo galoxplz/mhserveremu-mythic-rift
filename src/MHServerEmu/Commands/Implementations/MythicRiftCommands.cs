@@ -969,7 +969,7 @@ namespace MHServerEmu.Commands.Implementations
 
             List<string> lines = new();
             string chosenPrototypeName = MythicRiftLauncherService.CosmicRiftBeaconPrototypeName;
-            PrototypeId itemProtoRef = GameDatabase.GetPrototypeRefByName(chosenPrototypeName);
+            PrototypeId itemProtoRef = game.MythicRiftLauncherService.ResolveChosenBeaconPrototypeRef();
             ItemPrototype itemProto = itemProtoRef.As<ItemPrototype>();
             MythicRiftLauncherItemCandidate candidate = game.MythicRiftEntryService.LauncherItemCandidates
                 .FirstOrDefault(entry => string.Equals(entry.PrototypeName, chosenPrototypeName, StringComparison.OrdinalIgnoreCase));
