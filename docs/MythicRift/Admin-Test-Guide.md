@@ -44,6 +44,7 @@ Expected result:
 - after purchase, the item should launch through the Mythic Rift path exactly like a server-granted beacon
 - the purchased launcher is now intercepted at top-level item use, so vendor-bought `PortalToRandomDungeon` variants do not need to rely on reaching the exact `UsePower` branch before Rift launch begins
 - the same vendor purchase flow now also recognizes `PortalToRandomDungeon` stock added through TAHITI patcher files, not only items injected by the server-side seller pass
+- the same compatibility path now also accepts `PortalToRandomMaxAffixDungeon` if TAHITI decides to test that alternative launcher base through patcher-delivered vendor stock
 - once the final seller is chosen, this region-scoped seller pass can be narrowed to that specific vendor with a small follow-up patch
 
 ## Preferred Direct Beacon Test

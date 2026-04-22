@@ -196,6 +196,19 @@ namespace MHServerEmu.Games.MythicRifts
 
             RegisterLauncherItemCandidate(new MythicRiftLauncherItemCandidate
             {
+                PrototypeName = "PortalToRandomMaxAffixDungeon",
+                DisplayName = "Portal To Random Max Affix Dungeon",
+                SourceFamily = "DangerRoom / RandomDungeon",
+                IsLikelyUnusedOrLowRisk = true,
+                IsShopLinked = false,
+                SupportsRandomThemeIdentity = true,
+                PatcherFriendly = true,
+                Recommendation = "strong-fallback",
+                Notes = "Promising alternative identified during TAHITI review. It appears unreferenced in game data, still matches the random-dungeon identity well, and may be a cleaner long-term base than PortalToRandomDungeon if TAHITI decides to patch around its DevelopmentOnly state."
+            });
+
+            RegisterLauncherItemCandidate(new MythicRiftLauncherItemCandidate
+            {
                 PrototypeName = "PortalToCowLevelOneTimeUse",
                 DisplayName = "Portal To Cow Level One Time Use",
                 SourceFamily = "Cow Level / FortuneCard",
