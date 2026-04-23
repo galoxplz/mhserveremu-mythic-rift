@@ -11,8 +11,10 @@ using MHServerEmu.Games.Entities.Items;
 using MHServerEmu.Games.GameData;
 using MHServerEmu.Games.GameData.Prototypes;
 using MHServerEmu.Games.Loot;
+using MHServerEmu.Games.Missions;
 using MHServerEmu.Games.MythicRifts;
 using MHServerEmu.Games.Network;
+using MHServerEmu.Games.Properties;
 using MHServerEmu.Games.Regions;
 
 namespace MHServerEmu.Commands.Implementations
@@ -284,11 +286,12 @@ namespace MHServerEmu.Commands.Implementations
                 return "Game or player not found.";
 
             int unlockedLevel = game.MythicRiftManager.GetHighestUnlockedRiftLevel(player.DatabaseUniqueId);
+            int selectedLevel = game.MythicRiftManager.GetPreferredLaunchRiftLevel(player.DatabaseUniqueId);
             MythicRiftRunState inProgressRun = game.MythicRiftManager.GetInProgressRunForPlayer(player.DatabaseUniqueId);
 
             List<string> lines = new()
             {
-                $"playerDbId=0x{player.DatabaseUniqueId:X} | highestUnlockedRiftLevel={unlockedLevel} | persistedPlayerValue={player.MythicRiftHighestUnlockedLevel}"
+                $"playerDbId=0x{player.DatabaseUniqueId:X} | highestUnlockedRiftLevel={unlockedLevel} | selectedLaunchRiftLevel={selectedLevel} | persistedPlayerValue={player.MythicRiftHighestUnlockedLevel}"
             };
 
             if (inProgressRun == null)
@@ -912,6 +915,8 @@ namespace MHServerEmu.Commands.Implementations
 
             List<string> lines = new();
             lines.Add($"trackedCosmicRiftBeaconCharges={trackedBeaconCharges}");
+
+            lines.AddRange(BuildOwnedLauncherItemLines(game, player));
             if (armedState == null)
             {
                 lines.Add("scopedBeaconOverride=inactive");
@@ -942,6 +947,117 @@ namespace MHServerEmu.Commands.Implementations
                     lines.Add($"lastArmedLaunchTeleportError={lastResult.TeleportErrorMessage}");
             }
 
+            CommandHelper.SendMessages(client, lines);
+            return string.Empty;
+        }
+
+        private static List<string> BuildOwnedLauncherItemLines(Game game, Player player)
+        {
+            List<string> lines = new();
+            if (game == null || player == null)
+                return lines;
+
+            int ownedLauncherItems = 0;
+            int ownedLauncherStacks = 0;
+            InventoryIterationFlags flags = InventoryIterationFlags.PlayerGeneral
+                | InventoryIterationFlags.PlayerGeneralExtra
+                | InventoryIterationFlags.DeliveryBoxAndErrorRecovery;
+
+            foreach (Inventory inventory in new InventoryIterator(player, flags))
+            {
+                foreach (var entry in inventory)
+                {
+                    Item item = game.EntityManager.GetEntity<Item>(entry.Id);
+                    if (item == null)
+                        continue;
+
+                    bool preferredBeacon = game.MythicRiftLauncherService.IsPreferredCosmicRiftBeaconPrototype(item.PrototypeDataRef);
+                    MythicRiftLauncherItemCandidate candidate = game.MythicRiftLauncherService.ResolveCandidate(item);
+                    if (preferredBeacon == false && candidate == null)
+                        continue;
+
+                    ownedLauncherItems++;
+                    ownedLauncherStacks += Math.Max(item.CurrentStackSize, 0);
+
+                    int trackedCharges = game.MythicRiftLauncherService.GetTrackedBeaconChargeCount(player, item);
+                    lines.Add($"ownedLauncherItem id={item.Id} | prototype={item.PrototypeDataRef.GetNameFormatted()} | stack={item.CurrentStackSize} | trackedCharges={trackedCharges} | preferredBeacon={preferredBeacon} | candidate={candidate?.PrototypeName ?? "none"} | recommendation={candidate?.Recommendation ?? "none"} | inventory={inventory.PrototypeDataRef.GetNameFormatted()} | slot={item.InventoryLocation.Slot} | onUsePower={item.OnUsePower.GetNameFormatted()}");
+                }
+            }
+
+            lines.Insert(0, $"ownedLauncherItems={ownedLauncherItems} | ownedLauncherStacks={ownedLauncherStacks}");
+            return lines;
+        }
+
+        [Command("vendorstock")]
+        [CommandDescription("Inspects the current dialog target vendor and forces Cosmic Rift Beacon stock injection for troubleshooting.")]
+        [CommandUsage("rift vendorstock")]
+        [CommandUserLevel(AccountUserLevel.Admin)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        public string VendorStock(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            Player player = playerConnection?.Player;
+            if (game == null || player == null)
+                return "Game or player not found.";
+
+            WorldEntity vendor = player.GetDialogTarget(true) ?? player.GetDialogTarget(false);
+            if (vendor == null)
+                return "No current dialog target vendor found. Open the Danger Room vendor first, then run `rift vendorstock` before buying.";
+
+            player.EnsureMythicRiftVendorStock(vendor);
+
+            PrototypeId vendorTypeProtoRef = vendor.Properties[PropertyEnum.VendorType];
+            VendorTypePrototype vendorTypeProto = vendorTypeProtoRef.As<VendorTypePrototype>();
+            if (vendorTypeProto == null)
+                return $"Current dialog target is not a valid vendor. target={vendor.PrototypeDataRef.GetNameFormatted()}";
+
+            List<string> lines = new()
+            {
+                $"vendor={vendor.PrototypeDataRef.GetNameFormatted()} | vendorType={vendorTypeProtoRef.GetNameFormatted()} | region={vendor.Region?.PrototypeDataRef.GetNameFormatted() ?? "n/a"}"
+            };
+
+            List<PrototypeId> inventoryRefs = new();
+            if (vendorTypeProto.GetInventories(inventoryRefs) == false || inventoryRefs.Count == 0)
+            {
+                lines.Add("vendorInventories=0");
+                CommandHelper.SendMessages(client, lines);
+                return string.Empty;
+            }
+
+            int totalBeaconItems = 0;
+            foreach (PrototypeId inventoryRef in inventoryRefs)
+            {
+                Inventory inventory = player.GetInventoryByRef(inventoryRef);
+                if (inventory == null)
+                {
+                    lines.Add($"inventory={inventoryRef.GetNameFormatted()} | missingOnPlayer=true");
+                    continue;
+                }
+
+                int beaconItems = 0;
+                List<string> beaconLines = new();
+                foreach (var entry in inventory)
+                {
+                    Item item = game.EntityManager.GetEntity<Item>(entry.Id);
+                    if (item == null)
+                        continue;
+
+                    bool preferredBeacon = game.MythicRiftLauncherService.IsPreferredCosmicRiftBeaconPrototype(item.PrototypeDataRef);
+                    MythicRiftLauncherItemCandidate candidate = game.MythicRiftLauncherService.ResolveCandidate(item);
+                    if (preferredBeacon == false && candidate == null)
+                        continue;
+
+                    beaconItems++;
+                    totalBeaconItems++;
+                    beaconLines.Add($"vendorLauncherItem inventory={inventory.PrototypeDataRef.GetNameFormatted()} | slot={entry.Slot} | itemId={item.Id} | prototype={item.PrototypeDataRef.GetNameFormatted()} | stack={item.CurrentStackSize} | preferredBeacon={preferredBeacon} | candidate={candidate?.PrototypeName ?? "none"}");
+                }
+
+                lines.Add($"inventory={inventory.PrototypeDataRef.GetNameFormatted()} | buyable={inventory.Prototype?.VendorInvContentsCanBeBought == true} | count={inventory.Count}/{inventory.GetCapacity()} | launcherItems={beaconItems}");
+                lines.AddRange(beaconLines);
+            }
+
+            lines.Insert(1, $"vendorLauncherItemsTotal={totalBeaconItems}");
             CommandHelper.SendMessages(client, lines);
             return string.Empty;
         }
@@ -1453,6 +1569,97 @@ namespace MHServerEmu.Commands.Implementations
             return string.Empty;
         }
 
+        [Command("status")]
+        [CommandDescription("Displays the invoking player's active Cosmic Rift run.")]
+        [CommandUsage("rift status")]
+        [CommandUserLevel(AccountUserLevel.User)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        public string Status(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            Player player = playerConnection?.Player;
+            if (game == null || player == null)
+                return "Game or player not found.";
+
+            MythicRiftRunState runState = game.MythicRiftManager.GetInProgressRunForPlayer(player.DatabaseUniqueId);
+            if (runState == null)
+            {
+                int unlockedLevel = game.MythicRiftManager.GetHighestUnlockedRiftLevel(player.DatabaseUniqueId);
+                int selectedLevel = game.MythicRiftManager.GetPreferredLaunchRiftLevel(player.DatabaseUniqueId);
+                return $"No active Cosmic Rift run. Highest unlocked Rift level: {unlockedLevel}. Next beacon launch level: {selectedLevel}.";
+            }
+
+            CommandHelper.SendMessages(client, BuildRunLines(runState, game.CurrentTime, includeResolvedRefs: false));
+            return string.Empty;
+        }
+
+        [Command("level")]
+        [CommandDescription("Displays or changes the Cosmic Rift level used by the next beacon launch.")]
+        [CommandUsage("rift level [level|max]")]
+        [CommandUserLevel(AccountUserLevel.User)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        public string Level(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            Player player = playerConnection?.Player;
+            if (game == null || player == null)
+                return "Game or player not found.";
+
+            int unlockedLevel = game.MythicRiftManager.GetHighestUnlockedRiftLevel(player.DatabaseUniqueId);
+            int selectedLevel = game.MythicRiftManager.GetPreferredLaunchRiftLevel(player.DatabaseUniqueId);
+
+            if (@params.Length == 0)
+                return $"Cosmic Rift launch level: {selectedLevel}. Highest unlocked: {unlockedLevel}. Use `rift level [1-{unlockedLevel}]` to farm a lower level, or `rift level max` to launch your highest unlocked level.";
+
+            string requestedLevelText = @params[0];
+            if (string.Equals(requestedLevelText, "max", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(requestedLevelText, "highest", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(requestedLevelText, "auto", StringComparison.OrdinalIgnoreCase))
+            {
+                int appliedLevel = game.MythicRiftManager.UseHighestUnlockedLaunchRiftLevel(player.DatabaseUniqueId);
+                return $"Cosmic Rift launch level set to your highest unlocked level: {appliedLevel}.";
+            }
+
+            if (TryParsePositiveInt(requestedLevelText, out int requestedLevel) == false)
+                return "Invalid Rift level. Use a positive number or `max`.";
+
+            if (game.MythicRiftManager.TrySetPreferredLaunchRiftLevel(player.DatabaseUniqueId, requestedLevel, out int appliedLaunchLevel, out string errorMessage) == false)
+                return errorMessage;
+
+            return $"Cosmic Rift launch level set to {appliedLaunchLevel}. Highest unlocked: {unlockedLevel}.";
+        }
+
+        [Command("abandon")]
+        [CommandDescription("Abandons the invoking player's active Cosmic Rift run and returns online participants to the Danger Room hub.")]
+        [CommandUsage("rift abandon")]
+        [CommandUserLevel(AccountUserLevel.User)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        public string Abandon(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            Player player = playerConnection?.Player;
+            if (game == null || player == null)
+                return "Game or player not found.";
+
+            MythicRiftRunState runState = game.MythicRiftManager.GetInProgressRunForPlayer(player.DatabaseUniqueId);
+            if (runState == null)
+                return "No active Cosmic Rift run to abandon.";
+
+            ulong runId = runState.Config.RunId;
+            string contentName = runState.Config.Content.DisplayName;
+            int riftLevel = runState.Config.RiftLevel;
+
+            if (game.MythicRiftManager.MarkRunAborted(runId, game.CurrentTime) == false)
+                return $"Failed to abandon Cosmic Rift run {runId}.";
+
+            int teleportedPlayerCount = game.MythicRiftManager.ReturnRunParticipantsToDangerRoomHub(runState, player);
+            game.MythicRiftManager.RemoveRun(runId);
+            return $"Cosmic Rift abandoned: runId={runId} | map={contentName} | level={riftLevel} | returnedPlayers={teleportedPlayerCount}. You can start another Rift.";
+        }
+
         [Command("run")]
         [CommandDescription("Displays details for one registered Mythic Rift run.")]
         [CommandUsage("rift run [runId]")]
@@ -1681,6 +1888,85 @@ namespace MHServerEmu.Commands.Implementations
             lines.Insert(0, $"Run {runId} bound to region {region.PrototypeName} (0x{region.Id:X}).");
             CommandHelper.SendMessages(client, lines);
             return string.Empty;
+        }
+
+        [Command("objectives")]
+        [CommandDescription("Diagnoses native mission and objective tracker state in the invoking player's current region.")]
+        [CommandUsage("rift objectives")]
+        [CommandUserLevel(AccountUserLevel.Admin)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        public string Objectives(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            Player player = playerConnection?.Player;
+            Region region = player?.GetRegion();
+            if (game == null || player == null || region == null)
+                return "Game, player, or current region not found.";
+
+            MythicRiftRunState runState = game.MythicRiftManager.GetInProgressRunForPlayer(player.DatabaseUniqueId);
+            List<string> lines = new()
+            {
+                $"currentRegion={region.PrototypeDataRef.GetNameFormatted()} | regionId=0x{region.Id:X}",
+                runState == null
+                    ? "activeRift=none"
+                    : $"activeRift={runState.Config.RunId} | status={runState.Status} | riftMission={runState.Config.MissionProtoRef.GetNameFormatted()} | map={runState.Config.Content.DisplayName}"
+            };
+
+            AppendMissionManagerDiagnostics(lines, "regionMissionManager", region.MissionManager, runState?.Config.MissionProtoRef ?? PrototypeId.Invalid);
+            AppendMissionManagerDiagnostics(lines, "playerMissionManager", player.MissionManager, runState?.Config.MissionProtoRef ?? PrototypeId.Invalid);
+
+            string uiDump = region.UIDataProvider?.ToString() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(uiDump))
+            {
+                lines.Add("uiDataProvider=empty");
+            }
+            else
+            {
+                lines.Add("uiDataProvider:");
+                foreach (string line in uiDump.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries).Take(80))
+                    lines.Add(line);
+            }
+
+            CommandHelper.SendMessages(client, lines);
+            return string.Empty;
+        }
+
+        private static void AppendMissionManagerDiagnostics(List<string> lines, string label, MissionManager missionManager, PrototypeId riftMissionRef)
+        {
+            if (lines == null)
+                return;
+
+            if (missionManager == null)
+            {
+                lines.Add($"{label}=null");
+                return;
+            }
+
+            lines.Add($"{label}: activeMissions={missionManager.ActiveMissions.Count}");
+            foreach (PrototypeId missionRef in missionManager.ActiveMissions.Take(40))
+            {
+                Mission mission = missionManager.FindMissionByDataRef(missionRef);
+                if (mission == null)
+                {
+                    lines.Add($"{label}.mission={missionRef.GetNameFormatted()} | missing=true");
+                    continue;
+                }
+
+                MissionPrototype missionProto = mission.Prototype;
+                lines.Add(
+                    $"{label}.mission={mission.PrototypeName} | state={mission.State} | suspended={mission.IsSuspended} | open={mission.IsOpenMission} | regionEvent={mission.IsRegionEventMission} | daily={mission.IsDailyMission} | hasClientInterest={missionProto?.HasClientInterest} | showTracker={missionProto?.ShowInMissionTracker} | riftMission={mission.PrototypeDataRef == riftMissionRef}");
+
+                foreach (MissionObjective objective in mission.Objectives.Take(12))
+                {
+                    MissionObjectivePrototype objectiveProto = objective?.Prototype;
+                    if (objectiveProto == null)
+                        continue;
+
+                    lines.Add(
+                        $"{label}.objective[{objective.PrototypeIndex}] state={objective.State} | widget={objectiveProto.MetaGameWidget.GetNameFormatted()} | failWidget={objectiveProto.MetaGameWidgetFail.GetNameFormatted()} | name={objectiveProto.Name}");
+                }
+            }
         }
 
         private static List<string> BuildRunLines(MythicRiftRunState runState, TimeSpan currentTime, bool includeResolvedRefs)

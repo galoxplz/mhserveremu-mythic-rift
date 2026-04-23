@@ -33,11 +33,12 @@
 6. The server selects a random boss from the V1 pool.
 7. Players enter the instance.
 8. The timer starts.
-9. Players progress until the main objective is completed.
-10. If the final boss dies before the timer ends, the run succeeds.
-11. If the timer expires first, the run fails.
-12. On success, players receive end-of-run loot.
-13. On success, the next level is unlocked.
+9. Players kill the required enemy quota.
+10. The server spawns the randomized Rift boss only after the quota is completed.
+11. If the final boss dies before the timer ends, the run succeeds.
+12. If the timer expires first, the run fails.
+13. On success, players receive end-of-run loot.
+14. On success, the next level is unlocked.
 
 ## V1 Group Rules
 
@@ -53,11 +54,13 @@
 ## Failure Condition
 
 - The run is lost when the timer expires before the final boss dies.
+- When the timer expires, online players still inside the Rift should be returned to the Danger Room hub automatically.
 
 ## Timer
 
 - Exact timer values will be defined later.
 - V1 should support a visible timer through existing mission systems if possible.
+- If the existing client widgets do not render a safe timer, chat warnings are the guaranteed fallback.
 - The timer should ideally start when the run becomes active.
 
 ## Level Progression
@@ -65,6 +68,8 @@
 - Levels start at 1.
 - Progression is potentially open-ended.
 - Success at level N unlocks N+1.
+- Beacon launches default to the player's highest unlocked level.
+- Players may choose a lower unlocked launch level for farming through a server-side command until a cleaner no-client-patch UI is available.
 
 ## Loot and Rewards
 
@@ -79,6 +84,13 @@
 
 - Reuse existing mission / metagame widgets if possible.
 - Avoid heavy custom UI in V1.
+- Suppress misleading native terminal objective text during active Rift runs, because the Rift boss can differ from the terminal's normal boss; current implementation may temporarily suspend the native terminal mission inside the Rift instance to achieve this without a client patch.
+- Suppress native `Region Events` objective tracker entries during active Rift runs; the current approach temporarily suspends those region-event missions only inside the active Rift instance and restores them when the run is cleaned up.
+- Prefer a simple kill-count objective first, then reveal the boss name only when the quota is complete.
+- Intercept native mission/objective updates for controlled terminal objectives while a Rift is active, otherwise the client may rebuild terminal bounty counters after server-side widget suppression.
+- If the client keeps a native generic fraction tracker visible, the server may reuse it as a best-effort Rift kill quota counter.
+- If native terminal objective tracker text cannot be safely replaced without a client patch, hide it during the Rift instead and rely on chat feedback plus `rift status`.
+- Dynamic per-player item tooltip text for highest/selected Rift level is not expected to be practical without a client patch; use chat/server commands or a future server-driven interaction flow instead.
 - If game file changes are required for entry-point presentation, they should ideally be deployable through the Patcher.
 
 ## TAHITI Compatibility

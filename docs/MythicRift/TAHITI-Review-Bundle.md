@@ -33,15 +33,24 @@ Current technical launcher base:
 - timed Rift runs
 - D3-inspired scaling
 - kill quota before boss unlock
+- randomized Rift boss is hidden until the quota is complete, then spawned server-side
 - boss completion logic
+- terminal-native boss/objective HUD suppression during active Rift runs, so randomized bosses do not leave misleading terminal objectives on screen
+- temporary server-side suspension of the native terminal mission inside the Rift instance, restored when the run is removed, so the normal terminal objective tracker does not compete with the Rift objective
+- temporary server-side suspension of active `Region Events` missions inside the Rift instance, restored when the run is removed, because the lighter client-side-only suppression did not hide that tracker reliably
+- native `Mission` / `MissionObjective` update interception for controlled terminal objectives while a Rift is active, so terminal bounty counters do not rebuild on the client after suppression
+- best-effort reuse of any remaining native generic fraction tracker as the active Rift kill quota counter
+- no-client-patch player feedback through chat messages and `rift status`, instead of relying on native terminal objective tracker text for Rift-specific UX
 - success / failure reward resolution
 - timed success SIF/RIF bonus
 - persistent Rift level progression
 - chained progression from one Rift level to the next
+- player-selected launch level through `rift level [level|max]`, so unlocked players can farm lower levels with the next beacon
 - server-side beacon granting
 - a first no-admin seller pass inside the `Danger Room` hub, so testers can buy the launcher directly from an in-game vendor
 - competitive next-level progression based on who was inside the Rift at boss unlock and boss death
 - automatic cleanup / safety behavior for stale runs
+- timer expiration now fails the Rift and returns online participants still inside the Rift to the Danger Room hub
 
 ## Current V1 Content Pool
 

@@ -86,7 +86,17 @@ Current implemented prototype behavior:
 - server-side granting of the beacon item
 - direct beacon use in-game from a server-granted `PortalToRandomMaxAffixDungeon`
 - direct beacon use in-game from vendor-bought or patcher-added `PortalToRandomMaxAffixDungeon` stock, even when the live server does not preserve an in-memory tracked charge for that exact item instance
+- default Danger Room hub vendor stock injection for the current beacon, so the basic test flow no longer requires an admin item grant
+- launcher item consumption after a committed Rift launch
 - random terminal map plus separately selected random boss source
+- suppression of the terminal's native linked boss during active Rift runs, so the normal terminal boss cannot be killed before quota or used as the completion target
+- strict quota-gated boss completion: the spawned/configured Cosmic Rift boss is the valid completion boss only after the enemy quota is met
+- suppression of terminal-native objective HUD widgets during active Rift runs, so a randomized boss does not leave players with misleading native terminal text such as "defeat Kingpin"
+- temporary server-side suspension of the native terminal mission inside the Rift instance, restored when the run is removed, so the normal terminal objective tracker does not compete with the Rift objective
+- temporary server-side suspension of active `Region Events` missions inside the Rift instance, restored when the run is removed, because client-side-only suppression did not hide that tracker reliably
+- interception of native `Mission` / `MissionObjective` update packets for controlled terminal objectives while a Rift is active, so terminal bounty counters do not rebuild on the client after suppression
+- best-effort reuse of any remaining native generic fraction tracker as the active Rift kill quota counter
+- no-client-patch player feedback through chat messages and `rift status`, instead of relying on native terminal objective tracker text for Rift-specific UX
 - safe interception of the chosen beacon base so the Mythic Rift path no longer falls back into a normal scenario behavior after a successful Rift launch
 - safer chain-running from inside terminals because the random map picker now excludes the terminal region the requester / party is currently standing in
 - persistent unlocked Rift progression
@@ -95,6 +105,13 @@ Current implemented prototype behavior:
 - prevention of overlapping in-progress Rift runs for the same player / party
 - automatic abort if all tracked participants stay offline too long
 - automatic cleanup of stale completed or abandoned runs
+- automatic Rift closure when a tracked participant leaves the active Rift region before completion
+- automatic Rift failure and return-to-hub when the timer expires
+- user-level `rift status` and `rift abandon` commands for player-like testing without admin run management
+- user-level `rift level [level|max]` command so unlocked players can choose a lower farming level before using the next beacon
+- player-facing chat feedback at launch, boss unlock, completion, failure, and early Rift closure
+- best-effort timer UI using existing server/client systems, with minute-by-minute chat warnings as the guaranteed fallback
+- player-facing kill progress feedback at 25%, 50%, and 75% of the enemy quota
 - group continuity when the leader disconnects
 
 ## What Is Not Final Yet
@@ -106,6 +123,7 @@ These parts are still not final:
 - broader reward tuning after real gameplay feedback
 - larger content pool beyond the current first terminals
 - optional patcher-delivered presentation polish if TAHITI wants it
+- final polished Rift level selection UX beyond the current chat command, if TAHITI wants a cleaner NPC or interaction flow later
 
 ## Current V1 Content Pool
 
@@ -194,24 +212,16 @@ Important clarification:
 
 This is the simplest demonstration path.
 
-1. Prepare the player:
+1. Move the player to the Danger Room hub and open the Danger Room rewards vendor.
 
-```text
-rift prepbeacon 1 1
-```
+2. Buy the injected `PortalToRandomMaxAffixDungeon` launcher item.
 
-2. Confirm the current launcher identity:
-
-```text
-rift beacon
-rift validatecontent
-```
-
-3. Buy the injected launcher from a `Danger Room` hub vendor or use a granted `PortalToRandomMaxAffixDungeon` item in-game.
+3. Use the purchased item in-game.
 
 4. Inspect the launched run:
 
 ```text
+rift status
 rift beaconmode
 rift runs
 rift run [runId]
@@ -219,9 +229,31 @@ rift run [runId]
 
 Expected current behavior:
 
+- the item is present by default in vendor stock
+- buying it registers a tracked beacon charge
+- using it launches a random Cosmic Rift instead of the native Danger Room tutorial
+- the item is consumed after the committed launch
+- `rift status` works without needing admin-only run lists
+- the chat feedback is high-level and player-facing, not admin/debug oriented
+- if the client accepts the existing timer packet, a visible timer should start; if not, chat still warns at key remaining-time thresholds
+
+Legacy/admin preparation commands remain useful for troubleshooting:
+
+```text
+rift prepbeacon 1 1
+rift beacon
+rift validatecontent
+```
+
+Expected current behavior:
+
 - the item use should stay in the Mythic Rift path instead of dropping a normal Danger Room scenario back into inventory
 - if you chain the next random Rift while still standing in the previous terminal, the selector should avoid that same terminal content when another map is available
-- if a test run needs to be stopped manually, admins can use `rift abort [runId]`
+- if a player-like test run needs to be stopped manually, use `rift abandon`
+- `rift abandon` intentionally costs the current Rift attempt and returns online participants to the Danger Room hub
+- a normal return-to-town / hub teleport out of the active Rift also costs and closes the current Rift attempt if the Rift is not completed yet
+- once quota plus Rift boss are completed, success is recorded at boss death, so teleporting out afterward should not invalidate the clear
+- if an admin needs hard cleanup, use `rift abort [runId]` and then `rift remove [runId]`
 
 ## Recommended Review Test Plan
 
@@ -258,7 +290,7 @@ Suggested process:
 2. Enter the expected terminal region.
 3. Let the server auto-bind the run.
 4. Kill enemies until quota is met.
-5. Kill the expected boss.
+5. Confirm the Rift boss appears only after quota completion, then kill the spawned/configured Rift boss.
 6. Inspect the run state and rewards.
 
 Useful commands:
@@ -356,7 +388,9 @@ These points should help TAHITI interpret tester feedback correctly.
 
 - reports that the beacon "sometimes becomes a regular Danger Room" belong to the older behavior that the newer interception pass was explicitly designed to stop
 - reports that the same dead terminal was selected again are also expected to improve on the newer random-selection pass, because it now excludes the player's current terminal region and last completed terminal map when other maps are available
+- reports that the normal terminal boss can be killed before quota should be retested on the newer native-boss suppression build
 - inherited terminal boss loot is still used intentionally at this stage, so side drops such as cube shards are not a blocker by themselves
+- random enemy replacement is not part of the current feature-complete test target yet; it should be treated as a later server-side safety pass
 - that reward behavior should be treated as a temporary prototype state until the final reward layer is tuned
 - current difficulty at higher Rift levels is still considered tuning-sensitive
 - for efficient review cycles, multiplayer and gameplay-flow validation should come before final high-level balance conclusions
@@ -384,6 +418,8 @@ rift access [level]
 rift progression
 rift runs
 rift run [runId]
+rift status
+rift abandon
 rift entrypoints
 rift launchplan portal-to-random-dungeon
 ```

@@ -1,3 +1,4 @@
+using Gazillion;
 using MHServerEmu.Core.Logging;
 using MHServerEmu.Core.Memory;
 using MHServerEmu.Core.VectorMath;
@@ -7,9 +8,12 @@ using MHServerEmu.Games.Events;
 using MHServerEmu.Games.GameData;
 using MHServerEmu.Games.GameData.Prototypes;
 using MHServerEmu.Games.Loot;
+using MHServerEmu.Games.Missions;
 using MHServerEmu.Games.Properties;
 using MHServerEmu.Games.Regions;
 using MHServerEmu.Games.Social.Parties;
+using MHServerEmu.Games.UI;
+using MHServerEmu.Games.UI.Widgets;
 
 namespace MHServerEmu.Games.MythicRifts
 {
@@ -18,9 +22,15 @@ namespace MHServerEmu.Games.MythicRifts
         private static readonly Logger Logger = LogManager.CreateLogger();
         private const float TimedSuccessBonusRarityPct = 0.10f;
         private const float TimedSuccessBonusSpecialPct = 0.15f;
+        private static readonly bool SuspendNativeTerminalMissionsDuringRifts = true;
+        private static readonly bool SuspendNativeRegionEventMissionsDuringRifts = true;
+        private static readonly int[] TimeWarningThresholdSeconds = { 540, 480, 420, 360, 300, 240, 180, 120, 60, 30 };
+        private static readonly int[] KillProgressMilestonePercents = { 25, 50, 75 };
         private static readonly TimeSpan ParticipantDisconnectAbortGracePeriod = TimeSpan.FromMinutes(2);
         private static readonly TimeSpan PendingRunBindGracePeriod = TimeSpan.FromMinutes(2);
         private static readonly TimeSpan CompletedRunRetention = TimeSpan.FromMinutes(5);
+        private static readonly TimeSpan NativeBossSuppressionScanInterval = TimeSpan.FromSeconds(1);
+        private static readonly TimeSpan RiftObjectiveWidgetRefreshInterval = TimeSpan.FromSeconds(2);
         private static readonly MythicRiftContentDefinition[] DefaultContentDefinitions =
         {
             new(
@@ -109,7 +119,11 @@ namespace MHServerEmu.Games.MythicRifts
         private readonly Dictionary<ulong, MythicRiftRunState> _activeRuns = new();
         private readonly Dictionary<ulong, Event<EntityDeadGameEvent>.Action> _regionEntityDeadActions = new();
         private readonly Dictionary<ulong, int> _highestUnlockedRiftLevelByPlayer = new();
+        private readonly Dictionary<ulong, int> _preferredLaunchRiftLevelByPlayer = new();
         private readonly Dictionary<ulong, string> _lastCompletedMapContentIdByPlayer = new();
+        private readonly Dictionary<ulong, TimeSpan> _nextNativeBossSuppressionScanAt = new();
+        private readonly Dictionary<ulong, TimeSpan> _nextRiftObjectiveWidgetRefreshAt = new();
+        private readonly Dictionary<ulong, HashSet<Mission>> _serverSuspendedNativeObjectiveMissionsByRun = new();
         private ulong _nextRunId = 1;
 
         public Game Game { get; }
@@ -155,6 +169,56 @@ namespace MHServerEmu.Games.MythicRifts
                 return false;
 
             return riftLevel <= GetHighestUnlockedRiftLevel(playerDbId);
+        }
+
+        public int GetPreferredLaunchRiftLevel(ulong playerDbId)
+        {
+            int highestUnlockedLevel = GetHighestUnlockedRiftLevel(playerDbId);
+            if (playerDbId == 0)
+                return highestUnlockedLevel;
+
+            if (_preferredLaunchRiftLevelByPlayer.TryGetValue(playerDbId, out int preferredLevel) == false || preferredLevel <= 0)
+                return highestUnlockedLevel;
+
+            return Math.Min(Math.Max(preferredLevel, 1), highestUnlockedLevel);
+        }
+
+        public bool TrySetPreferredLaunchRiftLevel(ulong playerDbId, int riftLevel, out int appliedLevel, out string errorMessage)
+        {
+            appliedLevel = GetPreferredLaunchRiftLevel(playerDbId);
+            errorMessage = string.Empty;
+
+            if (playerDbId == 0)
+            {
+                errorMessage = "Player not found.";
+                return false;
+            }
+
+            if (riftLevel <= 0)
+            {
+                errorMessage = "Rift level must be greater than zero.";
+                return false;
+            }
+
+            int highestUnlockedLevel = GetHighestUnlockedRiftLevel(playerDbId);
+            if (riftLevel > highestUnlockedLevel)
+            {
+                errorMessage = $"Requested Rift level {riftLevel} is locked. Highest unlocked level: {highestUnlockedLevel}.";
+                return false;
+            }
+
+            _preferredLaunchRiftLevelByPlayer[playerDbId] = riftLevel;
+            appliedLevel = riftLevel;
+            return true;
+        }
+
+        public int UseHighestUnlockedLaunchRiftLevel(ulong playerDbId)
+        {
+            if (playerDbId == 0)
+                return 1;
+
+            _preferredLaunchRiftLevelByPlayer.Remove(playerDbId);
+            return GetHighestUnlockedRiftLevel(playerDbId);
         }
 
         public int SetHighestUnlockedRiftLevel(ulong playerDbId, int unlockedLevel)
@@ -276,11 +340,20 @@ namespace MHServerEmu.Games.MythicRifts
                 return false;
 
             ulong regionId = runState.RegionId;
+            SendStopRiftTimer(runState);
             TryRestoreRegionDifficultyScaling(runState);
+            RestoreSuspendedNativeObjectiveMissions(runState);
             bool removed = _activeRuns.Remove(runId);
 
             if (removed && regionId != 0)
                 CleanupRegionListener(regionId);
+
+            if (removed)
+            {
+                _nextNativeBossSuppressionScanAt.Remove(runId);
+                _nextRiftObjectiveWidgetRefreshAt.Remove(runId);
+                _serverSuspendedNativeObjectiveMissionsByRun.Remove(runId);
+            }
 
             return removed;
         }
@@ -293,7 +366,12 @@ namespace MHServerEmu.Games.MythicRifts
 
             runState.Start(currentTime);
             if (runState.Status == MythicRiftRunStatus.Active)
+            {
+                SendStartRiftTimer(runState);
+                SuppressNativeTerminalBosses(runState, currentTime, force: true);
+                RefreshRiftObjectiveWidgets(runState, currentTime, force: true);
                 NotifyRunStarted(runState);
+            }
 
             return runState.Status == MythicRiftRunStatus.Active;
         }
@@ -323,7 +401,7 @@ namespace MHServerEmu.Games.MythicRifts
             if (runState == null)
                 return false;
 
-            return CompleteRunFailure(runState, currentTime, "The timer expired. Base boss rewards only.");
+            return CompleteRunFailure(runState, currentTime, "Time expired. Base boss rewards only.", returnParticipantsToHub: true);
         }
 
         public bool MarkRunAborted(ulong runId, TimeSpan currentTime)
@@ -332,7 +410,46 @@ namespace MHServerEmu.Games.MythicRifts
             if (runState == null)
                 return false;
 
-            return AbortRun(runState, currentTime, "The run was aborted.");
+            return AbortRun(runState, currentTime, "The Rift was abandoned. A new Beacon is required to start another run.");
+        }
+
+        public int ReturnRunParticipantsToDangerRoomHub(MythicRiftRunState runState, Player fallbackPlayer = null, bool includePlayersAlreadyOutsideRunRegion = true)
+        {
+            if (runState == null || TryResolveDangerRoomHubStartTarget(out PrototypeId dangerRoomHubStartTarget) == false)
+                return 0;
+
+            HashSet<ulong> playerDbIds = new(runState.ParticipantPlayerDbIds);
+            if (runState.RegionId != 0)
+            {
+                Region region = Game.RegionManager.GetRegion(runState.RegionId);
+                if (region != null)
+                {
+                    foreach (Player regionPlayer in new PlayerIterator(region))
+                    {
+                        if (regionPlayer?.DatabaseUniqueId != 0)
+                            playerDbIds.Add(regionPlayer.DatabaseUniqueId);
+                    }
+                }
+            }
+
+            if (playerDbIds.Count == 0 && fallbackPlayer?.DatabaseUniqueId != 0)
+                playerDbIds.Add(fallbackPlayer.DatabaseUniqueId);
+
+            int teleportedPlayerCount = 0;
+            foreach (ulong playerDbId in playerDbIds)
+            {
+                Player player = Game.EntityManager.GetEntityByDbGuid<Player>(playerDbId);
+                if (player?.CurrentAvatar?.IsInWorld != true)
+                    continue;
+
+                if (includePlayersAlreadyOutsideRunRegion == false && IsPlayerInRunRegion(player, runState) == false)
+                    continue;
+
+                Teleporter.DebugTeleportToTarget(player, dangerRoomHubStartTarget, GameDatabase.GlobalsPrototype.DifficultyTierDefault);
+                teleportedPlayerCount++;
+            }
+
+            return teleportedPlayerCount;
         }
 
         public bool AbortRunWithReason(ulong runId, TimeSpan currentTime, string reason)
@@ -440,7 +557,7 @@ namespace MHServerEmu.Games.MythicRifts
             if (runState == null || runState.HasExpired(currentTime) == false)
                 return false;
 
-            return CompleteRunFailure(runState, currentTime, "The timer expired. Base boss rewards only.");
+            return CompleteRunFailure(runState, currentTime, "Time expired. Base boss rewards only.", returnParticipantsToHub: true);
         }
 
         public bool AttachRunToRegion(ulong runId, Region region)
@@ -465,14 +582,27 @@ namespace MHServerEmu.Games.MythicRifts
                 RegisterBoundRegionPlayersAsParticipants(runState);
                 UpdateParticipantPresence(runState, currentTime);
                 TryAutoBindAndStartPendingRun(runState, currentTime);
+                SuppressNativeTerminalBosses(runState, currentTime);
+                RefreshRiftObjectiveWidgets(runState, currentTime);
 
                 if (runState.HasExpired(currentTime))
                 {
-                    CompleteRunFailure(runState, currentTime, "The timer expired. Base boss rewards only.");
+                    CompleteRunFailure(runState, currentTime, "Time expired. Base boss rewards only.", returnParticipantsToHub: true);
+                }
+                else
+                {
+                    TryNotifyRunTimeWarnings(runState, currentTime);
                 }
 
                 if (TryAbortRunForDisconnectedParticipants(runState, currentTime))
                     continue;
+
+                if (TryAbortRunForParticipantExit(runState, currentTime))
+                {
+                    runsToRemove ??= new();
+                    runsToRemove.Add(runState.Config.RunId);
+                    continue;
+                }
 
                 if (TryAbortStalePendingRun(runState, currentTime))
                     continue;
@@ -698,6 +828,452 @@ namespace MHServerEmu.Games.MythicRifts
             runState.ClearRegionDifficultyScaling();
         }
 
+        private int SuppressNativeTerminalBosses(MythicRiftRunState runState, TimeSpan currentTime, bool force = false)
+        {
+            if (runState == null || runState.Status != MythicRiftRunStatus.Active || runState.RegionId == 0)
+                return 0;
+
+            if (force == false &&
+                _nextNativeBossSuppressionScanAt.TryGetValue(runState.Config.RunId, out TimeSpan nextScanAt) &&
+                currentTime < nextScanAt)
+            {
+                return 0;
+            }
+
+            _nextNativeBossSuppressionScanAt[runState.Config.RunId] = currentTime + NativeBossSuppressionScanInterval;
+
+            PrototypeId nativeBossProtoRef = runState.Config.Content?.BossProtoRef ?? PrototypeId.Invalid;
+            if (nativeBossProtoRef == PrototypeId.Invalid)
+                return 0;
+
+            Region region = Game.RegionManager.GetRegion(runState.RegionId);
+            if (region == null)
+                return 0;
+
+            List<Agent> nativeBossesToDestroy = null;
+            foreach (Entity entity in region.Entities)
+            {
+                if (entity is not Agent agent)
+                    continue;
+
+                if (agent.IsDestroyed || agent.IsDead || agent.IsInWorld == false)
+                    continue;
+
+                if (runState.BossEntityId != 0 && agent.Id == runState.BossEntityId)
+                    continue;
+
+                if (agent.IsAPrototype(nativeBossProtoRef) == false)
+                    continue;
+
+                nativeBossesToDestroy ??= new();
+                nativeBossesToDestroy.Add(agent);
+            }
+
+            if (nativeBossesToDestroy == null)
+                return 0;
+
+            int destroyedCount = 0;
+            foreach (Agent nativeBoss in nativeBossesToDestroy)
+            {
+                Logger.Info(
+                    $"Mythic Rift run {runState.Config.RunId} suppressed native terminal boss {nativeBoss.PrototypeName} " +
+                    $"so Rift boss {runState.Config.BossProtoRef.GetNameFormatted() ?? "unknown"} remains quota-gated.");
+                nativeBoss.Destroy();
+                destroyedCount++;
+            }
+
+            return destroyedCount;
+        }
+
+        public bool TryRefreshNativeObjectiveWidgetOverride(MissionObjective objective)
+        {
+            Mission mission = objective?.Mission;
+            MythicRiftRunState runState = FindActiveRunForNativeObjectiveMission(mission, null);
+            if (runState == null)
+                return false;
+
+            Region region = mission.Region;
+            if (region == null)
+                return false;
+
+            RefreshRiftObjectiveWidgetsForMission(region, mission, runState, Game.CurrentTime);
+            return true;
+        }
+
+        public bool TrySendNativeMissionUpdateOverride(Mission mission, Player player, MissionUpdateFlags missionFlags, MissionObjectiveUpdateFlags objectiveFlags)
+        {
+            if (missionFlags == MissionUpdateFlags.None && objectiveFlags == MissionObjectiveUpdateFlags.None)
+                return false;
+
+            MythicRiftRunState runState = FindActiveRunForNativeObjectiveMission(mission, player);
+            if (runState == null)
+                return false;
+
+            SendNativeMissionTrackerSuppression(player, mission, runState);
+            return true;
+        }
+
+        public bool TrySendNativeObjectiveUpdateOverride(MissionObjective objective, Player player, MissionObjectiveUpdateFlags objectiveFlags)
+        {
+            if (objectiveFlags == MissionObjectiveUpdateFlags.None)
+                return false;
+
+            Mission mission = objective?.Mission;
+            MythicRiftRunState runState = FindActiveRunForNativeObjectiveMission(mission, player);
+            if (runState == null)
+                return false;
+
+            SendNativeObjectiveTrackerSuppression(player, mission, objective, runState);
+            return true;
+        }
+
+        private MythicRiftRunState FindActiveRunForNativeObjectiveMission(Mission mission, Player player)
+        {
+            if (mission == null || mission.PrototypeDataRef == PrototypeId.Invalid)
+                return null;
+
+            Region region = mission.Region ?? player?.GetRegion();
+            if (region == null)
+                return null;
+
+            foreach (MythicRiftRunState runState in _activeRuns.Values)
+            {
+                if (runState.Status != MythicRiftRunStatus.Active || runState.RegionId == 0)
+                    continue;
+
+                if (runState.RegionId != region.Id && IsMatchingRunRegion(region, runState) == false)
+                    continue;
+
+                if (player != null && IsPlayerInRunRegion(player, runState) == false)
+                    continue;
+
+                if (IsNativeObjectiveMissionForRun(mission, runState))
+                    return runState;
+            }
+
+            return null;
+        }
+
+        private static bool IsNativeObjectiveMissionForRun(Mission mission, MythicRiftRunState runState)
+        {
+            if (mission == null || runState?.Config == null)
+                return false;
+
+            bool isNativeTerminalMission = mission.PrototypeDataRef == runState.Config.MissionProtoRef;
+            bool shouldControlTerminalMission = isNativeTerminalMission && SuspendNativeTerminalMissionsDuringRifts;
+            bool shouldControlRegionEventMission = mission.IsRegionEventMission && SuspendNativeRegionEventMissionsDuringRifts;
+
+            return shouldControlTerminalMission || shouldControlRegionEventMission;
+        }
+
+        private void RefreshRiftObjectiveWidgets(MythicRiftRunState runState, TimeSpan currentTime, bool force = false)
+        {
+            if (runState == null || runState.Status != MythicRiftRunStatus.Active || runState.RegionId == 0)
+                return;
+
+            if (force == false &&
+                _nextRiftObjectiveWidgetRefreshAt.TryGetValue(runState.Config.RunId, out TimeSpan nextRefreshAt) &&
+                currentTime < nextRefreshAt)
+            {
+                return;
+            }
+
+            _nextRiftObjectiveWidgetRefreshAt[runState.Config.RunId] = currentTime + RiftObjectiveWidgetRefreshInterval;
+
+            Region region = Game.RegionManager.GetRegion(runState.RegionId);
+            if (region == null)
+                return;
+
+            using var missionHandle = HashSetPool<Mission>.Instance.Get(out HashSet<Mission> missions);
+            AddNativeTerminalMission(missions, region.MissionManager, runState.Config.MissionProtoRef);
+            AddNativeRegionEventMissions(missions, region.MissionManager);
+
+            foreach (Player player in new PlayerIterator(region))
+                AddNativeTerminalMission(missions, player?.MissionManager, runState.Config.MissionProtoRef);
+
+            foreach (Mission mission in missions)
+            {
+                TrySuspendNativeObjectiveMissionForRun(runState, mission);
+                SuppressNativeMissionTrackerForRunPlayers(mission, runState);
+                RefreshRiftObjectiveWidgetsForMission(region, mission, runState, currentTime);
+            }
+        }
+
+        private void ClearRiftObjectiveWidgets(MythicRiftRunState runState)
+        {
+            if (runState == null || runState.RegionId == 0)
+                return;
+
+            Region region = Game.RegionManager.GetRegion(runState.RegionId);
+            if (region == null)
+                return;
+
+            using var missionHandle = HashSetPool<Mission>.Instance.Get(out HashSet<Mission> missions);
+            AddNativeTerminalMission(missions, region.MissionManager, runState.Config.MissionProtoRef);
+            AddNativeRegionEventMissions(missions, region.MissionManager);
+
+            foreach (Player player in new PlayerIterator(region))
+                AddNativeTerminalMission(missions, player?.MissionManager, runState.Config.MissionProtoRef);
+
+            foreach (Mission mission in missions)
+                ClearRiftObjectiveWidgetsForMission(region, mission);
+        }
+
+        private static void AddNativeTerminalMission(HashSet<Mission> missions, MissionManager missionManager, PrototypeId missionRef)
+        {
+            if (missions == null || missionManager == null || missionRef == PrototypeId.Invalid)
+                return;
+
+            Mission mission = missionManager.FindMissionByDataRef(missionRef);
+            if (mission != null)
+                missions.Add(mission);
+        }
+
+        private static void AddNativeRegionEventMissions(HashSet<Mission> missions, MissionManager missionManager)
+        {
+            if (missions == null || missionManager == null)
+                return;
+
+            foreach (PrototypeId missionRef in missionManager.ActiveMissions)
+            {
+                Mission mission = missionManager.FindMissionByDataRef(missionRef);
+                if (mission?.IsRegionEventMission == true)
+                    missions.Add(mission);
+            }
+        }
+
+        private void TrySuspendNativeObjectiveMissionForRun(MythicRiftRunState runState, Mission mission)
+        {
+            if (runState?.Config == null || mission == null)
+                return;
+
+            bool isNativeTerminalMission = mission.PrototypeDataRef == runState.Config.MissionProtoRef;
+            bool shouldSuspendTerminalMission = isNativeTerminalMission && SuspendNativeTerminalMissionsDuringRifts;
+            bool shouldSuspendRegionEventMission = mission.IsRegionEventMission && SuspendNativeRegionEventMissionsDuringRifts;
+
+            if (shouldSuspendTerminalMission == false && shouldSuspendRegionEventMission == false)
+                return;
+
+            if (mission.PrototypeDataRef == PrototypeId.Invalid || mission.IsSuspended)
+                return;
+
+            if (mission.SetSuspendedState(true) == false)
+                return;
+
+            if (_serverSuspendedNativeObjectiveMissionsByRun.TryGetValue(runState.Config.RunId, out HashSet<Mission> suspendedMissions) == false)
+            {
+                suspendedMissions = new();
+                _serverSuspendedNativeObjectiveMissionsByRun[runState.Config.RunId] = suspendedMissions;
+            }
+
+            suspendedMissions.Add(mission);
+            string missionKind = isNativeTerminalMission ? "native terminal" : "region event";
+            Logger.Info($"Mythic Rift run {runState.Config.RunId} suspended {missionKind} mission {mission.PrototypeName} while the Rift is active.");
+        }
+
+        private void RestoreSuspendedNativeObjectiveMissions(MythicRiftRunState runState)
+        {
+            if (runState?.Config == null)
+                return;
+
+            if (_serverSuspendedNativeObjectiveMissionsByRun.TryGetValue(runState.Config.RunId, out HashSet<Mission> suspendedMissions) == false)
+                return;
+
+            int restoredCount = 0;
+            foreach (Mission mission in suspendedMissions)
+            {
+                if (mission?.IsSuspended != true)
+                    continue;
+
+                if (mission.SetSuspendedState(false))
+                    restoredCount++;
+            }
+
+            if (restoredCount > 0)
+                Logger.Info($"Mythic Rift run {runState.Config.RunId} restored {restoredCount} suspended native objective mission(s).");
+        }
+
+        private void RefreshRiftObjectiveWidgetsForMission(Region region, Mission mission, MythicRiftRunState runState, TimeSpan currentTime)
+        {
+            UIDataProvider uiDataProvider = region?.UIDataProvider;
+            if (uiDataProvider == null || mission == null || runState?.Config == null)
+                return;
+
+            PrototypeId missionRef = mission.PrototypeDataRef;
+            if (missionRef == PrototypeId.Invalid)
+                return;
+
+            bool removeMissionNameWidget = false;
+            foreach (MissionObjective objective in mission.Objectives)
+            {
+                MissionObjectivePrototype objectiveProto = objective?.Prototype;
+                if (objectiveProto == null)
+                    continue;
+
+                RefreshRiftObjectiveWidget(uiDataProvider, missionRef, objectiveProto.MetaGameWidget, runState, currentTime, ref removeMissionNameWidget);
+                SuppressNativeObjectiveWidget(uiDataProvider, missionRef, objectiveProto.MetaGameWidgetFail, ref removeMissionNameWidget);
+            }
+
+            if (removeMissionNameWidget)
+                SuppressMissionNameWidget(uiDataProvider, missionRef);
+        }
+
+        private void SuppressNativeMissionTrackerForRunPlayers(Mission mission, MythicRiftRunState runState)
+        {
+            if (mission == null || runState == null)
+                return;
+
+            foreach (Player player in GetRunPlayers(runState))
+            {
+                if (IsPlayerInRunRegion(player, runState) == false)
+                    continue;
+
+                SendNativeMissionTrackerSuppression(player, mission, runState);
+            }
+        }
+
+        private static void SendNativeMissionTrackerSuppression(Player player, Mission mission, MythicRiftRunState runState)
+        {
+            if (player == null || mission == null || mission.PrototypeDataRef == PrototypeId.Invalid)
+                return;
+
+            try
+            {
+                NetMessageMissionUpdate missionMessage = NetMessageMissionUpdate.CreateBuilder()
+                    .SetMissionPrototypeId((ulong)mission.PrototypeDataRef)
+                    .SetMissionState((uint)MissionState.Inactive)
+                    .SetSuppressNotification(true)
+                    .SetSuspendedState(true)
+                    .Build();
+
+                player.SendMessage(missionMessage);
+
+                foreach (MissionObjective objective in mission.Objectives)
+                    SendNativeObjectiveTrackerSuppression(player, mission, objective, runState);
+            }
+            catch (Exception e)
+            {
+                Logger.Warn($"SendNativeMissionTrackerSuppression(): failed for mission {mission.PrototypeName}: {e.Message}");
+            }
+        }
+
+        private static void SendNativeObjectiveTrackerSuppression(Player player, Mission mission, MissionObjective objective, MythicRiftRunState runState)
+        {
+            if (player == null || mission == null || objective == null || mission.PrototypeDataRef == PrototypeId.Invalid)
+                return;
+
+            uint requiredCount = (uint)Math.Max(runState?.Config?.KillQuota ?? 1, 1);
+            uint currentCount = (uint)Math.Clamp(runState?.CurrentKillCount ?? 0, 0, (int)requiredCount);
+            bool isGenericCounter = UsesGenericFractionWidget(objective);
+
+            // The client can keep one native bounty counter visible. For that one, keep a generic
+            // objective alive but replace its numbers with the Rift quota. Everything else is hidden.
+            MissionObjectiveState objectiveState = isGenericCounter ? MissionObjectiveState.Active : MissionObjectiveState.Invalid;
+
+            NetMessageMissionObjectiveUpdate objectiveMessage = NetMessageMissionObjectiveUpdate.CreateBuilder()
+                .SetMissionPrototypeId((ulong)mission.PrototypeDataRef)
+                .SetObjectiveIndex(objective.PrototypeIndex)
+                .SetObjectiveState((uint)objectiveState)
+                .SetCurrentCount(currentCount)
+                .SetRequiredCount(requiredCount)
+                .SetFailCurrentCount(0)
+                .SetFailRequiredCount(0)
+                .SetSuppressNotification(true)
+                .SetSuspendedState(isGenericCounter == false)
+                .Build();
+
+            player.SendMessage(objectiveMessage);
+        }
+
+        private static bool UsesGenericFractionWidget(MissionObjective objective)
+        {
+            PrototypeId widgetRef = objective?.Prototype?.MetaGameWidget ?? PrototypeId.Invalid;
+            if (widgetRef == PrototypeId.Invalid)
+                return false;
+
+            return GameDatabase.GetPrototype<MetaGameDataPrototype>(widgetRef) is UIWidgetGenericFractionPrototype;
+        }
+
+        private static void ClearRiftObjectiveWidgetsForMission(Region region, Mission mission)
+        {
+            UIDataProvider uiDataProvider = region?.UIDataProvider;
+            if (uiDataProvider == null || mission == null)
+                return;
+
+            PrototypeId missionRef = mission.PrototypeDataRef;
+            if (missionRef == PrototypeId.Invalid)
+                return;
+
+            foreach (MissionObjective objective in mission.Objectives)
+            {
+                MissionObjectivePrototype objectiveProto = objective?.Prototype;
+                if (objectiveProto == null)
+                    continue;
+
+                if (objectiveProto.MetaGameWidget != PrototypeId.Invalid)
+                    uiDataProvider.DeleteWidget(objectiveProto.MetaGameWidget, missionRef);
+
+                if (objectiveProto.MetaGameWidgetFail != PrototypeId.Invalid)
+                    uiDataProvider.DeleteWidget(objectiveProto.MetaGameWidgetFail, missionRef);
+            }
+
+            SuppressMissionNameWidget(uiDataProvider, missionRef);
+        }
+
+        private void RefreshRiftObjectiveWidget(UIDataProvider uiDataProvider, PrototypeId missionRef, PrototypeId widgetRef, MythicRiftRunState runState, TimeSpan currentTime, ref bool removeMissionNameWidget)
+        {
+            if (widgetRef == PrototypeId.Invalid)
+                return;
+
+            MetaGameDataPrototype metaDataProto = GameDatabase.GetPrototype<MetaGameDataPrototype>(widgetRef);
+            if (metaDataProto == null)
+                return;
+
+            removeMissionNameWidget |= metaDataProto.DisplayMissionName;
+
+            if (metaDataProto is UIWidgetGenericFractionPrototype)
+            {
+                UIWidgetGenericFraction fractionWidget = uiDataProvider.GetWidget<UIWidgetGenericFraction>(widgetRef, missionRef);
+                if (fractionWidget == null)
+                    return;
+
+                int requiredCount = Math.Max(runState.Config.KillQuota, 1);
+                int currentCount = Math.Clamp(runState.CurrentKillCount, 0, requiredCount);
+                fractionWidget.SetCount(currentCount, requiredCount);
+
+                TimeSpan remaining = runState.GetTimeRemaining(currentTime);
+                if (remaining > TimeSpan.Zero)
+                    fractionWidget.SetTimeRemaining((long)remaining.TotalMilliseconds);
+
+                fractionWidget.SetAreaContext(missionRef);
+                return;
+            }
+
+            // Keep native terminal logic alive, but hide terminal-specific HUD text such as "Defeat Kingpin".
+            uiDataProvider.DeleteWidget(widgetRef, missionRef);
+        }
+
+        private static void SuppressNativeObjectiveWidget(UIDataProvider uiDataProvider, PrototypeId missionRef, PrototypeId widgetRef, ref bool removeMissionNameWidget)
+        {
+            if (uiDataProvider == null || widgetRef == PrototypeId.Invalid)
+                return;
+
+            MetaGameDataPrototype metaDataProto = GameDatabase.GetPrototype<MetaGameDataPrototype>(widgetRef);
+            if (metaDataProto != null)
+                removeMissionNameWidget |= metaDataProto.DisplayMissionName;
+
+            uiDataProvider.DeleteWidget(widgetRef, missionRef);
+        }
+
+        private static void SuppressMissionNameWidget(UIDataProvider uiDataProvider, PrototypeId missionRef)
+        {
+            PrototypeId missionNameWidgetRef = GameDatabase.UIGlobalsPrototype?.MetaGameWidgetMissionName ?? PrototypeId.Invalid;
+            if (uiDataProvider == null || missionNameWidgetRef == PrototypeId.Invalid)
+                return;
+
+            uiDataProvider.DeleteWidget(missionNameWidgetRef, missionRef);
+        }
+
         private void OnRegionEntityDead(ulong regionId, in EntityDeadGameEvent evt)
         {
             foreach (MythicRiftRunState runState in _activeRuns.Values)
@@ -745,6 +1321,7 @@ namespace MHServerEmu.Games.MythicRifts
 
                 int previousKillCount = runState.CurrentKillCount;
                 runState.AddKills(1);
+                RefreshRiftObjectiveWidgets(runState, Game.CurrentTime, force: true);
 
                 if (runState.BossUnlocked && previousKillCount < runState.Config.KillQuota)
                 {
@@ -759,6 +1336,10 @@ namespace MHServerEmu.Games.MythicRifts
                     }
                     Logger.Info($"Mythic Rift run {runState.Config.RunId} unlocked its boss after reaching {runState.CurrentKillCount}/{runState.Config.KillQuota} kills.");
                 }
+                else
+                {
+                    TryNotifyKillProgress(runState);
+                }
             }
         }
 
@@ -767,11 +1348,11 @@ namespace MHServerEmu.Games.MythicRifts
             if (runState == null || evt.Defender == null)
                 return false;
 
-            if (runState.BossEntityId != 0 && runState.BossEntityId == evt.Defender.Id)
-                return true;
-
             if (runState.BossUnlocked == false)
                 return false;
+
+            if (runState.BossEntityId != 0 && runState.BossEntityId == evt.Defender.Id)
+                return true;
 
             PrototypeId expectedBossRef = runState.Config.BossProtoRef;
             if (expectedBossRef == PrototypeId.Invalid)
@@ -799,13 +1380,22 @@ namespace MHServerEmu.Games.MythicRifts
                 runState.RegisterParticipant(taggedPlayer.DatabaseUniqueId);
         }
 
-        private static void RegisterRegionPlayersAsParticipants(MythicRiftRunState runState, Region region)
+        private void RegisterRegionPlayersAsParticipants(MythicRiftRunState runState, Region region)
         {
             if (runState == null || region == null)
                 return;
 
             foreach (Player player in new PlayerIterator(region))
-                runState.RegisterParticipant(player.DatabaseUniqueId);
+            {
+                if (runState.RegisterParticipant(player.DatabaseUniqueId) && runState.Status == MythicRiftRunStatus.Active)
+                {
+                    SendStartRiftTimer(runState, player);
+                    Game.ChatManager.SendChatFromCustomSystem(
+                        player,
+                        BuildJoinMessage(runState, Game.CurrentTime),
+                        showSender: false);
+                }
+            }
         }
 
         private static int ResolveRequestedPlayerCount(Player player, Party party)
@@ -1131,15 +1721,17 @@ namespace MHServerEmu.Games.MythicRifts
             TrackLastCompletedMapContent(runState);
             TryAutoGrantCompletionRewards(runState);
             TryRestoreRegionDifficultyScaling(runState);
+            ClearRiftObjectiveWidgets(runState);
+            SendStopRiftTimer(runState);
             int eligibleUnlockCount = runState.ProgressionEligiblePlayerDbIds.Count;
             string successMessage = eligibleUnlockCount > 0
-                ? $"Rift cleared. Next level unlocked for {eligibleUnlockCount} eligible player(s)."
-                : "Rift cleared. No players met the competitive progression rule for next-level unlock.";
+                ? $"Rift cleared. Next level unlocked for {eligibleUnlockCount} eligible player(s). Bonus loot granted."
+                : "Rift cleared. Loot granted, but no players met the next-level unlock rule.";
             NotifyRunCompleted(runState, success: true, successMessage);
             return true;
         }
 
-        private bool CompleteRunFailure(MythicRiftRunState runState, TimeSpan currentTime, string reason)
+        private bool CompleteRunFailure(MythicRiftRunState runState, TimeSpan currentTime, string reason, bool returnParticipantsToHub = false)
         {
             if (runState == null)
                 return false;
@@ -1152,7 +1744,16 @@ namespace MHServerEmu.Games.MythicRifts
             TrackLastCompletedMapContent(runState);
             TryAutoGrantCompletionRewards(runState);
             TryRestoreRegionDifficultyScaling(runState);
+            ClearRiftObjectiveWidgets(runState);
+            SendStopRiftTimer(runState);
             NotifyRunCompleted(runState, success: false, reason);
+
+            if (returnParticipantsToHub)
+            {
+                int returnedPlayerCount = ReturnRunParticipantsToDangerRoomHub(runState, includePlayersAlreadyOutsideRunRegion: false);
+                Logger.Info($"Mythic Rift run {runState.Config.RunId} returned {returnedPlayerCount} online participant(s) to the Danger Room hub after timer failure.");
+            }
+
             Logger.Info($"Mythic Rift run {runState.Config.RunId} failed. reason={reason}");
             return true;
         }
@@ -1168,6 +1769,8 @@ namespace MHServerEmu.Games.MythicRifts
 
             TrackLastCompletedMapContent(runState);
             TryRestoreRegionDifficultyScaling(runState);
+            ClearRiftObjectiveWidgets(runState);
+            SendStopRiftTimer(runState);
             NotifyRunCompleted(runState, success: false, reason);
             Logger.Info($"Mythic Rift run {runState.Config.RunId} aborted. reason={reason}");
             return true;
@@ -1218,6 +1821,18 @@ namespace MHServerEmu.Games.MythicRifts
             return false;
         }
 
+        private static bool IsPlayerInRunRegion(Player player, MythicRiftRunState runState)
+        {
+            Region region = player?.GetRegion();
+            if (region == null || runState == null)
+                return false;
+
+            if (runState.RegionId != 0 && region.Id == runState.RegionId)
+                return true;
+
+            return IsMatchingRunRegion(region, runState);
+        }
+
         private void UpdateParticipantPresence(MythicRiftRunState runState, TimeSpan currentTime)
         {
             if (runState == null || runState.ParticipantCount == 0)
@@ -1246,6 +1861,32 @@ namespace MHServerEmu.Games.MythicRifts
             RegisterRegionPlayersAsParticipants(runState, region);
         }
 
+        private bool TryAbortRunForParticipantExit(MythicRiftRunState runState, TimeSpan currentTime)
+        {
+            if (runState == null || runState.Status != MythicRiftRunStatus.Active || runState.RegionId == 0)
+                return false;
+
+            foreach (ulong participantPlayerDbId in runState.ParticipantPlayerDbIds)
+            {
+                Player player = Game.EntityManager.GetEntityByDbGuid<Player>(participantPlayerDbId);
+                if (player == null || player.GetRegion() == null)
+                    continue;
+
+                if (IsPlayerInRunRegion(player, runState))
+                    continue;
+
+                string reason = "A participant left the Rift before completion. The Rift has closed and a new Beacon is required.";
+                if (AbortRun(runState, currentTime, reason) == false)
+                    return false;
+
+                int returnedPlayerCount = ReturnRunParticipantsToDangerRoomHub(runState, player, includePlayersAlreadyOutsideRunRegion: false);
+                Logger.Info($"Mythic Rift run {runState.Config.RunId} returned {returnedPlayerCount} online participant(s) to the Danger Room hub after participant exit.");
+                return true;
+            }
+
+            return false;
+        }
+
         private bool TryAbortRunForDisconnectedParticipants(MythicRiftRunState runState, TimeSpan currentTime)
         {
             if (runState == null || runState.IsInProgress == false || runState.ParticipantCount == 0)
@@ -1258,7 +1899,7 @@ namespace MHServerEmu.Games.MythicRifts
             return AbortRun(
                 runState,
                 currentTime,
-                $"Run aborted after all tracked participants were offline for {timeSinceLastParticipantSeen.TotalSeconds:0} seconds.");
+                "All participants disconnected. The Rift has closed.");
         }
 
         private bool TryAbortStalePendingRun(MythicRiftRunState runState, TimeSpan currentTime)
@@ -1273,7 +1914,7 @@ namespace MHServerEmu.Games.MythicRifts
             return AbortRun(
                 runState,
                 currentTime,
-                $"Run aborted because it did not bind to a Rift region within {PendingRunBindGracePeriod.TotalSeconds:0} seconds.");
+                "The Rift could not be opened correctly. Please try again with a new Beacon.");
         }
 
         private void NotifyRunStarted(MythicRiftRunState runState)
@@ -1281,7 +1922,7 @@ namespace MHServerEmu.Games.MythicRifts
             if (runState == null)
                 return;
 
-            string message = $"[Cosmic Rift] runId={runState.Config.RunId} | Level {runState.Config.RiftLevel} started in {runState.Config.Content.DisplayName}. Final boss: {ResolveBossDisplayName(runState.Config)}. Quota: 0/{runState.Config.KillQuota}. Timer: {runState.Config.TimeLimit.TotalMinutes:0} min.";
+            string message = $"[Cosmic Rift] Rift started: {runState.Config.Content.DisplayName} | Level {runState.Config.RiftLevel} | Timer: {FormatDuration(runState.Config.TimeLimit)}. Defeat {runState.Config.KillQuota} enemies to summon the Rift boss.";
             NotifyRunPlayers(runState, message);
         }
 
@@ -1290,8 +1931,27 @@ namespace MHServerEmu.Games.MythicRifts
             if (runState == null)
                 return;
 
-            string message = $"[Cosmic Rift] runId={runState.Config.RunId} | Kill quota reached in {runState.Config.Content.DisplayName}. Final boss unlocked: {ResolveBossDisplayName(runState.Config)}.";
+            string message = $"[Cosmic Rift] Enemy quota complete. Final boss summoned: {ResolveBossDisplayName(runState.Config)}. Defeat the boss before the timer expires.";
             NotifyRunPlayers(runState, message);
+        }
+
+        private void TryNotifyKillProgress(MythicRiftRunState runState)
+        {
+            if (runState == null || runState.Status != MythicRiftRunStatus.Active || runState.BossUnlocked)
+                return;
+
+            int requiredCount = Math.Max(runState.Config.KillQuota, 1);
+            int progressPercent = (int)Math.Floor((double)runState.CurrentKillCount * 100d / requiredCount);
+            foreach (int milestonePercent in KillProgressMilestonePercents)
+            {
+                if (progressPercent < milestonePercent)
+                    continue;
+
+                if (runState.MarkKillProgressMilestoneSent(milestonePercent) == false)
+                    continue;
+
+                NotifyRunPlayers(runState, $"[Cosmic Rift] Progress: {runState.CurrentKillCount}/{requiredCount} enemies defeated.");
+            }
         }
 
         private void NotifyRunCompleted(MythicRiftRunState runState, bool success, string statusMessage)
@@ -1299,15 +1959,112 @@ namespace MHServerEmu.Games.MythicRifts
             if (runState == null)
                 return;
 
-            string outcome = success ? "SUCCESS" : runState.Status.ToString().ToUpperInvariant();
-            string message = $"[Cosmic Rift] runId={runState.Config.RunId} | {outcome} | map={runState.Config.Content.DisplayName} | boss={ResolveBossDisplayName(runState.Config)} | level={runState.Config.RiftLevel} | {statusMessage}";
+            string message = success
+                ? $"[Cosmic Rift] Rift complete! {ResolveBossDisplayName(runState.Config)} defeated in {runState.Config.Content.DisplayName}. Level {runState.Config.RiftLevel} cleared. {statusMessage}"
+                : $"[Cosmic Rift] Rift closed: {runState.Config.Content.DisplayName} | Level {runState.Config.RiftLevel}. {statusMessage}";
             NotifyRunPlayers(runState, message);
+        }
+
+        private void TryNotifyRunTimeWarnings(MythicRiftRunState runState, TimeSpan currentTime)
+        {
+            if (runState == null || runState.Status != MythicRiftRunStatus.Active || runState.ExpiresAt.HasValue == false)
+                return;
+
+            TimeSpan remaining = runState.GetTimeRemaining(currentTime);
+            int remainingSeconds = (int)Math.Ceiling(remaining.TotalSeconds);
+            foreach (int thresholdSeconds in TimeWarningThresholdSeconds)
+            {
+                if (remainingSeconds > thresholdSeconds)
+                    continue;
+
+                if (runState.MarkTimeWarningSent(thresholdSeconds) == false)
+                    continue;
+
+                NotifyRunPlayers(runState, $"[Cosmic Rift] Time remaining: {FormatDuration(TimeSpan.FromSeconds(thresholdSeconds))}.");
+            }
+        }
+
+        private static string BuildJoinMessage(MythicRiftRunState runState, TimeSpan currentTime)
+        {
+            if (runState == null)
+                return "[Cosmic Rift] You joined an active Rift.";
+
+            string remaining = FormatDuration(runState.GetTimeRemaining(currentTime));
+            if (runState.BossUnlocked)
+                return $"[Cosmic Rift] You joined an active Rift. Final boss: {ResolveBossDisplayName(runState.Config)}. Time remaining: {remaining}.";
+
+            int remainingKills = Math.Max(runState.Config.KillQuota - runState.CurrentKillCount, 0);
+            return $"[Cosmic Rift] You joined an active Rift. Defeat {remainingKills} more enemies to summon the Rift boss. Time remaining: {remaining}.";
+        }
+
+        private void SendStartRiftTimer(MythicRiftRunState runState, Player player = null)
+        {
+            if (runState == null || runState.Status != MythicRiftRunStatus.Active)
+                return;
+
+            TimeSpan remaining = runState.GetTimeRemaining(Game.CurrentTime);
+            if (remaining <= TimeSpan.Zero)
+                return;
+
+            try
+            {
+                NetMessageStartPvPTimer message = NetMessageStartPvPTimer.CreateBuilder()
+                    .SetMetaGameId(runState.Config.RunId)
+                    .SetStartTime((uint)Math.Min(remaining.TotalMilliseconds, uint.MaxValue))
+                    .SetEndTime(0)
+                    .SetLowTimeWarning((uint)TimeSpan.FromMinutes(2).TotalMilliseconds)
+                    .SetCriticalTimeWarning((uint)TimeSpan.FromMinutes(1).TotalMilliseconds)
+                    .SetLabelOverrideTextId(0UL)
+                    .Build();
+
+                if (player != null)
+                {
+                    player.SendMessage(message);
+                    return;
+                }
+
+                SendMessageToRunPlayers(runState, message);
+            }
+            catch (Exception e)
+            {
+                Logger.Warn($"Mythic Rift run {runState.Config.RunId} failed to send optional timer UI packet: {e.Message}");
+            }
+        }
+
+        private void SendStopRiftTimer(MythicRiftRunState runState)
+        {
+            if (runState == null)
+                return;
+
+            NetMessageStopPvPTimer message = NetMessageStopPvPTimer.CreateBuilder()
+                .SetMetaGameId(runState.Config.RunId)
+                .Build();
+
+            SendMessageToRunPlayers(runState, message);
         }
 
         private void NotifyRunPlayers(MythicRiftRunState runState, string message)
         {
             if (runState == null || string.IsNullOrWhiteSpace(message))
                 return;
+
+            foreach (Player player in GetRunPlayers(runState))
+                Game.ChatManager.SendChatFromCustomSystem(player, message, showSender: false);
+        }
+
+        private void SendMessageToRunPlayers(MythicRiftRunState runState, Google.ProtocolBuffers.IMessage message)
+        {
+            if (runState == null || message == null)
+                return;
+
+            foreach (Player player in GetRunPlayers(runState))
+                player.SendMessage(message);
+        }
+
+        private IEnumerable<Player> GetRunPlayers(MythicRiftRunState runState)
+        {
+            if (runState == null)
+                yield break;
 
             HashSet<ulong> recipientDbIds = new(runState.ParticipantPlayerDbIds);
             if (runState.RegionId != 0)
@@ -1326,7 +2083,7 @@ namespace MHServerEmu.Games.MythicRifts
                 if (player == null)
                     continue;
 
-                Game.ChatManager.SendChatFromCustomSystem(player, message, showSender: false);
+                yield return player;
             }
         }
 
@@ -1343,12 +2100,42 @@ namespace MHServerEmu.Games.MythicRifts
             return bossName;
         }
 
+        private static string FormatDuration(TimeSpan duration)
+        {
+            if (duration < TimeSpan.Zero)
+                duration = TimeSpan.Zero;
+
+            int totalSeconds = (int)Math.Ceiling(duration.TotalSeconds);
+            int minutes = totalSeconds / 60;
+            int seconds = totalSeconds % 60;
+
+            if (minutes > 0 && seconds > 0)
+                return $"{minutes} min {seconds} sec";
+
+            if (minutes > 0)
+                return $"{minutes} min";
+
+            return $"{seconds} sec";
+        }
+
         private static bool ShouldAutoRemoveRun(MythicRiftRunState runState, TimeSpan currentTime)
         {
             if (runState == null || runState.CompletedAt.HasValue == false)
                 return false;
 
             return currentTime - runState.CompletedAt.Value >= CompletedRunRetention;
+        }
+
+        private static bool TryResolveDangerRoomHubStartTarget(out PrototypeId startTargetRef)
+        {
+            startTargetRef = PrototypeId.Invalid;
+
+            RegionPrototype dangerRoomHubRegion = ((PrototypeId)RegionPrototypeId.DangerRoomHubRegion).As<RegionPrototype>();
+            if (dangerRoomHubRegion == null || dangerRoomHubRegion.StartTarget == PrototypeId.Invalid)
+                return false;
+
+            startTargetRef = dangerRoomHubRegion.StartTarget;
+            return true;
         }
 
         private void RegisterDefaultContent()
