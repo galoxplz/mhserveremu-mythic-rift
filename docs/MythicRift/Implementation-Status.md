@@ -91,6 +91,9 @@
 - track the specific granted `Cosmic Rift Beacon` item instances server-side
 - let tracked beacon instances launch a Rift directly on use, without needing a prior intent-consume step
 - allow tracked beacon launches to fall back to player-level tracked charges when inventory stacking or item instance ids differ on the live server
+- allow the preferred unused beacon base, `PortalToRandomMaxAffixDungeon`, to launch directly even when no in-memory tracked charge exists, so patcher-added vendor stock and live-server item cloning do not accidentally fall back into the native Danger Room tutorial/scenario path
+- intercept client power activations for the chosen beacon's `OnUsePower` as a fallback when the client does not send a reliable item source id
+- emit `[MythicRiftLauncher]` server logs for both successful beacon interception and failed chosen-beacon power interception, making live Test Center debugging easier
 - suppress the native scenario continuation whenever Mythic Rift has explicitly intercepted a compatible beacon item use
 - consume the actual launcher stack only after the Mythic Rift launch has been committed cleanly, so a failed interception no longer leaks back into the native scenario flow
 - keep tracked beacon charges and scoped beacon overrides intact if the Rift launch fails before the teleport step is committed
@@ -198,10 +201,10 @@ Current practical launcher stage
 - A first server-side seller pass now exists as well:
   - a player can open a vendor inside the `Danger Room` hub, buy the injected beacon, and test the Rift flow without an admin grant command
   - the final seller can still be narrowed later once TAHITI confirms which vendor should own the feature permanently
-- Vendor-bought beacons are now intercepted from top-level item use as well, so both the chosen `PortalToRandomMaxAffixDungeon` base and the legacy `PortalToRandomDungeon` compatibility base still route into Mythic Rift correctly.
+- Vendor-bought beacons are now intercepted from top-level item use and client power activation fallback paths, so the chosen `PortalToRandomMaxAffixDungeon` base routes into Mythic Rift even if live-server vendor cloning does not preserve the expected in-memory tracking entry.
 - Important constraint:
-  - this direct behavior is scoped to tracked beacon instances granted by the server
-  - normal non-beacon `PortalToRandomDungeon` / Danger Room behavior must remain unchanged
+  - untracked direct behavior is scoped only to the preferred unused `PortalToRandomMaxAffixDungeon` beacon base
+  - normal non-beacon `PortalToRandomDungeon` / Danger Room behavior must remain unchanged unless explicitly armed through the legacy/scoped test path
 - For random runs, the direct beacon path now creates a random terminal map plus a separately selected random boss source from the current playable pool.
 - `rift access [level]`
 - `rift progression`

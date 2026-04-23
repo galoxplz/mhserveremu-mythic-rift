@@ -871,21 +871,12 @@ namespace MHServerEmu.Games.Network
 
             PrototypeId powerProtoRef = (PrototypeId)tryActivatePower.PowerPrototypeId;
 
-            if (tryActivatePower.HasItemSourceId)
-            {
-                Item sourceItem = Game?.EntityManager?.GetEntity<Item>(tryActivatePower.ItemSourceId);
-                if (sourceItem != null && sourceItem.OnUsePower == powerProtoRef && sourceItem.CanUse(avatar))
-                {
-                    MythicRiftLauncherUseResult launcherUseResult = Game.MythicRiftLauncherService.TryHandleItemUse(Player, sourceItem, out bool interceptedItemUse);
-                    if (interceptedItemUse)
-                    {
-                        if (launcherUseResult?.Success == true && string.IsNullOrWhiteSpace(launcherUseResult.TeleportErrorMessage))
-                            sourceItem.DecrementStack();
-
-                        return true;
-                    }
-                }
-            }
+            if (TryInterceptMythicRiftBeaconPowerActivation(
+                avatar,
+                powerProtoRef,
+                tryActivatePower.HasItemSourceId,
+                tryActivatePower.HasItemSourceId ? tryActivatePower.ItemSourceId : Entity.InvalidId))
+                return true;
 
             // Build settings from the protobuf
             PowerActivationSettings settings = new(avatar.RegionLocation.Position);
@@ -893,6 +884,47 @@ namespace MHServerEmu.Games.Network
 
             avatar.ActivatePower(powerProtoRef, ref settings);
 
+            return true;
+        }
+
+        private bool TryInterceptMythicRiftBeaconPowerActivation(Avatar avatar, PrototypeId powerProtoRef, bool hasItemSourceId, ulong itemSourceId)
+        {
+            MythicRiftLauncherService launcherService = Game?.MythicRiftLauncherService;
+            if (launcherService == null || Player == null || avatar == null)
+                return false;
+
+            Item sourceItem = hasItemSourceId
+                ? Game.EntityManager.GetEntity<Item>(itemSourceId)
+                : null;
+
+            if (sourceItem != null && sourceItem.OnUsePower == powerProtoRef)
+            {
+                MythicRiftLauncherUseResult launcherUseResult = launcherService.TryHandleItemUse(Player, sourceItem, out bool interceptedItemUse);
+                if (interceptedItemUse)
+                    return FinalizeMythicRiftBeaconPowerInterception(sourceItem, launcherUseResult, "itemSourceId");
+            }
+
+            if (launcherService.IsChosenBeaconOnUsePower(powerProtoRef) == false)
+                return false;
+
+            MythicRiftLauncherUseResult fallbackUseResult = launcherService.TryHandlePowerActivation(Player, powerProtoRef, out Item fallbackItem, out bool interceptedPowerActivation);
+            if (interceptedPowerActivation && fallbackItem != null)
+                return FinalizeMythicRiftBeaconPowerInterception(fallbackItem, fallbackUseResult, hasItemSourceId ? "powerFallbackWithSource" : "powerFallbackNoSource");
+
+            int trackedCharges = launcherService.GetTotalTrackedBeaconCharges(Player.DatabaseUniqueId);
+            string sourceItemSummary = sourceItem == null
+                ? "none"
+                : $"{sourceItem.PrototypeDataRef.GetNameFormatted()}#{sourceItem.Id}";
+            Logger.Warn($"[MythicRiftLauncher] Beacon power activation was not intercepted playerDbId=0x{Player.DatabaseUniqueId:X} power={powerProtoRef.GetNameFormatted()} hasItemSourceId={hasItemSourceId} itemSourceId={itemSourceId} sourceItem={sourceItemSummary} trackedCharges={trackedCharges}");
+            return false;
+        }
+
+        private bool FinalizeMythicRiftBeaconPowerInterception(Item item, MythicRiftLauncherUseResult launcherUseResult, string source)
+        {
+            if (launcherUseResult?.Success == true && string.IsNullOrWhiteSpace(launcherUseResult.TeleportErrorMessage))
+                item.DecrementStack();
+
+            Logger.Info($"[MythicRiftLauncher] Beacon power activation intercepted source={source} playerDbId=0x{Player.DatabaseUniqueId:X} itemId={item.Id} prototype={item.PrototypeDataRef.GetNameFormatted()} success={launcherUseResult?.Success == true} teleportAttempted={launcherUseResult?.TeleportAttempted == true} teleportSucceeded={launcherUseResult?.TeleportSucceeded == true} teleportError={launcherUseResult?.TeleportErrorMessage ?? string.Empty}");
             return true;
         }
 
