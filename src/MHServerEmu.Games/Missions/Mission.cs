@@ -462,6 +462,9 @@ namespace MHServerEmu.Games.Missions
             var missionProto = Prototype;
             if (missionProto == null || missionProto.HasClientInterest == false) return;
 
+            if (Game?.MythicRiftManager?.TrySendNativeMissionUpdateOverride(this, player, missionFlags, objectiveFlags) == true)
+                return;
+
             if (missionFlags != MissionUpdateFlags.None)
             {
                 var message = NetMessageMissionUpdate.CreateBuilder();

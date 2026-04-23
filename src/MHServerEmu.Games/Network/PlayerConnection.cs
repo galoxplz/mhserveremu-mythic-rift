@@ -921,9 +921,6 @@ namespace MHServerEmu.Games.Network
 
         private bool FinalizeMythicRiftBeaconPowerInterception(Item item, MythicRiftLauncherUseResult launcherUseResult, string source)
         {
-            if (launcherUseResult?.Success == true && string.IsNullOrWhiteSpace(launcherUseResult.TeleportErrorMessage))
-                item.DecrementStack();
-
             Logger.Info($"[MythicRiftLauncher] Beacon power activation intercepted source={source} playerDbId=0x{Player.DatabaseUniqueId:X} itemId={item.Id} prototype={item.PrototypeDataRef.GetNameFormatted()} success={launcherUseResult?.Success == true} teleportAttempted={launcherUseResult?.TeleportAttempted == true} teleportSucceeded={launcherUseResult?.TeleportSucceeded == true} teleportError={launcherUseResult?.TeleportErrorMessage ?? string.Empty}");
             return true;
         }

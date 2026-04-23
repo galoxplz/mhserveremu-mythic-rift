@@ -15,6 +15,8 @@ namespace MHServerEmu.Games.MythicRifts
         private readonly HashSet<ulong> _rewardedPlayerDbIds = new();
         private readonly HashSet<ulong> _bossUnlockEligiblePlayerDbIds = new();
         private readonly HashSet<ulong> _progressionEligiblePlayerDbIds = new();
+        private readonly HashSet<int> _sentTimeWarningThresholds = new();
+        private readonly HashSet<int> _sentKillProgressMilestones = new();
 
         public MythicRiftRunConfig Config { get; }
         public MythicRiftRunStatus Status { get; private set; } = MythicRiftRunStatus.Pending;
@@ -186,6 +188,16 @@ namespace MHServerEmu.Games.MythicRifts
                 if (playerDbId != 0 && _bossUnlockEligiblePlayerDbIds.Contains(playerDbId))
                     _progressionEligiblePlayerDbIds.Add(playerDbId);
             }
+        }
+
+        public bool MarkTimeWarningSent(int thresholdSeconds)
+        {
+            return thresholdSeconds > 0 && _sentTimeWarningThresholds.Add(thresholdSeconds);
+        }
+
+        public bool MarkKillProgressMilestoneSent(int milestonePercent)
+        {
+            return milestonePercent > 0 && _sentKillProgressMilestones.Add(milestonePercent);
         }
 
         public bool HasExpired(TimeSpan currentTime)

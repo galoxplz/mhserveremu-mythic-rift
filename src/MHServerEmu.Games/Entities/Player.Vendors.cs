@@ -68,6 +68,7 @@ namespace MHServerEmu.Games.Entities
         private const int VendorMinLevel = 1;
         private const int VendorInvalidXP = -1;
         private const string MythicRiftDangerRoomVendorMode = "danger-room-hub-any-vendor";
+        private const string MythicRiftDangerRoomVendorTypeName = "VendorDangerRoomRewards";
 
         private static readonly Item DummyItem = new(null);     // Dummy item instance to calculate character unlock ES costs
 
@@ -216,6 +217,8 @@ namespace MHServerEmu.Games.Entities
                 OnScoringEvent(new(ScoringEventType.ItemBought, item.Prototype, rarityProto, count));
                 OnScoringEvent(new(ScoringEventType.ItemCollected, item.Prototype, rarityProto, count));
             }
+
+            TryRegisterPurchasedMythicRiftBeacon(item, vendor, "normal-vendor-flow");
 
             // Use the item if needed
             if (item.Properties[PropertyEnum.ItemAutoUseOnPurchase])
@@ -941,6 +944,9 @@ namespace MHServerEmu.Games.Entities
                 }
             }
 
+            if (ShouldInjectMythicRiftVendorStock(vendorTypeProto))
+                TryAddMythicRiftVendorItem(vendorTypeProto);
+
             UpdateCraftingIngredientAvailableStackCounts(craftingIngredientSet);
 
             // Notify the client if needed
@@ -1093,6 +1099,21 @@ namespace MHServerEmu.Games.Entities
             return true;
         }
 
+        private bool TryRegisterPurchasedMythicRiftBeacon(Item item, WorldEntity vendor, string source)
+        {
+            if (item == null || vendor == null || Game?.MythicRiftLauncherService == null)
+                return false;
+
+            if (Game.MythicRiftLauncherService.IsPreferredCosmicRiftBeaconPrototype(item.PrototypeDataRef) == false)
+                return false;
+
+            if (Game.MythicRiftLauncherService.TryRegisterTrackedBeaconItem(this, item) == false)
+                return Logger.WarnReturn(false, $"TryRegisterPurchasedMythicRiftBeacon(): Failed to register purchased Rift beacon [{item}] from {source}");
+
+            Logger.Info($"[MythicRiftVendor] Registered purchased beacon via {source} playerDbId={DatabaseUniqueId} vendor={vendor.PrototypeDataRef.GetNameFormatted()} itemId={item.Id} prototype={item.PrototypeDataRef.GetNameFormatted()} totalTrackedCharges={Game.MythicRiftLauncherService.GetTotalTrackedBeaconCharges(DatabaseUniqueId)}");
+            return true;
+        }
+
         private bool ShouldInjectMythicRiftVendorStock(WorldEntity vendor)
         {
             if (vendor == null)
@@ -1108,6 +1129,17 @@ namespace MHServerEmu.Games.Entities
             return vendor.IsVendor;
         }
 
+        private static bool ShouldInjectMythicRiftVendorStock(VendorTypePrototype vendorTypeProto)
+        {
+            if (vendorTypeProto == null)
+                return false;
+
+            return string.Equals(
+                vendorTypeProto.DataRef.GetNameFormatted(),
+                MythicRiftDangerRoomVendorTypeName,
+                StringComparison.OrdinalIgnoreCase);
+        }
+
         private bool TryAddMythicRiftVendorItem(VendorTypePrototype vendorTypeProto)
         {
             if (vendorTypeProto == null) return Logger.WarnReturn(false, "TryAddMythicRiftVendorItem(): vendorTypeProto == null");
@@ -1116,11 +1148,24 @@ namespace MHServerEmu.Games.Entities
             if (itemProtoRef == PrototypeId.Invalid)
                 return Logger.WarnReturn(false, $"TryAddMythicRiftVendorItem(): Failed to resolve {MythicRiftLauncherService.CosmicRiftBeaconPrototypeName}");
 
-            Inventory inventory = GetPreferredMythicRiftVendorInventory(vendorTypeProto);
-            if (inventory == null)
+            using var inventoryHandle = ListPool<Inventory>.Instance.Get(out List<Inventory> inventories);
+            GetMythicRiftVendorInventories(vendorTypeProto, inventories);
+            if (inventories.Count == 0)
                 return false;
 
             CleanupTrackedMythicRiftVendorItems();
+
+            bool addedAny = false;
+            foreach (Inventory inventory in inventories)
+                addedAny |= TryAddMythicRiftVendorItemToInventory(vendorTypeProto, itemProtoRef, inventory);
+
+            return addedAny;
+        }
+
+        private bool TryAddMythicRiftVendorItemToInventory(VendorTypePrototype vendorTypeProto, PrototypeId itemProtoRef, Inventory inventory)
+        {
+            if (inventory == null)
+                return false;
 
             foreach (var entry in inventory)
             {
@@ -1163,14 +1208,16 @@ namespace MHServerEmu.Games.Entities
             return true;
         }
 
-        private Inventory GetPreferredMythicRiftVendorInventory(VendorTypePrototype vendorTypeProto)
+        private void GetMythicRiftVendorInventories(VendorTypePrototype vendorTypeProto, List<Inventory> inventories)
         {
+            if (vendorTypeProto == null || inventories == null)
+                return;
+
             using var inventoryListHandle = ListPool<PrototypeId>.Instance.Get(out List<PrototypeId> inventoryList);
             if (vendorTypeProto.GetInventories(inventoryList) == false)
-                return null;
+                return;
 
-            PrototypeId selectedInventoryRef = PrototypeId.Invalid;
-            int selectedPriority = int.MinValue;
+            using var fallbackHandle = ListPool<Inventory>.Instance.Get(out List<Inventory> fallbackInventories);
 
             foreach (PrototypeId inventoryProtoRef in inventoryList)
             {
@@ -1178,26 +1225,16 @@ namespace MHServerEmu.Games.Entities
                 if (inventory == null)
                     continue;
 
-                string inventoryName = GameDatabase.GetPrototypeName(inventoryProtoRef) ?? string.Empty;
-                int priority = 0;
+                fallbackInventories.Add(inventory);
 
-                if (inventoryName.Contains("Scenario", StringComparison.OrdinalIgnoreCase))
-                    priority += 100;
-                if (inventoryName.Contains("DangerRoom", StringComparison.OrdinalIgnoreCase))
-                    priority += 50;
-                if (inventoryName.Contains("Terminal", StringComparison.OrdinalIgnoreCase))
-                    priority += 25;
-
-                if (selectedInventoryRef == PrototypeId.Invalid || priority > selectedPriority)
-                {
-                    selectedInventoryRef = inventoryProtoRef;
-                    selectedPriority = priority;
-                }
+                if (inventory.Prototype?.VendorInvContentsCanBeBought == true)
+                    inventories.Add(inventory);
             }
 
-            return selectedInventoryRef != PrototypeId.Invalid
-                ? GetInventoryByRef(selectedInventoryRef)
-                : null;
+            if (inventories.Count > 0)
+                return;
+
+            inventories.AddRange(fallbackInventories);
         }
 
         private bool IsMythicRiftVendorItem(Item item, WorldEntity vendor)

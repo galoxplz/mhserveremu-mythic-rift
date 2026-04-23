@@ -112,6 +112,11 @@ namespace MHServerEmu.Games.MythicRifts
             return false;
         }
 
+        public bool IsPreferredCosmicRiftBeaconPrototype(PrototypeId prototypeRef)
+        {
+            return PrototypeNameMatches(prototypeRef, CosmicRiftBeaconPrototypeName);
+        }
+
         public bool IsChosenBeaconOnUsePower(PrototypeId powerProtoRef)
         {
             PrototypeId chosenOnUsePowerProtoRef = ResolveChosenBeaconOnUsePowerRef();
@@ -270,11 +275,43 @@ namespace MHServerEmu.Games.MythicRifts
             if (player == null || item == null)
                 return false;
 
-            if (IsChosenBeaconPrototype(item.PrototypeDataRef) == false)
+            if (IsPreferredCosmicRiftBeaconPrototype(item.PrototypeDataRef) == false)
                 return false;
 
             AddTrackedBeaconCharges(player.DatabaseUniqueId, item.Id, Math.Max(item.CurrentStackSize, 1));
             return true;
+        }
+
+        public int TryRegisterOwnedPreferredBeaconItems(Player player)
+        {
+            if (player == null)
+                return 0;
+
+            int newlyTrackedCharges = 0;
+            InventoryIterationFlags flags = InventoryIterationFlags.PlayerGeneral
+                | InventoryIterationFlags.PlayerGeneralExtra
+                | InventoryIterationFlags.DeliveryBoxAndErrorRecovery;
+
+            foreach (Inventory inventory in new InventoryIterator(player, flags))
+            {
+                foreach (var entry in inventory)
+                {
+                    Item item = Game.EntityManager.GetEntity<Item>(entry.Id);
+                    if (item == null || IsPreferredCosmicRiftBeaconPrototype(item.PrototypeDataRef) == false)
+                        continue;
+
+                    int stackCount = Math.Max(item.CurrentStackSize, 1);
+                    int trackedCharges = GetTrackedBeaconChargeCount(player, item);
+                    int missingCharges = stackCount - trackedCharges;
+                    if (missingCharges <= 0)
+                        continue;
+
+                    AddTrackedBeaconCharges(player.DatabaseUniqueId, item.Id, missingCharges);
+                    newlyTrackedCharges += missingCharges;
+                }
+            }
+
+            return newlyTrackedCharges;
         }
 
         public MythicRiftLauncherUseResult ConsumePendingIntent(Player player, int riftLevel, TimeSpan timeLimit)
@@ -404,7 +441,10 @@ namespace MHServerEmu.Games.MythicRifts
             }
 
             if (IsCommittedLauncherUse(result))
+            {
+                ConsumeLauncherItemStack(item);
                 _armedLaunchesByPlayerDbId.Remove(player.DatabaseUniqueId);
+            }
 
             return result;
         }
@@ -489,6 +529,8 @@ namespace MHServerEmu.Games.MythicRifts
 
             if (IsCommittedLauncherUse(result))
             {
+                ConsumeLauncherItemStack(item);
+
                 if (usingGenericTrackedChargeFallback)
                     ConsumeAnyTrackedBeaconCharge(player.DatabaseUniqueId);
                 else if (usingDirectPreferredBeaconFallback == false)
@@ -503,6 +545,21 @@ namespace MHServerEmu.Games.MythicRifts
             NotifyLauncherUse(player, result);
 
             return result;
+        }
+
+        private static void ConsumeLauncherItemStack(Item item)
+        {
+            if (item == null || item.CurrentStackSize <= 0)
+                return;
+
+            if (item.CurrentStackSize == 1)
+            {
+                item.Destroy();
+                return;
+            }
+
+            if (item.DecrementStack() == false)
+                Logger.Warn($"[MythicRiftLauncher] Failed to consume launcher item stack itemId={item.Id} prototype={item.PrototypeDataRef.GetNameFormatted()} stack={item.CurrentStackSize}");
         }
 
         private MythicRiftLauncherUseResult TryRequestRunFromArmedFixedContent(Player player, Item item, string contentId, int riftLevel, TimeSpan timeLimit)
@@ -602,14 +659,10 @@ namespace MHServerEmu.Games.MythicRifts
                 return;
             }
 
-            string teleportSummary = result.TeleportAttempted == false
-                ? "teleport=not-attempted"
-                : result.TeleportSucceeded
-                    ? "teleport=ok"
-                    : $"teleport=failed ({result.TeleportErrorMessage ?? "unknown error"})";
-
             string bossName = ResolveBossDisplayName(config);
-            string message = $"[Cosmic Rift] Beacon accepted. runId={config.RunId} | map={config.Content.DisplayName} | boss={bossName} | level={config.RiftLevel} | timer={config.TimeLimit.TotalMinutes:0} min | {teleportSummary}";
+            string message = result.TeleportSucceeded
+                ? $"[Cosmic Rift] Beacon activated. Opening {config.Content.DisplayName}. Rift level {config.RiftLevel}. Time limit: {FormatDuration(config.TimeLimit)}. Final boss: {bossName}."
+                : $"[Cosmic Rift] Beacon activated, but the teleport did not complete. Please try again with a new Beacon.";
             Game.ChatManager.SendChatFromCustomSystem(player, message, showSender: false);
         }
 
@@ -624,6 +677,24 @@ namespace MHServerEmu.Games.MythicRifts
                 return bossName[..^terminalSuffix.Length];
 
             return bossName;
+        }
+
+        private static string FormatDuration(TimeSpan duration)
+        {
+            if (duration < TimeSpan.Zero)
+                duration = TimeSpan.Zero;
+
+            int totalSeconds = (int)Math.Ceiling(duration.TotalSeconds);
+            int minutes = totalSeconds / 60;
+            int seconds = totalSeconds % 60;
+
+            if (minutes > 0 && seconds > 0)
+                return $"{minutes} min {seconds} sec";
+
+            if (minutes > 0)
+                return $"{minutes} min";
+
+            return $"{seconds} sec";
         }
 
         private void AbortUnboundLaunchRun(MythicRiftRunState runState, string reason)
@@ -751,7 +822,7 @@ namespace MHServerEmu.Games.MythicRifts
             if (player == null)
                 return 1;
 
-            return Math.Max(Game.MythicRiftManager.GetHighestUnlockedRiftLevel(player.DatabaseUniqueId), 1);
+            return Math.Max(Game.MythicRiftManager.GetPreferredLaunchRiftLevel(player.DatabaseUniqueId), 1);
         }
 
         private static TimeSpan NormalizeTimeLimit(TimeSpan timeLimit)

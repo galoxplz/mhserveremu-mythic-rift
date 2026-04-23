@@ -1,0 +1,10 @@
+[
+  {
+    "Enabled": true,
+    "Prototype": "Entity/Items/Consumables/Prototypes/DangerRoom/PortalToRandomMaxAffixDungeon.prototype",
+    "Path": "DesignState",
+    "Description": "Enable the unused PortalToRandomMaxAffixDungeon launcher base for Cosmic Rift server-side testing.",
+    "ValueType": "Enum",
+    "Value": "Live"
+  }
+]

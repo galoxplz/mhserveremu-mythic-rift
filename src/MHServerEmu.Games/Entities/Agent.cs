@@ -19,6 +19,7 @@ using MHServerEmu.Games.GameData.Calligraphy;
 using MHServerEmu.Games.GameData.Prototypes;
 using MHServerEmu.Games.GameData.Tables;
 using MHServerEmu.Games.Loot;
+using MHServerEmu.Games.MythicRifts;
 using MHServerEmu.Games.Network;
 using MHServerEmu.Games.Populations;
 using MHServerEmu.Games.Powers;
@@ -686,6 +687,9 @@ namespace MHServerEmu.Games.Entities
 
         protected override PowerUseResult ActivatePower(Power power, ref PowerActivationSettings settings)
         {
+            if (TryInterceptMythicRiftLauncherPower(power, ref settings, out PowerUseResult mythicRiftLauncherResult))
+                return mythicRiftLauncherResult;
+
             PowerUseResult result = base.ActivatePower(power, ref settings);
 
             if (result == PowerUseResult.Success)
@@ -738,6 +742,37 @@ namespace MHServerEmu.Games.Entities
             }
 
             return result;
+        }
+
+        private bool TryInterceptMythicRiftLauncherPower(Power power, ref PowerActivationSettings settings, out PowerUseResult result)
+        {
+            result = PowerUseResult.GenericError;
+
+            if (power?.IsItemPower() != true || settings.ItemSourceId == InvalidId)
+                return false;
+
+            if (this is not Avatar avatar)
+                return false;
+
+            Player player = avatar.GetOwnerOfType<Player>();
+            MythicRiftLauncherService launcherService = Game?.MythicRiftLauncherService;
+            if (player == null || launcherService == null)
+                return false;
+
+            Item sourceItem = Game.EntityManager.GetEntity<Item>(settings.ItemSourceId);
+            if (sourceItem == null || sourceItem.OnUsePower != power.PrototypeDataRef)
+                return false;
+
+            MythicRiftLauncherUseResult launcherUseResult = launcherService.TryHandleItemUse(player, sourceItem, out bool interceptedItemUse);
+            if (interceptedItemUse == false)
+                return false;
+
+            Logger.Info($"[MythicRiftLauncher] Item power activation intercepted at Agent.ActivatePower playerDbId=0x{player.DatabaseUniqueId:X} itemId={sourceItem.Id} prototype={sourceItem.PrototypeDataRef.GetNameFormatted()} power={power.PrototypeDataRef.GetNameFormatted()} success={launcherUseResult?.Success == true} teleportAttempted={launcherUseResult?.TeleportAttempted == true} teleportSucceeded={launcherUseResult?.TeleportSucceeded == true} teleportError={launcherUseResult?.TeleportErrorMessage ?? string.Empty}");
+
+            result = launcherUseResult?.Success == true
+                ? PowerUseResult.Success
+                : PowerUseResult.ItemUseRestricted;
+            return true;
         }
 
         private static bool IsInRangeToActivatePower(Power power, WorldEntity target, Vector3 position)

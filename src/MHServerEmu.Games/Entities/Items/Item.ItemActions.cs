@@ -266,12 +266,7 @@ namespace MHServerEmu.Games.Entities.Items
                 : null;
 
             if (interceptedItemUse && launcherUseResult != null)
-            {
-                if (launcherUseResult.Success && string.IsNullOrWhiteSpace(launcherUseResult.TeleportErrorMessage))
-                    DecrementStack();
-
                 return launcherUseResult.Success;
-            }
 
             return false;
         }
