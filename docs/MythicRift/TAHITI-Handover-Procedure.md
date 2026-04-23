@@ -85,6 +85,7 @@ Current implemented prototype behavior:
 - timed success SIF/RIF bonus
 - server-side granting of the beacon item
 - direct beacon use in-game from a server-granted `PortalToRandomMaxAffixDungeon`
+- direct beacon use in-game from vendor-bought or patcher-added `PortalToRandomMaxAffixDungeon` stock, even when the live server does not preserve an in-memory tracked charge for that exact item instance
 - random terminal map plus separately selected random boss source
 - safe interception of the chosen beacon base so the Mythic Rift path no longer falls back into a normal scenario behavior after a successful Rift launch
 - safer chain-running from inside terminals because the random map picker now excludes the terminal region the requester / party is currently standing in
@@ -121,9 +122,15 @@ These parts are still not final:
 
 ## Build Procedure
 
-Use a writable output folder outside the repo for `bin` / `obj`.
+On TAHITI/Linux, the normal solution build is expected to be enough:
 
-Recommended command:
+```bash
+dotnet build MHServerEmu.sln --configuration=Release
+```
+
+The redirected output command below is only a local Windows workaround for machines that hit temporary `bin` / `obj` file locks during rapid rebuilds.
+
+Local Windows fallback command:
 
 ```powershell
 dotnet build C:\Users\admin\Desktop\PROJECT MHO\MHServerEmu-master\src\MHServerEmu\MHServerEmu.csproj -c Release -p:GenerateAssemblyInfo=false -p:GenerateTargetFrameworkAttribute=false -p:BaseIntermediateOutputPath=C:\Users\admin\Documents\Codex\build\obj-cli\ -p:BaseOutputPath=C:\Users\admin\Documents\Codex\build\bin-cli\
