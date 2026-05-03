@@ -88,7 +88,7 @@ Current implemented prototype behavior:
 - direct beacon use in-game from vendor-bought or patcher-added `PortalToRandomMaxAffixDungeon` stock, even when the live server does not preserve an in-memory tracked charge for that exact item instance
 - default Danger Room hub vendor stock injection for the current beacon, so the basic test flow no longer requires an admin item grant
 - launcher item consumption after a committed Rift launch
-- random terminal map plus separately selected random boss source
+- random map plus separately selected random terminal boss source
 - suppression of the terminal's native linked boss during active Rift runs, so the normal terminal boss cannot be killed before quota or used as the completion target
 - strict quota-gated boss completion: the spawned/configured Cosmic Rift boss is the valid completion boss only after the enemy quota is met
 - suppression of terminal-native objective HUD widgets during active Rift runs, so a randomized boss does not leave players with misleading native terminal text such as "defeat Kingpin"
@@ -103,10 +103,13 @@ Current implemented prototype behavior:
 - chaining into higher Rift levels
 - competitive next-level progression based on who was inside the Rift at boss unlock and boss death
 - prevention of overlapping in-progress Rift runs for the same player / party
+- forced Rift-region teleport resolution using the configured content region instead of trusting native terminal `StartTarget.Region`, preventing accidental `RegionBand` drift on affected terminals
+- best-effort party-member teleports when the leader launches the Rift beacon
 - automatic abort if all tracked participants stay offline too long
 - automatic cleanup of stale completed or abandoned runs
 - automatic Rift closure when a tracked participant leaves the active Rift region before completion
 - automatic Rift failure and return-to-hub when the timer expires
+- automatic shutdown request for completed/aborted Rift terminal regions once they become vacant, so the next run gets a fresh instance
 - user-level `rift status` and `rift abandon` commands for player-like testing without admin run management
 - user-level `rift level [level|max]` command so unlocked players can choose a lower farming level before using the next beacon
 - player-facing chat feedback at launch, boss unlock, completion, failure, and early Rift closure
@@ -124,18 +127,40 @@ These parts are still not final:
 - larger content pool beyond the current first terminals
 - optional patcher-delivered presentation polish if TAHITI wants it
 - final polished Rift level selection UX beyond the current chat command, if TAHITI wants a cleaner NPC or interaction flow later
+- scripted/gated terminals such as Ultron and Magneto / Stryker Bunker remain intentionally excluded from random selection until their native event/door dependencies can be supported safely
 
-## Current V1 Content Pool
+## Current Random-Eligible V1 Content Pool
+
+Terminal map + boss-source pool:
 
 - Shocker
 - Doctor Octopus
 - Taskmaster
 - Hood
-- Magneto
 - Mister Sinister
 - MODOK
 - Mandarin
 - Kingpin
+
+Curated non-terminal map-only pool:
+
+- Bronx Zoo
+- Wakanda Jungle
+- HYDRA Island One-Shot
+- Daily Bugle Operation
+- Doctor Strange Times Square
+
+Special low-chance pool:
+
+- Cosmic Doop Sector
+  - 5% random map chance
+  - fixed boss source: Cosmic Doop Overlord
+  - kill quota: `100`
+  - direct test id: `cosmic-doop-sector`
+
+Registered but random-excluded:
+
+- Magneto / Stryker Bunker
 - Ultron
 
 ## Build Procedure

@@ -31,6 +31,7 @@ namespace MHServerEmu.Games.MythicRifts
         private static readonly TimeSpan CompletedRunRetention = TimeSpan.FromMinutes(5);
         private static readonly TimeSpan NativeBossSuppressionScanInterval = TimeSpan.FromSeconds(1);
         private static readonly TimeSpan RiftObjectiveWidgetRefreshInterval = TimeSpan.FromSeconds(2);
+        private const float SpecialRandomMapChance = 0.05f;
         private static readonly MythicRiftContentDefinition[] DefaultContentDefinitions =
         {
             new(
@@ -72,7 +73,9 @@ namespace MHServerEmu.Games.MythicRifts
                 "Regions/EndGame/Terminals/Green/MagnetoBunker/DailyGStrykerBunkerRegionBase.prototype",
                 "Missions/Prototypes/PVEEndgame/Dailies/Green/G05MagnetoDailyEndgame.prototype",
                 "Entity/Characters/Bosses/PVEDailies/Green/EGD05GMagneto.prototype",
-                "Loot/Tables/Mob/Bosses/EndgameDailies/Terminals/StrykerCommandBunker/MagnetoTerminalLoot.prototype"),
+                "Loot/Tables/Mob/Bosses/EndgameDailies/Terminals/StrykerCommandBunker/MagnetoTerminalLoot.prototype",
+                RandomMapEligible: false,
+                RandomBossEligible: false),
             new(
                 "sinister",
                 "Mister Sinister Terminal",
@@ -106,13 +109,61 @@ namespace MHServerEmu.Games.MythicRifts
                 "Entity/Characters/Bosses/PVEDailies/Green/EGD10GKingpin.prototype",
                 "Loot/Tables/Mob/Bosses/EndgameDailies/Terminals/FiskTower/KingpinLTerminalLoot.prototype"),
             new(
-                "ultron",
-                "Ultron Terminal",
-                70,
-                "Regions/EndGame/Terminals/Green/TimesSquare/DailyGTimesSquareRegionBase.prototype",
-                "Missions/Prototypes/PVEEndgame/Dailies/Green/G14UltronDailyEndgame.prototype",
-                "Entity/Characters/Bosses/PVEDailies/Green/EGD14GUltronTerminal.prototype",
-                "Loot/Tables/Mob/Bosses/EndgameDailies/Terminals/TimesSquare/UltronTerminalLoot.prototype"),
+                "bronx-zoo",
+                "Bronx Zoo",
+                80,
+                "Regions/EndGame/OneShotMissions/NonChapterBound/BronxZoo/AltRegions/BronxZooRegionL60.prototype",
+                null,
+                null,
+                null,
+                RandomBossEligible: false),
+            new(
+                "wakanda-jungle",
+                "Wakanda Jungle",
+                65,
+                "Regions/EndGame/OneShotMissions/NonChapterBound/WakandaPart1/AltRegions/WakandaP1RegionL60.prototype",
+                null,
+                null,
+                null,
+                RandomBossEligible: false),
+            new(
+                "hydra-island-one-shot",
+                "HYDRA Island One-Shot",
+                65,
+                "Regions/EndGame/OneShotMissions/NonChapterBound/HydraIslandPartDeux/AltRegions/HYDRAIslandPartDeuxRegionL60.prototype",
+                null,
+                null,
+                null,
+                RandomBossEligible: false),
+            new(
+                "daily-bugle",
+                "Daily Bugle Operation",
+                55,
+                "Regions/Operations/Events/DailyBugle/OpDailyBugleRegionL11To60.prototype",
+                null,
+                null,
+                null,
+                RandomBossEligible: false),
+            new(
+                "dr-strange-times-square",
+                "Doctor Strange Times Square",
+                45,
+                "Regions/EndGame/StaticScenarios/DrStrangeEvent/Cosmic/DrStrangeTimesSquareRegionCosmic.prototype",
+                null,
+                null,
+                null,
+                RandomBossEligible: false),
+            new(
+                "cosmic-doop-sector",
+                "Cosmic Doop Sector",
+                100,
+                "Regions/EndGame/Special/CosmicDoopSectorSpace/CosmicDoopSectorSpaceRegion.prototype",
+                "Missions/Prototypes/BonusMissions/OMDoopZone.prototype",
+                "Entity/Characters/Mobs/DoopAllChapters/CosmicDoop/CosmicDoopOverlord.prototype",
+                "Loot/Tables/Mob/NormalMobs/CosmicDoopOverlordTable.prototype",
+                RandomBossEligible: false,
+                IsSpecialRandomMap: true,
+                UseOwnBossSourceWhenSelected: true),
         };
 
         private readonly List<MythicRiftContentEntry> _contentPool = new();
@@ -135,7 +186,9 @@ namespace MHServerEmu.Games.MythicRifts
         }
 
         public IReadOnlyList<MythicRiftContentEntry> ContentPool => _contentPool;
-        public IReadOnlyList<MythicRiftContentEntry> RandomEligibleContentPool => _contentPool.Where(entry => entry.RandomEligible).ToList();
+        public IReadOnlyList<MythicRiftContentEntry> RandomEligibleContentPool => RandomMapEligibleContentPool;
+        public IReadOnlyList<MythicRiftContentEntry> RandomMapEligibleContentPool => _contentPool.Where(entry => entry.RandomMapEligible).ToList();
+        public IReadOnlyList<MythicRiftContentEntry> RandomBossEligibleContentPool => _contentPool.Where(entry => entry.RandomBossEligible && entry.HasValidBossSource).ToList();
         public IReadOnlyCollection<MythicRiftRunState> ActiveRuns => _activeRuns.Values;
 
         public MythicRiftDifficultySnapshot GetDifficultySnapshot(int riftLevel, int requestedPlayerCount)
@@ -253,7 +306,9 @@ namespace MHServerEmu.Games.MythicRifts
             if (content == null)
                 return null;
 
-            return CreateRunConfig(content, content, riftLevel, requestedPlayerCount, killQuota, timeLimit);
+            MythicRiftContentEntry bossContent = SelectBossContentForFixedMap(content);
+
+            return CreateRunConfig(content, bossContent, riftLevel, requestedPlayerCount, killQuota, timeLimit);
         }
 
         public MythicRiftRunConfig CreateDebugRunConfig(string contentId, string bossContentId, int riftLevel, int requestedPlayerCount, int killQuota, TimeSpan timeLimit)
@@ -263,13 +318,16 @@ namespace MHServerEmu.Games.MythicRifts
             if (content == null || bossContent == null)
                 return null;
 
+            if (bossContent.HasValidBossSource == false)
+                return null;
+
             return CreateRunConfig(content, bossContent, riftLevel, requestedPlayerCount, killQuota, timeLimit);
         }
 
         public MythicRiftRunConfig CreateRandomDebugRunConfig(int riftLevel, int requestedPlayerCount, int killQuota, TimeSpan timeLimit, IReadOnlyCollection<string> excludedMapContentIds = null)
         {
             MythicRiftContentEntry content = SelectRandomMapContent(excludedMapContentIds);
-            MythicRiftContentEntry bossContent = SelectRandomBossContent(content);
+            MythicRiftContentEntry bossContent = SelectBossContentForRandomMap(content);
             if (content == null || bossContent == null)
                 return null;
 
@@ -343,6 +401,7 @@ namespace MHServerEmu.Games.MythicRifts
             SendStopRiftTimer(runState);
             TryRestoreRegionDifficultyScaling(runState);
             RestoreSuspendedNativeObjectiveMissions(runState);
+            RequestRunRegionShutdownWhenVacant(runState);
             bool removed = _activeRuns.Remove(runId);
 
             if (removed && regionId != 0)
@@ -720,7 +779,7 @@ namespace MHServerEmu.Games.MythicRifts
 
         private MythicRiftContentEntry SelectRandomMapContent(IReadOnlyCollection<string> excludedContentIds = null)
         {
-            List<MythicRiftContentEntry> eligibleContent = _contentPool.Where(entry => entry.RandomEligible).ToList();
+            List<MythicRiftContentEntry> eligibleContent = _contentPool.Where(entry => entry.RandomMapEligible).ToList();
             if (eligibleContent.Count == 0)
                 return null;
 
@@ -734,13 +793,39 @@ namespace MHServerEmu.Games.MythicRifts
                     eligibleContent = filteredContent;
             }
 
-            int index = Game.Random.Next(0, eligibleContent.Count);
-            return eligibleContent[index];
+            List<MythicRiftContentEntry> specialContent = eligibleContent.Where(entry => entry.IsSpecialRandomMap).ToList();
+            List<MythicRiftContentEntry> standardContent = eligibleContent.Where(entry => entry.IsSpecialRandomMap == false).ToList();
+            if (specialContent.Count > 0 && standardContent.Count > 0 && Game.Random.NextFloat() < SpecialRandomMapChance)
+                return PickRandomContent(specialContent);
+
+            if (standardContent.Count > 0)
+                return PickRandomContent(standardContent);
+
+            return PickRandomContent(eligibleContent);
+        }
+
+        private MythicRiftContentEntry SelectBossContentForRandomMap(MythicRiftContentEntry mapContent)
+        {
+            if (mapContent?.UseOwnBossSourceWhenSelected == true && mapContent.HasValidBossSource)
+                return mapContent;
+
+            return SelectRandomBossContent(mapContent);
+        }
+
+        private MythicRiftContentEntry SelectBossContentForFixedMap(MythicRiftContentEntry mapContent)
+        {
+            if (mapContent == null)
+                return null;
+
+            if (mapContent.HasValidBossSource && (mapContent.RandomBossEligible || mapContent.UseOwnBossSourceWhenSelected))
+                return mapContent;
+
+            return SelectRandomBossContent(mapContent);
         }
 
         private MythicRiftContentEntry SelectRandomBossContent(MythicRiftContentEntry mapContent)
         {
-            List<MythicRiftContentEntry> eligibleContent = _contentPool.Where(entry => entry.RandomEligible).ToList();
+            List<MythicRiftContentEntry> eligibleContent = _contentPool.Where(entry => entry.RandomBossEligible && entry.HasValidBossSource).ToList();
             if (eligibleContent.Count == 0)
                 return null;
 
@@ -753,6 +838,14 @@ namespace MHServerEmu.Games.MythicRifts
                 if (alternateBossContent.Count > 0)
                     eligibleContent = alternateBossContent;
             }
+
+            return PickRandomContent(eligibleContent);
+        }
+
+        private MythicRiftContentEntry PickRandomContent(IReadOnlyList<MythicRiftContentEntry> eligibleContent)
+        {
+            if (eligibleContent == null || eligibleContent.Count == 0)
+                return null;
 
             int index = Game.Random.Next(0, eligibleContent.Count);
             return eligibleContent[index];
@@ -1387,6 +1480,8 @@ namespace MHServerEmu.Games.MythicRifts
 
             foreach (Player player in new PlayerIterator(region))
             {
+                runState.MarkParticipantSeenInRunRegion(player.DatabaseUniqueId);
+
                 if (runState.RegisterParticipant(player.DatabaseUniqueId) && runState.Status == MythicRiftRunStatus.Active)
                 {
                     SendStartRiftTimer(runState, player);
@@ -1616,6 +1711,9 @@ namespace MHServerEmu.Games.MythicRifts
             if (content == null || bossContent == null)
                 return null;
 
+            if (content.HasValidMap == false || bossContent.HasValidBossSource == false)
+                return null;
+
             MythicRiftDifficultySnapshot difficulty = GetDifficultySnapshot(riftLevel, requestedPlayerCount);
 
             return new MythicRiftRunConfig
@@ -1723,6 +1821,7 @@ namespace MHServerEmu.Games.MythicRifts
             TryRestoreRegionDifficultyScaling(runState);
             ClearRiftObjectiveWidgets(runState);
             SendStopRiftTimer(runState);
+            RequestRunRegionShutdownWhenVacant(runState);
             int eligibleUnlockCount = runState.ProgressionEligiblePlayerDbIds.Count;
             string successMessage = eligibleUnlockCount > 0
                 ? $"Rift cleared. Next level unlocked for {eligibleUnlockCount} eligible player(s). Bonus loot granted."
@@ -1746,6 +1845,7 @@ namespace MHServerEmu.Games.MythicRifts
             TryRestoreRegionDifficultyScaling(runState);
             ClearRiftObjectiveWidgets(runState);
             SendStopRiftTimer(runState);
+            RequestRunRegionShutdownWhenVacant(runState);
             NotifyRunCompleted(runState, success: false, reason);
 
             if (returnParticipantsToHub)
@@ -1771,6 +1871,7 @@ namespace MHServerEmu.Games.MythicRifts
             TryRestoreRegionDifficultyScaling(runState);
             ClearRiftObjectiveWidgets(runState);
             SendStopRiftTimer(runState);
+            RequestRunRegionShutdownWhenVacant(runState);
             NotifyRunCompleted(runState, success: false, reason);
             Logger.Info($"Mythic Rift run {runState.Config.RunId} aborted. reason={reason}");
             return true;
@@ -1872,6 +1973,9 @@ namespace MHServerEmu.Games.MythicRifts
                 if (player == null || player.GetRegion() == null)
                     continue;
 
+                if (runState.HasParticipantBeenSeenInRunRegion(participantPlayerDbId) == false)
+                    continue;
+
                 if (IsPlayerInRunRegion(player, runState))
                     continue;
 
@@ -1885,6 +1989,18 @@ namespace MHServerEmu.Games.MythicRifts
             }
 
             return false;
+        }
+
+        private void RequestRunRegionShutdownWhenVacant(MythicRiftRunState runState)
+        {
+            if (runState == null || runState.RegionId == 0)
+                return;
+
+            Region region = Game.RegionManager.GetRegion(runState.RegionId);
+            if (region == null)
+                return;
+
+            region.RequestShutdown();
         }
 
         private bool TryAbortRunForDisconnectedParticipants(MythicRiftRunState runState, TimeSpan currentTime)
@@ -2158,7 +2274,11 @@ namespace MHServerEmu.Games.MythicRifts
                 StartTargetProtoRef = ResolveStartTarget(definition.RegionPrototypeName),
                 MissionProtoRef = ResolvePrototype(definition.MissionPrototypeName),
                 BossProtoRef = ResolvePrototype(definition.BossPrototypeName),
-                BossLootTableProtoRef = ResolvePrototype(definition.BossLootTablePrototypeName)
+                BossLootTableProtoRef = ResolvePrototype(definition.BossLootTablePrototypeName),
+                RandomMapEligible = definition.RandomMapEligible,
+                RandomBossEligible = definition.RandomBossEligible,
+                IsSpecialRandomMap = definition.IsSpecialRandomMap,
+                UseOwnBossSourceWhenSelected = definition.UseOwnBossSourceWhenSelected
             };
 
             if (content.IsValid == false)
@@ -2247,6 +2367,10 @@ namespace MHServerEmu.Games.MythicRifts
             string RegionPrototypeName,
             string MissionPrototypeName,
             string BossPrototypeName,
-            string BossLootTablePrototypeName);
+            string BossLootTablePrototypeName,
+            bool RandomMapEligible = true,
+            bool RandomBossEligible = true,
+            bool IsSpecialRandomMap = false,
+            bool UseOwnBossSourceWhenSelected = false);
     }
 }

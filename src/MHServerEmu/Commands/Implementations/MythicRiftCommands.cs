@@ -45,7 +45,7 @@ namespace MHServerEmu.Commands.Implementations
             };
 
             foreach (MythicRiftContentEntry content in contentPool.OrderBy(entry => entry.DisplayName))
-                lines.Add($"{content.Id}: {content.DisplayName} | randomEligible={content.RandomEligible} | defaultKillQuota={content.DefaultKillQuota} | region={content.RegionProtoRef.GetNameFormatted()} | entryTarget={content.StartTargetProtoRef.GetNameFormatted()} | boss={content.BossProtoRef.GetNameFormatted()}");
+                lines.Add($"{content.Id}: {content.DisplayName} | mapEligible={content.RandomMapEligible} | bossEligible={content.RandomBossEligible} | special={content.IsSpecialRandomMap} | fixedOwnBoss={content.UseOwnBossSourceWhenSelected} | defaultKillQuota={content.DefaultKillQuota} | region={content.RegionProtoRef.GetNameFormatted()} | entryTarget={content.StartTargetProtoRef.GetNameFormatted()} | boss={content.BossProtoRef.GetNameFormatted()}");
 
             CommandHelper.SendMessages(client, lines);
             return string.Empty;
@@ -113,8 +113,11 @@ namespace MHServerEmu.Commands.Implementations
                 bool targetMatchesRegion = regionValid && startTargetValid &&
                     RegionPrototype.Equivalent(startTargetProto.Region.As<RegionPrototype>(), regionProto);
 
+                bool bossSourceValid = content.HasValidBossSource;
+                bool contentValid = content.IsValid;
+
                 lines.Add(
-                    $"{content.Id}: randomEligible={content.RandomEligible} | regionValid={regionValid} | startTargetValid={startTargetValid} | targetMatchesRegion={targetMatchesRegion} | region={content.RegionProtoRef.GetNameFormatted()} | entryTarget={content.StartTargetProtoRef.GetNameFormatted()}");
+                    $"{content.Id}: mapEligible={content.RandomMapEligible} | bossEligible={content.RandomBossEligible} | special={content.IsSpecialRandomMap} | fixedOwnBoss={content.UseOwnBossSourceWhenSelected} | contentValid={contentValid} | regionValid={regionValid} | startTargetValid={startTargetValid} | targetMatchesRegion={targetMatchesRegion} | bossSourceValid={bossSourceValid} | region={content.RegionProtoRef.GetNameFormatted()} | entryTarget={content.StartTargetProtoRef.GetNameFormatted()}");
             }
 
             CommandHelper.SendMessages(client, lines);
@@ -454,18 +457,23 @@ namespace MHServerEmu.Commands.Implementations
             if (TryParsePositiveInt(@params[2], out int timeLimitMinutes) == false)
                 return "Invalid time limit.";
 
-            IReadOnlyList<MythicRiftContentEntry> pool = game.MythicRiftManager.RandomEligibleContentPool;
-            if (pool.Count == 0)
-                return "No random-eligible Mythic Rift content is registered.";
+            IReadOnlyList<MythicRiftContentEntry> mapPool = game.MythicRiftManager.RandomMapEligibleContentPool;
+            IReadOnlyList<MythicRiftContentEntry> bossPool = game.MythicRiftManager.RandomBossEligibleContentPool;
+            if (mapPool.Count == 0 || bossPool.Count == 0)
+                return "No random-eligible Mythic Rift map or boss content is registered.";
 
             int totalCombos = 0;
             int validCombos = 0;
             int sameEntryCombos = 0;
             List<string> invalidLines = new();
 
-            foreach (MythicRiftContentEntry mapContent in pool.OrderBy(entry => entry.Id))
+            foreach (MythicRiftContentEntry mapContent in mapPool.OrderBy(entry => entry.Id))
             {
-                foreach (MythicRiftContentEntry bossContent in pool.OrderBy(entry => entry.Id))
+                IEnumerable<MythicRiftContentEntry> bossCandidates = mapContent.UseOwnBossSourceWhenSelected && mapContent.HasValidBossSource
+                    ? new[] { mapContent }
+                    : bossPool.OrderBy(entry => entry.Id);
+
+                foreach (MythicRiftContentEntry bossContent in bossCandidates)
                 {
                     totalCombos++;
                     bool sameEntry = string.Equals(mapContent.Id, bossContent.Id, StringComparison.OrdinalIgnoreCase);
@@ -489,7 +497,7 @@ namespace MHServerEmu.Commands.Implementations
                     bool startTargetValid = startTargetProto != null;
                     bool targetMatchesRegion = regionValid && startTargetValid &&
                         RegionPrototype.Equivalent(startTargetProto.Region.As<RegionPrototype>(), regionProto);
-                    bool missionValid = missionProto != null;
+                    bool missionValid = missionProto != null || config?.MissionProtoRef == PrototypeId.Invalid;
                     bool bossValid = bossProto != null;
                     bool lootValid = config != null && config.BossLootTableProtoRef != PrototypeId.Invalid;
 
@@ -507,7 +515,7 @@ namespace MHServerEmu.Commands.Implementations
 
             List<string> lines = new()
             {
-                $"Random pool validation: maps={pool.Count} | bosses={pool.Count} | totalCombos={totalCombos} | validCombos={validCombos} | invalidCombos={totalCombos - validCombos} | sameEntryCombos={sameEntryCombos}"
+                $"Random pool validation: maps={mapPool.Count} | bosses={bossPool.Count} | totalCombos={totalCombos} | validCombos={validCombos} | invalidCombos={totalCombos - validCombos} | sameEntryCombos={sameEntryCombos}"
             };
 
             if (invalidLines.Count == 0)

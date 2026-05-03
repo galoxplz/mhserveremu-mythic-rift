@@ -15,7 +15,7 @@
 - A dedicated server-side entry layer now exists to prepare a future player-facing entry point without assuming a specific clickable object yet.
 - Logical entry points can now be registered server-side even though no concrete in-game launcher has been chosen yet.
 - A more concrete TAHITI-friendly direction now exists: a consumable portal launcher modeled after `PortalToRandomMaxAffixDungeon`, while still keeping `PortalToRandomDungeon` as a compatibility fallback, and reusing a private direct-portal flow similar to Bovineheim/Cow Level.
-- Random Rift runs now decouple the selected terminal map from the selected boss source, so the current prototype can produce a random dungeon with a different random terminal boss.
+- Random Rift runs now decouple the selected map from the selected boss source, so the current prototype can produce a random dungeon or curated non-terminal map with a different random terminal boss.
 
 ## Main Files
 
@@ -29,18 +29,48 @@
 - `src/MHServerEmu.Games/MythicRifts/MythicRiftRewardOutcome.cs`
 - `src/MHServerEmu/Commands/Implementations/MythicRiftCommands.cs`
 
-## Current Playable Terminal Pool
+## Current Random-Eligible Terminal Pool
 
 - Shocker
 - Doctor Octopus
 - Taskmaster
 - Hood
-- Magneto
 - Mister Sinister
 - MODOK
 - Mandarin
 - Kingpin
+
+## Current Random-Eligible Non-Terminal Map Pool
+
+These entries are map-only. They can be selected as Rift maps, but they do not provide bosses or loot tables; the boss still comes from the validated terminal boss pool.
+
+- Bronx Zoo
+- Wakanda Jungle
+- HYDRA Island One-Shot
+- Daily Bugle Operation
+- Doctor Strange Times Square
+
+## Current Special Low-Chance Map Pool
+
+These entries are special Rift variants. They can be selected randomly only through the special branch, currently capped at a 5% chance before normal map selection. They keep their own fixed boss source instead of using the normal random terminal boss pool.
+
+- Cosmic Doop Sector
+  - region: `CosmicDoopSectorSpaceRegion`
+  - population: `EGDoopZonePop`
+  - boss: `CosmicDoopOverlord`
+  - loot: `CosmicDoopOverlordTable`
+  - kill quota: `100`
+  - direct test id: `cosmic-doop-sector`
+
+## Registered But Random-Excluded Terminal Content
+
+- Magneto
+  - temporarily excluded from random selection because the Stryker Bunker flow uses bunker door transitions and MonEll reported it behaving incorrectly during Rift tests
+
+## Temporarily Excluded Terminal Content
+
 - Ultron
+  - temporarily excluded from the active Rift pool because its normal terminal flow depends on scripted event / door progression that does not currently map cleanly to the Mythic Rift loop
 
 ## What The Prototype Already Does
 
@@ -51,6 +81,8 @@
 - choose random or fixed content from an expanded curated terminal pool while keeping more complex terminals out until validated
 - distinguish between the registered terminal catalog and the subset currently eligible for random selection
 - choose a random map source and a random boss source independently for random Rift runs
+- distinguish random map eligibility from random boss eligibility, allowing curated non-terminal maps without accidentally using them as boss sources
+- support special low-chance random maps, currently used by `Cosmic Doop Sector` at 5%, with fixed own boss selection
 - avoid selecting the same boss-source entry as the chosen map when the random pool offers alternatives
 - avoid immediately repeating the last completed Rift terminal map for the requester or party when another random map is available
 - avoid re-rolling the terminal content that the requester or party is currently standing in when chaining the next random Rift from a still-open terminal region
@@ -114,6 +146,8 @@
 - support a scoped per-player fixed-content beacon override so a specific V1 terminal can be validated without random selection
 - keep normal legacy `PortalToRandomDungeon` / Danger Room behavior intact unless that scoped override is explicitly armed first
 - attempt to teleport the player to the selected Rift region start target immediately after a successful armed beacon launch
+- force the teleport to use the configured Rift region prototype together with the start-target area/cell/entity data, so native terminal `RegionBand` variants do not silently replace the intended Rift region
+- attempt a best-effort party teleport for online party members when the leader launches a Rift beacon
 - abort a newly created run immediately if the direct beacon launch cannot resolve or reach a valid Rift start target
 - auto-bind pending runs against equivalent terminal region variants, not just exact prototype matches
 - award next-level progression competitively: a player must be inside the Rift when the kill quota unlocks the boss and still be inside the Rift when that boss dies
@@ -128,6 +162,8 @@
 - expose an admin `rift objectives` diagnostic command to inspect the active region/player mission tracker state and UI widgets when native objective suppression needs debugging
 - treat natural return-to-town / hub teleports out of the active Rift region as a failed/abandoned Rift attempt, so players cannot park or re-enter a stale Rift after leaving
 - fail timed-out Rifts and return online participants who are still inside the Rift to the Danger Room hub automatically
+- request shutdown of completed/aborted Rift regions when they become vacant, so later runs do not inherit stale terminal instance state
+- only treat a participant exit as Rift-breaking after that participant has actually been seen inside the active Rift region, preventing immediate party-run aborts while members are still zoning in
 - retry the configured random boss spawn on later eligible kills if the first spawn attempt fails exactly on quota unlock
 
 ## Current Reward Logic
@@ -232,7 +268,7 @@ Current practical launcher stage
 - Important constraint:
   - untracked direct behavior is scoped only to the preferred unused `PortalToRandomMaxAffixDungeon` beacon base
   - normal non-beacon `PortalToRandomDungeon` / Danger Room behavior must remain unchanged unless explicitly armed through the legacy/scoped test path
-- For random runs, the direct beacon path now creates a random terminal map plus a separately selected random boss source from the current playable pool.
+- For random runs, the direct beacon path now creates a random map plus a separately selected random boss source from the current playable pool.
 - The active Rift region now suppresses the terminal's native linked boss while the run is active, so the player cannot complete or loot the normal terminal boss before the Cosmic Rift quota is finished.
 - Boss completion is now strictly quota-gated: even a matching boss entity cannot complete the run until the kill quota has unlocked the boss phase.
 - Player-selected launch level now exists server-side: `rift level` shows the next beacon launch level, `rift level 50` lets an unlocked player farm level 50, and `rift level max` returns to their highest unlocked level.

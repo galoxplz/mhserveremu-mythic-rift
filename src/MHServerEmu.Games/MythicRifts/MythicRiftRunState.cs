@@ -15,6 +15,7 @@ namespace MHServerEmu.Games.MythicRifts
         private readonly HashSet<ulong> _rewardedPlayerDbIds = new();
         private readonly HashSet<ulong> _bossUnlockEligiblePlayerDbIds = new();
         private readonly HashSet<ulong> _progressionEligiblePlayerDbIds = new();
+        private readonly HashSet<ulong> _participantsSeenInRunRegion = new();
         private readonly HashSet<int> _sentTimeWarningThresholds = new();
         private readonly HashSet<int> _sentKillProgressMilestones = new();
 
@@ -38,6 +39,7 @@ namespace MHServerEmu.Games.MythicRifts
         public IReadOnlyCollection<ulong> RewardedPlayerDbIds => _rewardedPlayerDbIds;
         public IReadOnlyCollection<ulong> BossUnlockEligiblePlayerDbIds => _bossUnlockEligiblePlayerDbIds;
         public IReadOnlyCollection<ulong> ProgressionEligiblePlayerDbIds => _progressionEligiblePlayerDbIds;
+        public IReadOnlyCollection<ulong> ParticipantsSeenInRunRegionPlayerDbIds => _participantsSeenInRunRegion;
         public int ParticipantCount => _participantPlayerDbIds.Count;
         public int RewardedPlayerCount => _rewardedPlayerDbIds.Count;
         public bool IsInProgress => Status == MythicRiftRunStatus.Pending || Status == MythicRiftRunStatus.Active;
@@ -140,6 +142,19 @@ namespace MHServerEmu.Games.MythicRifts
                 return false;
 
             return _participantPlayerDbIds.Add(playerDbId);
+        }
+
+        public bool MarkParticipantSeenInRunRegion(ulong playerDbId)
+        {
+            if (playerDbId == 0)
+                return false;
+
+            return _participantsSeenInRunRegion.Add(playerDbId);
+        }
+
+        public bool HasParticipantBeenSeenInRunRegion(ulong playerDbId)
+        {
+            return playerDbId != 0 && _participantsSeenInRunRegion.Contains(playerDbId);
         }
 
         public bool HasRewardForPlayer(ulong playerDbId)

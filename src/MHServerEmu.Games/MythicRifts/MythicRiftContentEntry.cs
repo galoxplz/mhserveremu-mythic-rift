@@ -7,18 +7,28 @@ namespace MHServerEmu.Games.MythicRifts
         public string Id { get; init; }
         public string DisplayName { get; init; }
         public int DefaultKillQuota { get; init; }
-        public bool RandomEligible { get; init; } = true;
+        public bool RandomMapEligible { get; init; } = true;
+        public bool RandomBossEligible { get; init; } = true;
+        public bool IsSpecialRandomMap { get; init; }
+        public bool UseOwnBossSourceWhenSelected { get; init; }
         public PrototypeId RegionProtoRef { get; init; }
         public PrototypeId StartTargetProtoRef { get; init; }
         public PrototypeId MissionProtoRef { get; init; }
         public PrototypeId BossProtoRef { get; init; }
         public PrototypeId BossLootTableProtoRef { get; init; }
 
-        public bool IsValid =>
+        public bool HasValidMap =>
             string.IsNullOrWhiteSpace(Id) == false &&
             DefaultKillQuota > 0 &&
             RegionProtoRef != PrototypeId.Invalid &&
-            StartTargetProtoRef != PrototypeId.Invalid &&
-            BossProtoRef != PrototypeId.Invalid;
+            StartTargetProtoRef != PrototypeId.Invalid;
+
+        public bool HasValidBossSource =>
+            BossProtoRef != PrototypeId.Invalid &&
+            BossLootTableProtoRef != PrototypeId.Invalid;
+
+        public bool IsValid =>
+            HasValidMap &&
+            (RandomBossEligible == false || HasValidBossSource);
     }
 }
