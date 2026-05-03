@@ -8,6 +8,7 @@ using MHServerEmu.Games.GameData;
 using MHServerEmu.Games.GameData.Prototypes;
 using MHServerEmu.Games.Loot;
 using MHServerEmu.Games.Regions;
+using MHServerEmu.Games.Social.Parties;
 
 namespace MHServerEmu.Games.MythicRifts
 {
@@ -606,31 +607,106 @@ namespace MHServerEmu.Games.MythicRifts
             MythicRiftRunState runState = result.EntryResult?.RunState;
             PrototypeId startTargetRef = ResolveRunStartTarget(result.EntryResult.RunState);
             result.TeleportTargetProtoRef = startTargetRef;
-            result.TeleportAttempted = startTargetRef != PrototypeId.Invalid;
+            result.TeleportAttempted = true;
 
-            if (startTargetRef == PrototypeId.Invalid)
+            if (TryResolveRunTeleportDestination(runState, out PrototypeId regionProtoRef, out PrototypeId areaProtoRef, out PrototypeId cellProtoRef, out PrototypeId entityProtoRef) == false)
             {
                 result.TeleportErrorMessage = "No valid region start target was found for the selected Rift content.";
                 AbortUnboundLaunchRun(runState, result.TeleportErrorMessage);
                 return;
             }
 
-            using Teleporter teleporter = ObjectPoolManager.Instance.Get<Teleporter>();
-            teleporter.Initialize(player, TeleportContextEnum.TeleportContext_Debug);
-
-            bool teleportSucceeded = teleporter.TeleportToTarget(startTargetRef);
-            result.TeleportSucceeded = teleportSucceeded;
-
-            if (teleportSucceeded == false)
+            if (TryTeleportPlayerToRunEntry(player, regionProtoRef, areaProtoRef, cellProtoRef, entityProtoRef, usePartyTeleportContext: player.GetParty() != null, out string leaderTeleportError) == false)
             {
-                result.TeleportErrorMessage = $"Teleport to Rift start target failed: {startTargetRef.GetNameFormatted()}";
+                result.TeleportSucceeded = false;
+                result.TeleportErrorMessage = string.IsNullOrWhiteSpace(leaderTeleportError)
+                    ? $"Teleport to Rift start target failed: {startTargetRef.GetNameFormatted()}"
+                    : leaderTeleportError;
                 AbortUnboundLaunchRun(runState, result.TeleportErrorMessage);
+                return;
             }
+
+            result.TeleportSucceeded = true;
+            TeleportPartyMembersToRunEntry(player, runState, regionProtoRef, areaProtoRef, cellProtoRef, entityProtoRef);
         }
 
         private static PrototypeId ResolveRunStartTarget(MythicRiftRunState runState)
         {
             return runState?.Config.StartTargetProtoRef ?? PrototypeId.Invalid;
+        }
+
+        private static bool TryResolveRunTeleportDestination(MythicRiftRunState runState, out PrototypeId regionProtoRef, out PrototypeId areaProtoRef, out PrototypeId cellProtoRef, out PrototypeId entityProtoRef)
+        {
+            regionProtoRef = runState?.Config?.RegionProtoRef ?? PrototypeId.Invalid;
+            areaProtoRef = PrototypeId.Invalid;
+            cellProtoRef = PrototypeId.Invalid;
+            entityProtoRef = PrototypeId.Invalid;
+
+            if (regionProtoRef == PrototypeId.Invalid)
+                return false;
+
+            PrototypeId startTargetRef = ResolveRunStartTarget(runState);
+            RegionConnectionTargetPrototype startTargetProto = startTargetRef.As<RegionConnectionTargetPrototype>();
+            if (startTargetProto == null)
+                return false;
+
+            areaProtoRef = startTargetProto.Area;
+            cellProtoRef = GameDatabase.GetDataRefByAsset(startTargetProto.Cell);
+            entityProtoRef = startTargetProto.Entity;
+            return true;
+        }
+
+        private bool TryTeleportPlayerToRunEntry(Player player, PrototypeId regionProtoRef, PrototypeId areaProtoRef, PrototypeId cellProtoRef, PrototypeId entityProtoRef, bool usePartyTeleportContext, out string errorMessage)
+        {
+            errorMessage = string.Empty;
+
+            if (player == null)
+            {
+                errorMessage = "Player not found for Rift teleport.";
+                return false;
+            }
+
+            using Teleporter teleporter = ObjectPoolManager.Instance.Get<Teleporter>();
+            teleporter.Initialize(
+                player,
+                usePartyTeleportContext ? TeleportContextEnum.TeleportContext_Party : TeleportContextEnum.TeleportContext_Debug);
+
+            Region currentRegion = player.GetRegion();
+            if (currentRegion != null)
+                teleporter.DifficultyTierRef = currentRegion.DifficultyTierRef;
+
+            bool teleportSucceeded = teleporter.TeleportToTarget(regionProtoRef, areaProtoRef, cellProtoRef, entityProtoRef);
+            if (teleportSucceeded)
+                return true;
+
+            errorMessage = $"Teleport to Rift region failed: {regionProtoRef.GetNameFormatted()}";
+            return false;
+        }
+
+        private void TeleportPartyMembersToRunEntry(Player leader, MythicRiftRunState runState, PrototypeId regionProtoRef, PrototypeId areaProtoRef, PrototypeId cellProtoRef, PrototypeId entityProtoRef)
+        {
+            if (leader == null || runState?.Config == null)
+                return;
+
+            Party party = leader.GetParty();
+            if (party == null || party.IsLeader(leader) == false)
+                return;
+
+            foreach (var kvp in party)
+            {
+                ulong memberDbId = kvp.Value.PlayerDbId;
+                if (memberDbId == 0 || memberDbId == leader.DatabaseUniqueId)
+                    continue;
+
+                Player member = Game.EntityManager.GetEntityByDbGuid<Player>(memberDbId);
+                if (member == null)
+                    continue;
+
+                if (TryTeleportPlayerToRunEntry(member, regionProtoRef, areaProtoRef, cellProtoRef, entityProtoRef, usePartyTeleportContext: true, out string errorMessage))
+                    continue;
+
+                Logger.Warn($"[MythicRiftLauncher] Failed to teleport party member playerDbId=0x{memberDbId:X} into run {runState.Config.RunId}: {errorMessage}");
+            }
         }
 
         private static bool IsCommittedLauncherUse(MythicRiftLauncherUseResult result)

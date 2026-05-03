@@ -51,11 +51,16 @@ Expected result:
 - after a committed Rift launch, the purchased launcher item should be consumed
 - `rift status` should show the invoking player's active Rift without needing the admin-only `runId` list
 - player-facing chat should describe the Rift at a high level: map, level, timer, and enemy quota; the random boss name is revealed when the quota is completed and the boss is summoned
+- the active random test pool currently excludes `Ultron Terminal` and `Magneto / Stryker Bunker` because their native terminal scripts / door progression are not yet supported safely in Mythic Rift
+- the random map pool now also includes a first curated set of non-terminal private combat maps; these are map-only entries, so bosses still come from the validated terminal boss pool
+- `Cosmic Doop Sector` is registered as a special Rift map with a dedicated fixed boss and a 5% random selection chance; it does not use the normal random boss pool
 - the server hides terminal-native objective HUD widgets during active Rift runs so a map like Fisk Tower should no longer keep showing a misleading native objective such as "defeat Kingpin" when the Rift boss is different
 - the server temporarily suspends the native terminal mission while the Rift is active, so the normal terminal objective tracker should be hidden rather than modified
 - the server temporarily suspends active `Region Events` missions inside the Rift instance, because the lighter client-side-only suppression did not hide that tracker reliably; this is scoped to the Rift region and restored when the run is cleaned up
 - the server intercepts native `Mission` / `MissionObjective` updates for controlled terminal objectives before they reach the client, so terminal bounty counters should not reappear after the Rift starts
 - if the client keeps a generic counter widget visible, the server forces that counter to the active Rift kill quota; chat messages and `rift status` remain the authoritative no-client-patch fallback
+- the launcher now forces the configured Rift region during teleport instead of trusting the native target region baked into some terminal start targets; this matters for terminals that otherwise drift into `RegionBand` variants
+- completed or aborted Rift regions now request shutdown when vacant, so re-entering the same terminal later should create a fresh instance instead of reusing stale kill-state
 - guaranteed chat timer warnings are now sent at 9, 8, 7, 6, 5, 4, 3, 2, and 1 minute remaining, plus 30 seconds remaining
 - guaranteed chat kill-progress messages are sent at 25%, 50%, and 75% enemy quota progress
 - the purchased launcher is now intercepted at top-level item use, so vendor-bought `PortalToRandomMaxAffixDungeon` variants do not need to rely on reaching the exact `UsePower` branch before Rift launch begins
@@ -212,20 +217,38 @@ This validates every currently allowed random map/boss combination and reports a
 
 ## Fixed Content Beacon Test
 
-Use this when you want to validate a specific V1 terminal without relying on random selection.
+Use this when you want to validate a specific V1 terminal or curated non-terminal map without relying on random selection.
 
-Recommended content ids:
+Recommended terminal content ids:
 
 - `shocker`
 - `doctor-octopus`
 - `taskmaster`
 - `hood`
-- `magneto`
 - `sinister`
 - `modok`
 - `mandarin`
 - `kingpin`
+
+Registered but intentionally not random-selected right now:
+
+- `magneto`
+
+Known problematic / excluded:
+
 - `ultron`
+
+Curated non-terminal map ids:
+
+- `bronx-zoo`
+- `wakanda-jungle`
+- `hydra-island-one-shot`
+- `daily-bugle`
+- `dr-strange-times-square`
+
+Special low-chance map id:
+
+- `cosmic-doop-sector`
 
 Example flow:
 
@@ -252,7 +275,9 @@ Expected result:
 - `rift beaconmode` should show `fixedContent=taskmaster` while armed
 - after item use, `rift beaconmode` should show the created `runId`
 - the run should report `content=taskmaster`
-- the run should report `bossSource=taskmaster`
+- terminal fixed-content runs should report the selected terminal as the boss source
+- non-terminal fixed-content runs should report the selected map as `content`, with a separate terminal `bossSource`
+- for party tests, the Rift should no longer auto-close immediately just because another party member is still zoning; only a player who has actually been seen inside the Rift can now trigger the "participant left early" failure path
 - teleport should target the `entryTarget` resolved for the selected terminal
 - normal unarmed Danger Room behavior should remain unchanged globally
 
@@ -345,7 +370,7 @@ Use this when you want to force a specific terminal map with a different termina
 Example:
 
 ```text
-rift createmix taskmaster ultron 1 1 50 10
+rift createmix taskmaster mandarin 1 1 50 10
 rift bind [runId]
 rift start [runId]
 rift run [runId]
@@ -354,8 +379,46 @@ rift run [runId]
 Expected result:
 
 - the run should report `content=taskmaster`
-- the run should report `bossSource=ultron`
-- once the quota is reached, the spawned/configured Ultron boss should be the one that completes the run
+- the run should report `bossSource=mandarin`
+- once the quota is reached, the spawned/configured Mandarin boss should be the one that completes the run
+
+## Non-Terminal Map Smoke Tests
+
+Use these to force each new curated map directly through the same beacon flow players will use. The command arms the next beacon click for a fixed map, while the boss still comes from the terminal boss pool.
+
+```text
+rift validatecontent
+rift validaterandompool 1 1 10
+rift prepbeacon 1 5
+rift armbeaconfixed bronx-zoo 10
+```
+
+Use one beacon, finish or abandon the run, then repeat with:
+
+```text
+rift armbeaconfixed wakanda-jungle 10
+rift armbeaconfixed hydra-island-one-shot 10
+rift armbeaconfixed daily-bugle 10
+rift armbeaconfixed dr-strange-times-square 10
+```
+
+Special Doop Rift direct test:
+
+```text
+rift armbeaconfixed cosmic-doop-sector 10
+```
+
+For each map, check:
+
+- the player teleports into the named map instead of a terminal
+- `rift beaconmode` shows `teleportSucceeded=true`
+- normal non-terminal maps show `content=[map id]` and a terminal `bossSource`
+- `cosmic-doop-sector` shows `content=cosmic-doop-sector` and `bossSource=cosmic-doop-sector`
+- enemy kill count progresses from the native population in that map
+- the random Rift boss spawns only after quota completion
+- for `cosmic-doop-sector`, the fixed boss should be `CosmicDoopOverlord`
+- for `cosmic-doop-sector`, the current quota is `100` because a 35-kill version was completed in roughly 15 seconds during local testing
+- completion, abandon, and timer failure clean the instance so a later run starts fresh
 
 ## Progression Persistence Test
 

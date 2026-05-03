@@ -28,7 +28,7 @@ Current technical launcher base:
 
 - direct beacon use in-game from a server-granted `PortalToRandomMaxAffixDungeon`
 - random or fixed terminal selection from the V1 pool
-- random terminal map plus separately selected random boss source
+- random map plus separately selected random terminal boss source
 - safe launcher interception so a successful Rift click no longer falls through into the normal Danger Room scenario path
 - timed Rift runs
 - D3-inspired scaling
@@ -48,21 +48,44 @@ Current technical launcher base:
 - player-selected launch level through `rift level [level|max]`, so unlocked players can farm lower levels with the next beacon
 - server-side beacon granting
 - a first no-admin seller pass inside the `Danger Room` hub, so testers can buy the launcher directly from an in-game vendor
+- forced teleport resolution to the configured Rift region, avoiding terminal `RegionBand` drift from some native start targets
+- shutdown requests for completed/aborted Rift terminal regions once vacant, so later runs do not inherit stale instance state
 - competitive next-level progression based on who was inside the Rift at boss unlock and boss death
 - automatic cleanup / safety behavior for stale runs
 - timer expiration now fails the Rift and returns online participants still inside the Rift to the Danger Room hub
 
-## Current V1 Content Pool
+## Current Random-Eligible V1 Content Pool
+
+Terminal map + boss-source pool:
 
 - Shocker
 - Doctor Octopus
 - Taskmaster
 - Hood
-- Magneto
 - Mister Sinister
 - MODOK
 - Mandarin
 - Kingpin
+
+Curated non-terminal map-only pool:
+
+- Bronx Zoo
+- Wakanda Jungle
+- HYDRA Island One-Shot
+- Daily Bugle Operation
+- Doctor Strange Times Square
+
+Special low-chance pool:
+
+- Cosmic Doop Sector
+  - 5% random map chance
+  - fixed boss source: Cosmic Doop Overlord
+  - kill quota: `100`
+  - direct test id: `cosmic-doop-sector`
+
+Registered / known but excluded from random selection for now:
+
+- Magneto / Stryker Bunker
 - Ultron
 
 ## Current Group Rules
