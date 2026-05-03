@@ -1,7 +1,9 @@
 using System.Globalization;
+using Gazillion;
 using MHServerEmu.Commands.Attributes;
 using MHServerEmu.Core.Memory;
 using MHServerEmu.Core.Network;
+using MHServerEmu.Core.VectorMath;
 using MHServerEmu.DatabaseAccess.Models;
 using MHServerEmu.Games;
 using MHServerEmu.Games.Entities;
@@ -1692,6 +1694,56 @@ namespace MHServerEmu.Commands.Implementations
             return string.Empty;
         }
 
+        [Command("enter")]
+        [CommandDescription("Teleports the invoking admin into a registered Mythic Rift run.")]
+        [CommandUsage("rift enter [runId]")]
+        [CommandUserLevel(AccountUserLevel.Admin)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        [CommandParamCount(1)]
+        public string Enter(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            Player player = playerConnection?.Player;
+            if (game == null || player == null)
+                return "Game or player not found.";
+
+            if (TryParseRunId(@params[0], out ulong runId) == false)
+                return "Invalid run id.";
+
+            MythicRiftRunState runState = game.MythicRiftManager.GetRun(runId);
+            if (runState == null)
+                return $"Run not found: {runId}";
+
+            if (runState.Status is MythicRiftRunStatus.Failed or MythicRiftRunStatus.Aborted)
+                return $"Run {runId} is {runState.Status} and cannot be entered.";
+
+            string teleportMode;
+            if (runState.RegionId != 0)
+            {
+                Region region = game.RegionManager.GetRegion(runState.RegionId);
+                if (region == null)
+                    return $"Run {runId} is bound to missing region 0x{runState.RegionId:X}.";
+
+                if (TryTeleportPlayerToRunRegionInstance(player, runState, region, out string errorMessage) == false)
+                    return errorMessage;
+
+                teleportMode = $"existingRegion=0x{region.Id:X} ({region.PrototypeName})";
+            }
+            else
+            {
+                if (TryTeleportPlayerToRunConfiguredEntry(player, runState, out string errorMessage) == false)
+                    return errorMessage;
+
+                teleportMode = $"configuredEntry={runState.Config.StartTargetProtoRef.GetNameFormatted()}";
+            }
+
+            List<string> lines = BuildRunLines(runState, game.CurrentTime, includeResolvedRefs: false);
+            lines.Insert(0, $"Entering Mythic Rift run {runId}. {teleportMode}");
+            CommandHelper.SendMessages(client, lines);
+            return string.Empty;
+        }
+
         [Command("start")]
         [CommandDescription("Starts a registered Mythic Rift run and arms its timer.")]
         [CommandUsage("rift start [runId]")]
@@ -1938,6 +1990,85 @@ namespace MHServerEmu.Commands.Implementations
 
             CommandHelper.SendMessages(client, lines);
             return string.Empty;
+        }
+
+        private static bool TryTeleportPlayerToRunRegionInstance(Player player, MythicRiftRunState runState, Region region, out string errorMessage)
+        {
+            errorMessage = string.Empty;
+
+            if (player == null || runState?.Config == null || region == null)
+            {
+                errorMessage = "Player, run, or region not found.";
+                return false;
+            }
+
+            if (TryFindRunEntryPosition(runState, region, out Vector3 position) == false)
+            {
+                errorMessage = $"Failed to find an entry location for run {runState.Config.RunId} in region {region.PrototypeName}.";
+                return false;
+            }
+
+            using Teleporter teleporter = ObjectPoolManager.Instance.Get<Teleporter>();
+            teleporter.Initialize(player, TeleportContextEnum.TeleportContext_Debug);
+            teleporter.DifficultyTierRef = region.DifficultyTierRef;
+            return teleporter.TeleportToRegionLocation(region.Id, position);
+        }
+
+        private static bool TryTeleportPlayerToRunConfiguredEntry(Player player, MythicRiftRunState runState, out string errorMessage)
+        {
+            errorMessage = string.Empty;
+
+            if (player == null || runState?.Config == null)
+            {
+                errorMessage = "Player or run not found.";
+                return false;
+            }
+
+            RegionConnectionTargetPrototype startTargetProto = runState.Config.StartTargetProtoRef.As<RegionConnectionTargetPrototype>();
+            if (startTargetProto == null)
+            {
+                errorMessage = $"Run {runState.Config.RunId} has no valid entry target.";
+                return false;
+            }
+
+            using Teleporter teleporter = ObjectPoolManager.Instance.Get<Teleporter>();
+            teleporter.Initialize(player, TeleportContextEnum.TeleportContext_Debug);
+            teleporter.DifficultyTierRef = player.GetDifficultyTierForRegion(runState.Config.RegionProtoRef);
+            if (teleporter.DifficultyTierRef == PrototypeId.Invalid)
+                teleporter.DifficultyTierRef = GameDatabase.GlobalsPrototype.DifficultyTierDefault;
+
+            PrototypeId cellProtoRef = GameDatabase.GetDataRefByAsset(startTargetProto.Cell);
+            if (teleporter.TeleportToTarget(runState.Config.RegionProtoRef, startTargetProto.Area, cellProtoRef, startTargetProto.Entity))
+                return true;
+
+            errorMessage = $"Failed to teleport to Rift run {runState.Config.RunId} entry target {runState.Config.StartTargetProtoRef.GetNameFormatted()}.";
+            return false;
+        }
+
+        private static bool TryFindRunEntryPosition(MythicRiftRunState runState, Region region, out Vector3 position)
+        {
+            position = Vector3.Zero;
+
+            RegionConnectionTargetPrototype startTargetProto = runState.Config.StartTargetProtoRef.As<RegionConnectionTargetPrototype>();
+            if (startTargetProto != null)
+            {
+                Orientation orientation = Orientation.Zero;
+                PrototypeId cellProtoRef = GameDatabase.GetDataRefByAsset(startTargetProto.Cell);
+                if (region.FindTargetLocation(ref position, ref orientation, startTargetProto.Area, cellProtoRef, startTargetProto.Entity))
+                    return true;
+            }
+
+            foreach (Player regionPlayer in new PlayerIterator(region))
+            {
+                Avatar avatar = regionPlayer?.CurrentAvatar;
+                if (avatar?.IsInWorld == true && avatar.Region == region)
+                {
+                    position = avatar.RegionLocation.Position;
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static void AppendMissionManagerDiagnostics(List<string> lines, string label, MissionManager missionManager, PrototypeId riftMissionRef)
