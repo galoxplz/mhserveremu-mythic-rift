@@ -49,6 +49,8 @@ Current technical launcher base:
 - server-side beacon granting
 - a first no-admin seller pass inside the `Danger Room` hub, so testers can buy the launcher directly from an in-game vendor
 - forced teleport resolution to the configured Rift region, avoiding terminal `RegionBand` drift from some native start targets
+- current terminal content uses the L60 terminal region variants where available, matching MonEll's local fix direction for terminals that otherwise entered `RegionBand`
+- successful Rift clears spawn a return portal back to the Danger Room hub
 - shutdown requests for completed/aborted Rift terminal regions once vacant, so later runs do not inherit stale instance state
 - competitive next-level progression based on who was inside the Rift at boss unlock and boss death
 - automatic cleanup / safety behavior for stale runs

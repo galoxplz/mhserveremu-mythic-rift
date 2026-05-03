@@ -4,7 +4,7 @@ Date: 2026-05-03
 
 Purpose: identify terminal maps that are risky for the Cosmic Rift loop because their normal terminal flow depends on native checkpoints, transition nodes, doors, elevators, hotspot triggers, or scripted mission progression. Cosmic Rift currently wants a clean loop: enter map, kill quota, spawn random boss on the player, kill boss, finish.
 
-Important baseline finding: every Green terminal `StartTarget` points to its native `RegionBand` variant. Cosmic Rift must keep forcing the configured `RegionBase` during launch, otherwise some runs can silently enter the wrong terminal variant.
+Important baseline finding from earlier testing: Green terminal `StartTarget` data can resolve into native `RegionBand` variants. The current code now prefers the configured `AltRegions/*RegionL60` terminal region refs for Rift content, matching MonEll's local fix direction and avoiding the older `RegionBase` / `RegionBand` drift where possible.
 
 ## Recommended Random Pool
 
@@ -31,7 +31,7 @@ These are the best candidates for proving the full multiplayer Rift loop without
 | Doctor Octopus / Kingpin Warehouse | Low | `DailyGKPWarehouseStartTarget`, `DailyGKPBossCPTarget`; native checkpoint objective only. | Keep in random pool. |
 | Taskmaster | Low | `DailyGTaskmasterStartTarget`, `DailyGTaskmasterBossCPTarget`; native checkpoint objective only. | Keep in random pool. |
 | Hood | Low-medium | Has upper/lower deck transition: `DailyGHoodsShipUpperToLowerNod`, `DailyGHoodsShipUpperExitTarget`, `DailyGHoodsShipLowerEntryTarg`, and a checkpoint target. No Kismet, spawner trigger, entity-state action, hotspot gate, or miniboss gate was found in the mission flow. | Keep in random pool, monitor kill-count pacing. |
-| Magneto / Stryker Bunker | High / known issue | Has bunker transition node and door targets: `DailyGBunkerToMagnetoNode`, `DailyGPyroToMagnetoTarget`, `DailyGMagnetoBunkerStartTarget`, `BunkerDoor`, `BunkerDoor1`. MonEll already reported Bunker entering/behaving incorrectly. | Exclude from random pool until transition handling is solved. |
+| Magneto / Stryker Bunker | High / known issue | Has bunker transition node and door targets: `DailyGBunkerToMagnetoNode`, `DailyGPyroToMagnetoTarget`, `DailyGMagnetoBunkerStartTarget`, `BunkerDoor`, `BunkerDoor1`. MonEll already reported Bunker entering/behaving incorrectly. | Registered on L60 for fixed validation, but keep excluded from random pool until transition handling is proven safe. |
 | Mister Sinister | Low-medium | Has boss transition node: `DailyGSinisterLabBossNode`, `DailyGSinisterLabBossEXT`, `DailyGSinisterLabBossINT`, plus checkpoint target. No Kismet, spawner trigger, entity-state action, hotspot gate, or miniboss gate was found in the mission flow. | Keep in random pool, monitor kill-count pacing. |
 | MODOK / AIM Facility | Low-medium | Has MODOK transition node: `DailyGAIMFacToModokNode`, `DailyGAIMFacToModokTarget`, `DailyGAIMFacBossStartTarget`, plus checkpoint target. No Kismet, spawner trigger, entity-state action, hotspot gate, or miniboss gate was found in the mission flow. | Keep in random pool, monitor kill-count pacing. |
 | Mandarin / HYDRA Island | Low-medium | Has level 2 to boss transition: `DailyGHYDRAIslandLvl2ToBossNod`, `DailyGHYDRAIslandLvl2EXITTarg`, `DailyGMandarinBossEntryTarget`, plus checkpoint target. No Kismet, spawner trigger, entity-state action, hotspot gate, or miniboss gate was found in the mission flow. | Keep in random pool, monitor kill-count pacing. |
@@ -40,7 +40,7 @@ These are the best candidates for proving the full multiplayer Rift loop without
 | Kurse / Asgard Instance | Medium-high | Static region, but mission has multiple checkpoint objectives and a hotspot-enter condition. | Do not add to random pool until manually validated. |
 | Juggernaut / Purifier Church | High | Has exterior-to-interior boss node and door transition: `DailyGBossEXTToBossINTNode`, `DailyGJuggyBossEXTTarget`, `DailyGJuggyBossINTTarget`, `SP03FPDoor`, `PurifierJuggyTransition1`. | Do not add to random pool yet. |
 | K'lrt / Hightown Invasion | High | Has hotel transition node and several mission hotspot/spawner triggers: `DailyGHighTownToHotelNode`, `DailyGHighTownInvasionHotelEntryTarget`, `DailyGHighTownInvasionHotelDestTarget`, multiple `SpawnerTrigger` and `HotspotEnter` objectives. | Do not add to random pool yet. |
-| Ultron / Times Square | Blocker / known issue | Has restaurant/street/roof/hotel transition nodes and mission action that kills/despawns exit doors: `DailyGTimesSquareRestToStreetNode`, `DailyGTimesSquareRoofToHotelNode`, `DestructibleExitDoors`. MonEll already confirmed the door/event flow breaks Rift progression. | Keep excluded from random pool. |
+| Ultron / Times Square | Blocker / known issue | Has restaurant/street/roof/hotel transition nodes and mission action that kills/despawns exit doors: `DailyGTimesSquareRestToStreetNode`, `DailyGTimesSquareRoofToHotelNode`, `DestructibleExitDoors`. MonEll's local L60-region change appears promising, but repeated/multiplayer behavior still needs validation. | Registered on L60 for fixed validation, but keep excluded from random pool until confirmed safe. |
 
 ## Practical Decision
 
