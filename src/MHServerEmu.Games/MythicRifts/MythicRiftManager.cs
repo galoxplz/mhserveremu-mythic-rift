@@ -31,6 +31,7 @@ namespace MHServerEmu.Games.MythicRifts
         private static readonly TimeSpan CompletedRunRetention = TimeSpan.FromMinutes(5);
         private static readonly TimeSpan NativeBossSuppressionScanInterval = TimeSpan.FromSeconds(1);
         private static readonly TimeSpan RiftObjectiveWidgetRefreshInterval = TimeSpan.FromSeconds(2);
+        private const string RiftExitPortalPrototypeName = "Entity/Transitions/CowLevelTransition.prototype";
         private const float SpecialRandomMapChance = 0.05f;
         private static readonly MythicRiftContentDefinition[] DefaultContentDefinitions =
         {
@@ -38,7 +39,7 @@ namespace MHServerEmu.Games.MythicRifts
                 "shocker",
                 "Shocker Terminal",
                 45,
-                "Regions/EndGame/Terminals/Green/ShockerSubway/DailyGShockerSubwayRegionBase.prototype",
+                "Regions/EndGame/Terminals/Green/ShockerSubway/AltRegions/DailyGShockerSubwayRegionL60.prototype",
                 "Missions/Prototypes/PVEEndgame/Dailies/Green/G01ShockerSubwayDailyEndgame.prototype",
                 "Entity/Characters/Bosses/PVEDailies/Green/EGD01GShocker.prototype",
                 "Loot/Tables/Mob/Bosses/EndgameDailies/Terminals/AbandonedSubway/ShockerTerminalLoot.prototype"),
@@ -46,7 +47,7 @@ namespace MHServerEmu.Games.MythicRifts
                 "doctor-octopus",
                 "Doctor Octopus Terminal",
                 50,
-                "Regions/EndGame/Terminals/Green/KingpinsWarehouse/DailyGKPWarehouseRegionBase.prototype",
+                "Regions/EndGame/Terminals/Green/KingpinsWarehouse/AltRegions/DailyGKPWarehouseRegionL60.prototype",
                 "Missions/Prototypes/PVEEndgame/Dailies/Green/G02DoctorOctopusDailyEndgame.prototype",
                 "Entity/Characters/Bosses/PVEDailies/Green/EGD02GDoctorOctopus.prototype",
                 "Loot/Tables/Mob/Bosses/EndgameDailies/Terminals/KingpinsWarehouse/DrOctopusTerminalLoot.prototype"),
@@ -54,7 +55,7 @@ namespace MHServerEmu.Games.MythicRifts
                 "taskmaster",
                 "Taskmaster Terminal",
                 50,
-                "Regions/EndGame/Terminals/Green/Taskmaster/DailyGTaskmasterRegionBase.prototype",
+                "Regions/EndGame/Terminals/Green/Taskmaster/AltRegions/DailyGTaskmasterRegionL60.prototype",
                 "Missions/Prototypes/PVEEndgame/Dailies/Green/G03TaskmasterDailyEndgame.prototype",
                 "Entity/Characters/Bosses/PVEDailies/Green/EGD03GTaskmaster.prototype",
                 "Loot/Tables/Mob/Bosses/EndgameDailies/Terminals/TaskmasterInstitute/TaskmasterTerminalLoot.prototype"),
@@ -62,7 +63,7 @@ namespace MHServerEmu.Games.MythicRifts
                 "hood",
                 "Hood Terminal",
                 55,
-                "Regions/EndGame/Terminals/Green/HoodsShip/DailyGHoodsShipRegionBase.prototype",
+                "Regions/EndGame/Terminals/Green/HoodsShip/AltRegions/DailyGHoodsShipRegionL60.prototype",
                 "Missions/Prototypes/PVEEndgame/Dailies/Green/G04HoodDailyEndgame.prototype",
                 "Entity/Characters/Bosses/PVEDailies/Green/EGD04GHood.prototype",
                 "Loot/Tables/Mob/Bosses/EndgameDailies/Terminals/HoodsHideout/HoodTerminalLoot.prototype"),
@@ -70,7 +71,7 @@ namespace MHServerEmu.Games.MythicRifts
                 "magneto",
                 "Magneto Terminal",
                 60,
-                "Regions/EndGame/Terminals/Green/MagnetoBunker/DailyGStrykerBunkerRegionBase.prototype",
+                "Regions/EndGame/Terminals/Green/MagnetoBunker/AltRegions/DailyGStrykerBunkerRegionL60.prototype",
                 "Missions/Prototypes/PVEEndgame/Dailies/Green/G05MagnetoDailyEndgame.prototype",
                 "Entity/Characters/Bosses/PVEDailies/Green/EGD05GMagneto.prototype",
                 "Loot/Tables/Mob/Bosses/EndgameDailies/Terminals/StrykerCommandBunker/MagnetoTerminalLoot.prototype",
@@ -80,7 +81,7 @@ namespace MHServerEmu.Games.MythicRifts
                 "sinister",
                 "Mister Sinister Terminal",
                 60,
-                "Regions/EndGame/Terminals/Green/SinistersLab/DailyGSinisterLabRegionBase.prototype",
+                "Regions/EndGame/Terminals/Green/SinistersLab/AltRegions/DailyGSinisterLabRegionL60.prototype",
                 "Missions/Prototypes/PVEEndgame/Dailies/Green/G06MisterSinisterDailyEndgame.prototype",
                 "Entity/Characters/Bosses/PVEDailies/Green/EGD06GMrSinister.prototype",
                 "Loot/Tables/Mob/Bosses/EndgameDailies/Terminals/SinisterLab/MisterSinisterTerminalLoot.prototype"),
@@ -88,7 +89,7 @@ namespace MHServerEmu.Games.MythicRifts
                 "modok",
                 "MODOK Terminal",
                 60,
-                "Regions/EndGame/Terminals/Green/AIMFacility/DailyGAIMFacilityRegionBase.prototype",
+                "Regions/EndGame/Terminals/Green/AIMFacility/AltRegions/DailyGAIMFacilityRegionL60.prototype",
                 "Missions/Prototypes/PVEEndgame/Dailies/Green/G07MODOKDailyEndgame.prototype",
                 "Entity/Characters/Bosses/PVEDailies/Green/EGD07GMODOK.prototype",
                 "Loot/Tables/Mob/Bosses/EndgameDailies/Terminals/AIMWeaponFacility/ModokTerminalLoot.prototype"),
@@ -96,7 +97,7 @@ namespace MHServerEmu.Games.MythicRifts
                 "mandarin",
                 "Mandarin Terminal",
                 65,
-                "Regions/EndGame/Terminals/Green/HYDRAIsland/DailyGHYDRAIslandRegionBase.prototype",
+                "Regions/EndGame/Terminals/Green/HYDRAIsland/AltRegions/DailyGHYDRAIslandRegionL60.prototype",
                 "Missions/Prototypes/PVEEndgame/Dailies/Green/G08MandarinDailyEndgame.prototype",
                 "Entity/Characters/Bosses/PVEDailies/Green/EGD08GMandarin.prototype",
                 "Loot/Tables/Mob/Bosses/EndgameDailies/Terminals/HydraIsland/MandarinTerminalLoot.prototype"),
@@ -104,10 +105,20 @@ namespace MHServerEmu.Games.MythicRifts
                 "kingpin",
                 "Kingpin Terminal",
                 65,
-                "Regions/EndGame/Terminals/Green/FiskTower/DailyGFiskTowerRegionBase.prototype",
+                "Regions/EndGame/Terminals/Green/FiskTower/AltRegions/DailyGFiskTowerRegionL60.prototype",
                 "Missions/Prototypes/PVEEndgame/Dailies/Green/G10FiskTowerDailyEndgame.prototype",
                 "Entity/Characters/Bosses/PVEDailies/Green/EGD10GKingpin.prototype",
                 "Loot/Tables/Mob/Bosses/EndgameDailies/Terminals/FiskTower/KingpinLTerminalLoot.prototype"),
+            new(
+                "ultron",
+                "Ultron Terminal",
+                70,
+                "Regions/EndGame/Terminals/Green/TimesSquare/AltRegions/DailyGTimesSquareRegionL60.prototype",
+                "Missions/Prototypes/PVEEndgame/Dailies/Green/G14UltronDailyEndgame.prototype",
+                "Entity/Characters/Bosses/PVEDailies/Green/EGD14GUltronTerminal.prototype",
+                "Loot/Tables/Mob/Bosses/EndgameDailies/Terminals/TimesSquare/UltronTerminalLoot.prototype",
+                RandomMapEligible: false,
+                RandomBossEligible: false),
             new(
                 "bronx-zoo",
                 "Bronx Zoo",
@@ -665,6 +676,13 @@ namespace MHServerEmu.Games.MythicRifts
 
                 if (TryAbortStalePendingRun(runState, currentTime))
                     continue;
+
+                if (ShouldRemoveCompletedRunBecauseRegionIsEmpty(runState))
+                {
+                    runsToRemove ??= new();
+                    runsToRemove.Add(runState.Config.RunId);
+                    continue;
+                }
 
                 if (ShouldAutoRemoveRun(runState, currentTime) == false)
                     continue;
@@ -1821,12 +1839,12 @@ namespace MHServerEmu.Games.MythicRifts
             TryRestoreRegionDifficultyScaling(runState);
             ClearRiftObjectiveWidgets(runState);
             SendStopRiftTimer(runState);
-            RequestRunRegionShutdownWhenVacant(runState);
             int eligibleUnlockCount = runState.ProgressionEligiblePlayerDbIds.Count;
             string successMessage = eligibleUnlockCount > 0
                 ? $"Rift cleared. Next level unlocked for {eligibleUnlockCount} eligible player(s). Bonus loot granted."
                 : "Rift cleared. Loot granted, but no players met the next-level unlock rule.";
             NotifyRunCompleted(runState, success: true, successMessage);
+            TrySpawnReturnPortal(runState);
             return true;
         }
 
@@ -1997,10 +2015,145 @@ namespace MHServerEmu.Games.MythicRifts
                 return;
 
             Region region = Game.RegionManager.GetRegion(runState.RegionId);
-            if (region == null)
+            if (region == null || region.ShutdownRequested)
                 return;
 
             region.RequestShutdown();
+            Logger.Info($"Mythic Rift run {runState.Config.RunId} requested shutdown for region {region.PrototypeName} (0x{region.Id:X}).");
+        }
+
+        private bool TrySpawnReturnPortal(MythicRiftRunState runState)
+        {
+            if (runState == null || runState.RegionId == 0)
+                return false;
+
+            if (runState.ExitPortalEntityId != 0 && Game.EntityManager.GetEntity<Transition>(runState.ExitPortalEntityId) != null)
+                return true;
+
+            if (TryResolveDangerRoomHubStartTarget(out PrototypeId dangerRoomHubStartTarget) == false)
+                return false;
+
+            PrototypeId exitPortalProtoRef = GameDatabase.GetPrototypeRefByName(RiftExitPortalPrototypeName);
+            if (exitPortalProtoRef == PrototypeId.Invalid)
+                return Logger.WarnReturn(false, $"TrySpawnReturnPortal(): Failed to resolve {RiftExitPortalPrototypeName}");
+
+            Region region = Game.RegionManager.GetRegion(runState.RegionId);
+            if (region == null)
+                return false;
+
+            if (TryGetReturnPortalSpawnLocation(runState, region, out Vector3 spawnPosition, out Orientation spawnOrientation, out Cell spawnCell) == false)
+                return false;
+
+            using EntitySettings settings = ObjectPoolManager.Instance.Get<EntitySettings>();
+            settings.EntityRef = exitPortalProtoRef;
+            settings.RegionId = region.Id;
+            settings.Position = spawnPosition;
+            settings.Orientation = spawnOrientation;
+            settings.Cell = spawnCell;
+            settings.Lifespan = CompletedRunRetention;
+            settings.SourceEntityId = GetFirstRunAvatarId(region);
+
+            using PropertyCollection settingsProperties = ObjectPoolManager.Instance.Get<PropertyCollection>();
+            settingsProperties[PropertyEnum.Interactable] = (int)TriBool.True;
+            settingsProperties[PropertyEnum.InteractableUsesLeft] = -1;
+            settingsProperties[PropertyEnum.Visible] = true;
+            settings.Properties = settingsProperties;
+
+            Transition exitPortal = Game.EntityManager.CreateEntity(settings) as Transition;
+            if (exitPortal == null)
+                return Logger.WarnReturn(false, "TrySpawnReturnPortal(): Failed to create return portal entity.");
+
+            if (exitPortal.ConfigureDirectTarget(dangerRoomHubStartTarget) == false)
+            {
+                exitPortal.Destroy();
+                return false;
+            }
+
+            runState.AttachExitPortal(exitPortal.Id);
+            Logger.Info($"Mythic Rift run {runState.Config.RunId} spawned return portal {exitPortal.PrototypeName} (0x{exitPortal.Id:X}) to Danger Room hub.");
+            return true;
+        }
+
+        public bool TryUseReturnPortal(Player player, Transition transition)
+        {
+            if (player == null || transition == null)
+                return false;
+
+            MythicRiftRunState runState = _activeRuns.Values.FirstOrDefault(run => run.ExitPortalEntityId == transition.Id);
+            if (runState == null || runState.Status != MythicRiftRunStatus.Success)
+                return false;
+
+            if (TryResolveDangerRoomHubStartTarget(out PrototypeId dangerRoomHubStartTarget) == false)
+                return false;
+
+            using Teleporter teleporter = ObjectPoolManager.Instance.Get<Teleporter>();
+            teleporter.Initialize(player, TeleportContextEnum.TeleportContext_Debug);
+            teleporter.DifficultyTierRef = GameDatabase.GlobalsPrototype.DifficultyTierDefault;
+            bool teleported = teleporter.TeleportToTarget(dangerRoomHubStartTarget);
+            if (teleported)
+                Logger.Info($"Mythic Rift run {runState.Config.RunId} used return portal 0x{transition.Id:X} for playerDbId=0x{player.DatabaseUniqueId:X}.");
+            else
+                Logger.Warn($"Mythic Rift run {runState.Config.RunId} failed to use return portal 0x{transition.Id:X} for playerDbId=0x{player.DatabaseUniqueId:X}.");
+
+            return teleported;
+        }
+
+        private static ulong GetFirstRunAvatarId(Region region)
+        {
+            if (region == null)
+                return 0;
+
+            foreach (Player player in new PlayerIterator(region))
+            {
+                Avatar avatar = player.CurrentAvatar;
+                if (avatar != null && avatar.IsInWorld)
+                    return avatar.Id;
+            }
+
+            return 0;
+        }
+
+        private bool TryGetReturnPortalSpawnLocation(MythicRiftRunState runState, Region region, out Vector3 position, out Orientation orientation, out Cell cell)
+        {
+            position = Vector3.Zero;
+            orientation = Orientation.Zero;
+            cell = null;
+
+            if (region == null)
+                return false;
+
+            if (runState?.BossEntityId != 0)
+            {
+                WorldEntity bossEntity = Game.EntityManager.GetEntity<WorldEntity>(runState.BossEntityId);
+                if (bossEntity?.IsInWorld == true && bossEntity.Region == region)
+                {
+                    position = bossEntity.RegionLocation.Position;
+                    orientation = bossEntity.RegionLocation.Orientation;
+                    cell = bossEntity.Cell;
+                    return FinalizeReturnPortalSpawnLocation(region, ref position, ref cell);
+                }
+            }
+
+            foreach (Player player in new PlayerIterator(region))
+            {
+                Avatar avatar = player?.CurrentAvatar;
+                if (avatar?.IsInWorld != true || avatar.Region != region)
+                    continue;
+
+                position = avatar.RegionLocation.Position + avatar.Forward * 150f;
+                orientation = avatar.RegionLocation.Orientation;
+                cell = avatar.Cell;
+                return FinalizeReturnPortalSpawnLocation(region, ref position, ref cell);
+            }
+
+            return false;
+        }
+
+        private static bool FinalizeReturnPortalSpawnLocation(Region region, ref Vector3 position, ref Cell cell)
+        {
+            position = RegionLocation.ProjectToFloor(region, position);
+            cell ??= region.GetCellAtPosition(position);
+            return cell != null;
         }
 
         private bool TryAbortRunForDisconnectedParticipants(MythicRiftRunState runState, TimeSpan currentTime)
@@ -2240,6 +2393,21 @@ namespace MHServerEmu.Games.MythicRifts
                 return false;
 
             return currentTime - runState.CompletedAt.Value >= CompletedRunRetention;
+        }
+
+        private bool ShouldRemoveCompletedRunBecauseRegionIsEmpty(MythicRiftRunState runState)
+        {
+            if (runState == null || runState.CompletedAt.HasValue == false || runState.RegionId == 0)
+                return false;
+
+            Region region = Game.RegionManager.GetRegion(runState.RegionId);
+            if (region == null)
+                return true;
+
+            foreach (Player _ in new PlayerIterator(region))
+                return false;
+
+            return true;
         }
 
         private static bool TryResolveDangerRoomHubStartTarget(out PrototypeId startTargetRef)

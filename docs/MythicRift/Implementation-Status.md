@@ -16,6 +16,8 @@
 - Logical entry points can now be registered server-side even though no concrete in-game launcher has been chosen yet.
 - A more concrete TAHITI-friendly direction now exists: a consumable portal launcher modeled after `PortalToRandomMaxAffixDungeon`, while still keeping `PortalToRandomDungeon` as a compatibility fallback, and reusing a private direct-portal flow similar to Bovineheim/Cow Level.
 - Random Rift runs now decouple the selected map from the selected boss source, so the current prototype can produce a random dungeon or curated non-terminal map with a different random terminal boss.
+- Terminal Rift entries now prefer the `AltRegions/*RegionL60` variants instead of the older base terminal region refs, matching MonEll's local finding that native start targets can otherwise resolve into `RegionBand` variants.
+- Successful Rift clears now spawn a return portal back to the Danger Room hub; cleanup is requested after the completed Rift region becomes empty.
 
 ## Main Files
 
@@ -65,12 +67,9 @@ These entries are special Rift variants. They can be selected randomly only thro
 ## Registered But Random-Excluded Terminal Content
 
 - Magneto
-  - temporarily excluded from random selection because the Stryker Bunker flow uses bunker door transitions and MonEll reported it behaving incorrectly during Rift tests
-
-## Temporarily Excluded Terminal Content
-
+  - registered on the L60 terminal region for fixed validation, but still excluded from random selection until the bunker transition / door flow is validated safely
 - Ultron
-  - temporarily excluded from the active Rift pool because its normal terminal flow depends on scripted event / door progression that does not currently map cleanly to the Mythic Rift loop
+  - registered on the L60 terminal region for fixed validation after MonEll's local branch showed this path progressing better, but still excluded from random selection until multiplayer and repeated-run tests confirm it is safe
 
 ## What The Prototype Already Does
 
@@ -79,6 +78,7 @@ These entries are special Rift variants. They can be selected randomly only thro
 - accept a server-side run request for a player or group
 - choose random or fixed content from the V1 pool
 - choose random or fixed content from an expanded curated terminal pool while keeping more complex terminals out until validated
+- use L60 terminal region variants for current terminal content, avoiding native `RegionBand` drift from terminal start targets
 - distinguish between the registered terminal catalog and the subset currently eligible for random selection
 - choose a random map source and a random boss source independently for random Rift runs
 - distinguish random map eligibility from random boss eligibility, allowing curated non-terminal maps without accidentally using them as boss sources
@@ -97,7 +97,7 @@ These entries are special Rift variants. They can be selected randomly only thro
 - manage a server-side timer
 - fail a run automatically on expiration
 - abort a run automatically if all tracked participants stay offline too long
-- remove completed or abandoned runs automatically after retention
+- remove completed or abandoned runs automatically after retention or after the completed Rift region becomes empty
 - close and remove an active Rift if a tracked online participant leaves the bound Rift region before completion
 - auto-bind a pending run to the real target terminal region when a participant enters it
 - auto-start the timer once that region binding is established
@@ -108,6 +108,7 @@ These entries are special Rift variants. They can be selected randomly only thro
 - keep the random boss unrevealed in normal player-facing start messaging until the quota is completed
 - recognize the death of the expected boss
 - mark the run successful when the expected boss dies after the quota
+- spawn a Rift return portal after successful boss completion so players have a clear in-world exit back to the Danger Room hub
 - apply the Rift difficulty snapshot to the bound region by reducing player-to-mob damage and increasing mob-to-player damage for the duration of the run
 - restore the region damage state automatically when the run ends or is removed
 - prevent pre-quota kills of prototype-matching enemies from hijacking boss tracking before the Rift boss phase is unlocked

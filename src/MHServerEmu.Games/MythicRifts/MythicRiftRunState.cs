@@ -24,6 +24,7 @@ namespace MHServerEmu.Games.MythicRifts
         public TimeSpan RegisteredAt { get; private set; }
         public ulong RegionId { get; private set; }
         public ulong BossEntityId { get; private set; }
+        public ulong ExitPortalEntityId { get; private set; }
         public int CurrentKillCount { get; private set; }
         public bool BossUnlocked { get; private set; }
         public bool RewardsGranted { get; private set; }
@@ -57,6 +58,11 @@ namespace MHServerEmu.Games.MythicRifts
         public void AttachBoss(ulong bossEntityId)
         {
             BossEntityId = bossEntityId;
+        }
+
+        public void AttachExitPortal(ulong exitPortalEntityId)
+        {
+            ExitPortalEntityId = exitPortalEntityId;
         }
 
         public void CaptureRegionDifficultyScaling(float playerToMobDamageMultiplier, float mobToPlayerDamageMultiplier)

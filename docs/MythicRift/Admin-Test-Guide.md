@@ -51,7 +51,7 @@ Expected result:
 - after a committed Rift launch, the purchased launcher item should be consumed
 - `rift status` should show the invoking player's active Rift without needing the admin-only `runId` list
 - player-facing chat should describe the Rift at a high level: map, level, timer, and enemy quota; the random boss name is revealed when the quota is completed and the boss is summoned
-- the active random test pool currently excludes `Ultron Terminal` and `Magneto / Stryker Bunker` because their native terminal scripts / door progression are not yet supported safely in Mythic Rift
+- the active random test pool still excludes `Ultron Terminal` and `Magneto / Stryker Bunker`, but both are now registered on their L60 terminal variants for fixed validation
 - the random map pool now also includes a first curated set of non-terminal private combat maps; these are map-only entries, so bosses still come from the validated terminal boss pool
 - `Cosmic Doop Sector` is registered as a special Rift map with a dedicated fixed boss and a 5% random selection chance; it does not use the normal random boss pool
 - the server hides terminal-native objective HUD widgets during active Rift runs so a map like Fisk Tower should no longer keep showing a misleading native objective such as "defeat Kingpin" when the Rift boss is different
@@ -59,8 +59,9 @@ Expected result:
 - the server temporarily suspends active `Region Events` missions inside the Rift instance, because the lighter client-side-only suppression did not hide that tracker reliably; this is scoped to the Rift region and restored when the run is cleaned up
 - the server intercepts native `Mission` / `MissionObjective` updates for controlled terminal objectives before they reach the client, so terminal bounty counters should not reappear after the Rift starts
 - if the client keeps a generic counter widget visible, the server forces that counter to the active Rift kill quota; chat messages and `rift status` remain the authoritative no-client-patch fallback
-- the launcher now forces the configured Rift region during teleport instead of trusting the native target region baked into some terminal start targets; this matters for terminals that otherwise drift into `RegionBand` variants
-- completed or aborted Rift regions now request shutdown when vacant, so re-entering the same terminal later should create a fresh instance instead of reusing stale kill-state
+- the launcher now uses the configured Rift region during teleport instead of trusting the native target region baked into some terminal start targets; current terminal entries prefer `AltRegions/*RegionL60` to avoid `RegionBand` drift
+- successful Rift clears should spawn a return portal that takes players back to the Danger Room hub
+- completed or aborted Rift regions now request shutdown once they become vacant, so re-entering the same terminal later should create a fresh instance instead of reusing stale kill-state
 - guaranteed chat timer warnings are now sent at 9, 8, 7, 6, 5, 4, 3, 2, and 1 minute remaining, plus 30 seconds remaining
 - guaranteed chat kill-progress messages are sent at 25%, 50%, and 75% enemy quota progress
 - the purchased launcher is now intercepted at top-level item use, so vendor-bought `PortalToRandomMaxAffixDungeon` variants do not need to rely on reaching the exact `UsePower` branch before Rift launch begins
@@ -233,9 +234,6 @@ Recommended terminal content ids:
 Registered but intentionally not random-selected right now:
 
 - `magneto`
-
-Known problematic / excluded:
-
 - `ultron`
 
 Curated non-terminal map ids:

@@ -104,6 +104,8 @@ Current implemented prototype behavior:
 - competitive next-level progression based on who was inside the Rift at boss unlock and boss death
 - prevention of overlapping in-progress Rift runs for the same player / party
 - forced Rift-region teleport resolution using the configured content region instead of trusting native terminal `StartTarget.Region`, preventing accidental `RegionBand` drift on affected terminals
+- current terminal content now uses the L60 terminal region variants where available, following MonEll's local finding that these resolve the intended terminal regions more reliably
+- successful Rift clears spawn a return portal back to the Danger Room hub
 - best-effort party-member teleports when the leader launches the Rift beacon
 - automatic abort if all tracked participants stay offline too long
 - automatic cleanup of stale completed or abandoned runs
@@ -127,7 +129,7 @@ These parts are still not final:
 - larger content pool beyond the current first terminals
 - optional patcher-delivered presentation polish if TAHITI wants it
 - final polished Rift level selection UX beyond the current chat command, if TAHITI wants a cleaner NPC or interaction flow later
-- scripted/gated terminals such as Ultron and Magneto / Stryker Bunker remain intentionally excluded from random selection until their native event/door dependencies can be supported safely
+- scripted/gated terminals such as Ultron and Magneto / Stryker Bunker remain intentionally excluded from random selection; they are registered for fixed L60 validation before any decision to re-enable them randomly
 
 ## Current Random-Eligible V1 Content Pool
 
