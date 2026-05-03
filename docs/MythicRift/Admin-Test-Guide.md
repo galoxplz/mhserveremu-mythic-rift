@@ -40,6 +40,7 @@ rift status
 rift diagbeacon 1 10
 rift runs
 rift run [runId]
+rift enter [runId]
 ```
 
 Expected result:
@@ -50,6 +51,7 @@ Expected result:
 - after purchase, the item should launch through the Mythic Rift path exactly like a server-granted beacon
 - after a committed Rift launch, the purchased launcher item should be consumed
 - `rift status` should show the invoking player's active Rift without needing the admin-only `runId` list
+- admins can use `rift enter [runId]` to teleport into a registered Rift run for inspection; if the run is already bound, it enters the existing region instance, otherwise it enters the configured start target and lets auto-bind attach the run
 - player-facing chat should describe the Rift at a high level: map, level, timer, and enemy quota; the random boss name is revealed when the quota is completed and the boss is summoned
 - the active random test pool still excludes `Ultron Terminal` and `Magneto / Stryker Bunker`, but both are now registered on their L60 terminal variants for fixed validation
 - the random map pool now also includes a first curated set of non-terminal private combat maps; these are map-only entries, so bosses still come from the validated terminal boss pool
@@ -171,6 +173,7 @@ rift beaconmode
 rift beaconmode
 rift runs
 rift run [runId]
+rift enter [runId]
 ```
 
 Expected result:

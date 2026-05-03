@@ -116,7 +116,10 @@ Buy the injected launcher from a `Danger Room` hub vendor, or use a granted `Por
 rift beaconmode
 rift runs
 rift run [runId]
+rift enter [runId]
 ```
+
+`rift enter [runId]` is an admin helper for test-center inspection. It enters the already-bound Rift instance when one exists, or the configured Rift entry target while the run is still pending.
 
 Recommended progression test:
 
