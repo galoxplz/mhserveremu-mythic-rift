@@ -14,7 +14,7 @@
 - The server build is stable again as long as bin/obj outputs are redirected to a writable folder outside the repo.
 - A dedicated server-side entry layer now exists to prepare a future player-facing entry point without assuming a specific clickable object yet.
 - Logical entry points can now be registered server-side even though no concrete in-game launcher has been chosen yet.
-- A more concrete TAHITI-friendly direction now exists: a consumable portal launcher modeled after `PortalToRandomMaxAffixDungeon`, while still keeping `PortalToRandomDungeon` as a compatibility fallback, and reusing a private direct-portal flow similar to Bovineheim/Cow Level.
+- A more concrete TAHITI-friendly direction now exists: a consumable portal launcher modeled after `PortalToRandomMaxAffixDungeon` as the only active launcher base, with stock `PortalToRandomDungeon` behavior kept out of the Rift path.
 - Random Rift runs now decouple the selected map from the selected boss source, so the current prototype can produce a random dungeon or curated non-terminal map with a different random terminal boss.
 - Terminal Rift entries now prefer the `AltRegions/*RegionL60` variants instead of the older base terminal region refs, matching MonEll's local finding that native start targets can otherwise resolve into `RegionBand` variants.
 - Successful Rift clears now spawn a return portal back to the Danger Room hub; cleanup is requested after the completed Rift region becomes empty.
@@ -145,7 +145,7 @@ These entries are special Rift variants. They can be selected randomly only thro
 - make `rift itemintent` explicitly point admins to `rift beaconmode` when the direct beacon path has already intercepted the item use and no legacy intent is pending
 - support a scoped per-player beacon override so the next valid chosen beacon use can create a Rift directly
 - support a scoped per-player fixed-content beacon override so a specific V1 terminal can be validated without random selection
-- keep normal legacy `PortalToRandomDungeon` / Danger Room behavior intact unless that scoped override is explicitly armed first
+- keep normal stock `PortalToRandomDungeon` / Danger Room behavior intact by not accepting it as a Rift launcher
 - attempt to teleport the player to the selected Rift region start target immediately after a successful armed beacon launch
 - force the teleport to use the configured Rift region prototype together with the start-target area/cell/entity data, so native terminal `RegionBand` variants do not silently replace the intended Rift region
 - attempt a best-effort party teleport for online party members when the leader launches a Rift beacon
@@ -166,6 +166,8 @@ These entries are special Rift variants. They can be selected randomly only thro
 - request shutdown of completed/aborted Rift regions when they become vacant, so later runs do not inherit stale terminal instance state
 - only treat a participant exit as Rift-breaking after that participant has actually been seen inside the active Rift region, preventing immediate party-run aborts while members are still zoning in
 - retry the configured random boss spawn on later eligible kills if the first spawn attempt fails exactly on quota unlock
+- keep the current group launch rule leader-driven: the active party leader starts the run, and intended participants should be in the Danger Room hub before beacon use
+- log party id, leader db id, and requester db id for Rift requests and non-leader rejections, so leader-swap issues can be diagnosed from Test Center logs
 
 ## Current Reward Logic
 
@@ -206,13 +208,13 @@ These entries are special Rift variants. They can be selected randomly only thro
   - an initial shortlist of launcher item candidates is now registered server-side so the item research done in extracted game data remains visible inside the project itself
   - current recommendation:
     - `PortalToRandomMaxAffixDungeon` as the officially chosen base
-    - `PortalToRandomDungeon` as the legacy compatibility fallback from earlier Danger Room-based testing
+    - no active `PortalToRandomDungeon` fallback, because it is a stock item and should remain isolated from Cosmic Rift behavior
     - `PortalToCowLevelOneTimeUse` as the best technical fallback
     - `PortalToBovineheim` mainly as a behavior reference rather than a final product-facing choice
     - `DevOnly` / `Test` / `Unused` items are real leads in the data, but are currently treated as research candidates, not final production choices
   - important note from MonEll's Calligraphy review:
     - `PortalToRandomMaxAffixDungeon` also appears to be `DevelopmentOnly`
-    - `PortalToRandomDungeon` is also marked `DesignState: DevelopmentOnly`
+    - `PortalToRandomDungeon` is also marked `DesignState: DevelopmentOnly`, but is no longer part of the active Rift launcher path
     - the codebase-wide approval threshold is currently `Live`, so neither prototype is ideal as a final long-term launcher without TAHITI-side patching or an approved substitute
     - `PortalToRandomMaxAffixDungeon` is now treated as the preferred base because MonEll reports that it is not referenced anywhere else, which lowers the risk of colliding with an existing live gameplay path
   - current implemented seller pass for no-client-patch testing:
@@ -268,7 +270,7 @@ Current practical launcher stage
 - Vendor-bought beacons are now intercepted from top-level item use and client power activation fallback paths, so the chosen `PortalToRandomMaxAffixDungeon` base routes into Mythic Rift even if live-server vendor cloning does not preserve the expected in-memory tracking entry.
 - Important constraint:
   - untracked direct behavior is scoped only to the preferred unused `PortalToRandomMaxAffixDungeon` beacon base
-  - normal non-beacon `PortalToRandomDungeon` / Danger Room behavior must remain unchanged unless explicitly armed through the legacy/scoped test path
+  - normal non-beacon `PortalToRandomDungeon` / Danger Room behavior must remain unchanged because it is no longer registered as a launcher fallback
 - For random runs, the direct beacon path now creates a random map plus a separately selected random boss source from the current playable pool.
 - The active Rift region now suppresses the terminal's native linked boss while the run is active, so the player cannot complete or loot the normal terminal boss before the Cosmic Rift quota is finished.
 - Boss completion is now strictly quota-gated: even a matching boss entity cannot complete the run until the kill quota has unlocked the boss phase.
@@ -307,7 +309,7 @@ Current practical launcher stage
 - It introduces no database migration at this stage.
 - It is explicitly framed to avoid dependence on a manual client patch.
 - If game files are needed later, they should ideally be deployable through the Patcher.
-- The current preferred player-facing direction is now an item-driven portal flow based on `PortalToRandomMaxAffixDungeon`, with `PortalToRandomDungeon` retained only as a compatibility path, because that should isolate the Rift launcher more cleanly than a shop-gated Bovineheim-specific item.
+- The current preferred player-facing direction is now an item-driven portal flow based only on `PortalToRandomMaxAffixDungeon`, because removing the `PortalToRandomDungeon` compatibility path should isolate the Rift launcher more cleanly from normal Danger Room gameplay.
 - Random enemy replacement is still intentionally deferred. The current server-side-safe implementation randomizes the terminal map and boss source, but keeps native terminal enemy populations until we validate a safe way to replace or overlay mobs without breaking map scripts.
 - A basic no-client-patch player-facing level selector now exists through chat commands. A cleaner item/NPC UI for showing progression and selecting levels remains future UX polish because dynamic per-player item tooltip changes are not realistic without client-side UI/data support.
 

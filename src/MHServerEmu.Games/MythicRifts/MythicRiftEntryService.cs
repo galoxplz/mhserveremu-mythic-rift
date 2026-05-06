@@ -9,7 +9,7 @@ namespace MHServerEmu.Games.MythicRifts
     public sealed class MythicRiftEntryService
     {
         public const string DefaultEntryPointId = "default";
-        public const string PortalToRandomDungeonEntryPointId = "portal-to-random-dungeon";
+        public const string ConsumablePortalEntryPointId = "cosmic-rift-consumable";
         private readonly Dictionary<string, MythicRiftEntryPointDefinition> _entryPoints = new(StringComparer.OrdinalIgnoreCase);
         private readonly List<MythicRiftLauncherItemCandidate> _launcherItemCandidates = new();
 
@@ -172,7 +172,7 @@ namespace MHServerEmu.Games.MythicRifts
 
             RegisterEntryPoint(new MythicRiftEntryPointDefinition
             {
-                Id = PortalToRandomDungeonEntryPointId,
+                Id = ConsumablePortalEntryPointId,
                 DisplayName = "Cosmic Rift Consumable Launcher",
                 AllowsRandomContent = true,
                 AllowsFixedContentSelection = false,
@@ -181,11 +181,10 @@ namespace MHServerEmu.Games.MythicRifts
                 CandidateItemPrototypeName = MythicRiftLauncherService.CosmicRiftBeaconPrototypeName,
                 AcceptedCandidateItemPrototypeNames = new[]
                 {
-                    MythicRiftLauncherService.CosmicRiftBeaconPrototypeName,
-                    MythicRiftLauncherService.LegacyCosmicRiftBeaconPrototypeName
+                    MythicRiftLauncherService.CosmicRiftBeaconPrototypeName
                 },
-                CandidateTransitionPrototypeName = "CowLevelTransition",
-                Notes = "Official current direction for the feature: Cosmic Rift uses PortalToRandomMaxAffixDungeon as its preferred technical launcher base, keeps PortalToRandomDungeon as a compatibility fallback, and still follows a private direct portal flow inspired by Bovineheim/Cow Level."
+                CandidateTransitionPrototypeName = "ReturnToLastBaseDR",
+                Notes = "Official current direction for the feature: Cosmic Rift uses PortalToRandomMaxAffixDungeon as the only active technical launcher base and returns players through the Danger Room base transition."
             });
         }
 
@@ -202,19 +201,6 @@ namespace MHServerEmu.Games.MythicRifts
                 PatcherFriendly = true,
                 Recommendation = "chosen",
                 Notes = "Official chosen launcher base for the project. It matches the random-dungeon identity, appears unreferenced in normal gameplay, and should be the safest long-term item base once TAHITI patches its DesignState to Live."
-            });
-
-            RegisterLauncherItemCandidate(new MythicRiftLauncherItemCandidate
-            {
-                PrototypeName = MythicRiftLauncherService.LegacyCosmicRiftBeaconPrototypeName,
-                DisplayName = "Legacy Danger Room Portal Base",
-                SourceFamily = "DangerRoom / RandomDungeon",
-                IsLikelyUnusedOrLowRisk = false,
-                IsShopLinked = false,
-                SupportsRandomThemeIdentity = true,
-                PatcherFriendly = true,
-                Recommendation = "compatibility",
-                Notes = "Kept as a compatibility fallback because earlier prototype work and some Danger Room testing already used it. Mythic Rift still recognizes it, but the preferred long-term launcher base is PortalToRandomMaxAffixDungeon so normal Danger Room behavior stays easier to isolate."
             });
 
             RegisterLauncherItemCandidate(new MythicRiftLauncherItemCandidate

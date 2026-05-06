@@ -762,7 +762,7 @@ namespace MHServerEmu.Commands.Implementations
 
             MythicRiftEntryResult result = game.MythicRiftEntryService.RequestRun(player, new MythicRiftEntryRequest
             {
-                EntryPointId = MythicRiftEntryService.PortalToRandomDungeonEntryPointId,
+                EntryPointId = MythicRiftEntryService.ConsumablePortalEntryPointId,
                 LauncherItemPrototypeName = MythicRiftLauncherService.CosmicRiftBeaconPrototypeName,
                 RiftLevel = riftLevel,
                 TimeLimit = TimeSpan.FromMinutes(timeLimitMinutes)
@@ -1095,33 +1095,28 @@ namespace MHServerEmu.Commands.Implementations
 
             List<string> lines = new();
             string chosenPrototypeName = MythicRiftLauncherService.CosmicRiftBeaconPrototypeName;
-            string legacyPrototypeName = MythicRiftLauncherService.LegacyCosmicRiftBeaconPrototypeName;
             PrototypeId preferredPrototypeRef = game.MythicRiftLauncherService.ResolvePrototypeRefByName(MythicRiftLauncherService.PreferredCosmicRiftBeaconPrototypeName);
-            PrototypeId legacyPrototypeRef = game.MythicRiftLauncherService.ResolvePrototypeRefByName(legacyPrototypeName);
             PrototypeId itemProtoRef = game.MythicRiftLauncherService.ResolveChosenBeaconPrototypeRef();
             ItemPrototype itemProto = itemProtoRef.As<ItemPrototype>();
-            MythicRiftEntryPointDefinition portalEntryPoint = game.MythicRiftEntryService.GetEntryPoint(MythicRiftEntryService.PortalToRandomDungeonEntryPointId);
+            MythicRiftEntryPointDefinition portalEntryPoint = game.MythicRiftEntryService.GetEntryPoint(MythicRiftEntryService.ConsumablePortalEntryPointId);
             MythicRiftLauncherItemCandidate candidate = game.MythicRiftEntryService.LauncherItemCandidates
                 .FirstOrDefault(entry => string.Equals(entry.PrototypeName, chosenPrototypeName, StringComparison.OrdinalIgnoreCase));
-            MythicRiftLauncherItemCandidate legacyCandidate = game.MythicRiftEntryService.LauncherItemCandidates
-                .FirstOrDefault(entry => string.Equals(entry.PrototypeName, legacyPrototypeName, StringComparison.OrdinalIgnoreCase));
             string acceptedLaunchers = portalEntryPoint?.AcceptedCandidateItemPrototypeNames != null && portalEntryPoint.AcceptedCandidateItemPrototypeNames.Count > 0
                 ? string.Join(",", portalEntryPoint.AcceptedCandidateItemPrototypeNames)
                 : portalEntryPoint?.CandidateItemPrototypeName ?? "n/a";
-            bool chosenAcceptedByEntryPoint = game.MythicRiftEntryService.EntryPointAcceptsLauncherItem(MythicRiftEntryService.PortalToRandomDungeonEntryPointId, chosenPrototypeName);
-            bool legacyAcceptedByEntryPoint = game.MythicRiftEntryService.EntryPointAcceptsLauncherItem(MythicRiftEntryService.PortalToRandomDungeonEntryPointId, legacyPrototypeName);
+            bool chosenAcceptedByEntryPoint = game.MythicRiftEntryService.EntryPointAcceptsLauncherItem(MythicRiftEntryService.ConsumablePortalEntryPointId, chosenPrototypeName);
             string currentRegionName = player.GetRegion()?.PrototypeDataRef.GetNameFormatted() ?? "n/a";
 
             lines.Add("diagScope=server-side beacon validation only | confirms=request conversion prerequisites | excludes=final client click and region bind");
-            lines.Add($"chosenBeaconPrototype={chosenPrototypeName} | legacyFallback={legacyPrototypeName}");
+            lines.Add($"chosenBeaconPrototype={chosenPrototypeName} | legacyFallback=disabled");
             lines.Add($"prototypeResolved={(itemProtoRef != PrototypeId.Invalid)} | candidateRegistered={(candidate != null)} | candidateRecommendation={candidate?.Recommendation ?? "missing"}");
-            lines.Add($"preferredPrototypeResolved={(preferredPrototypeRef != PrototypeId.Invalid)} | legacyPrototypeResolved={(legacyPrototypeRef != PrototypeId.Invalid)} | resolvedPrototypeRef={itemProtoRef.GetNameFormatted()}");
+            lines.Add($"preferredPrototypeResolved={(preferredPrototypeRef != PrototypeId.Invalid)} | resolvedPrototypeRef={itemProtoRef.GetNameFormatted()}");
             lines.Add($"portalEntryPointRegistered={(portalEntryPoint != null)} | currentRegion={currentRegionName} | acceptedLaunchers={acceptedLaunchers}");
-            lines.Add($"chosenAcceptedByEntryPoint={chosenAcceptedByEntryPoint} | legacyAcceptedByEntryPoint={legacyAcceptedByEntryPoint} | legacyCandidateRegistered={(legacyCandidate != null)} | legacyCandidateRecommendation={legacyCandidate?.Recommendation ?? "missing"}");
+            lines.Add($"chosenAcceptedByEntryPoint={chosenAcceptedByEntryPoint}");
 
             if (portalEntryPoint == null)
             {
-                lines.Add("diagResult=failed | reason=portal-to-random-dungeon entry point is not registered");
+                lines.Add("diagResult=failed | reason=cosmic-rift-consumable entry point is not registered");
                 CommandHelper.SendMessages(client, lines);
                 return string.Empty;
             }

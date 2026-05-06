@@ -31,7 +31,7 @@ namespace MHServerEmu.Games.MythicRifts
         private static readonly TimeSpan CompletedRunRetention = TimeSpan.FromMinutes(5);
         private static readonly TimeSpan NativeBossSuppressionScanInterval = TimeSpan.FromSeconds(1);
         private static readonly TimeSpan RiftObjectiveWidgetRefreshInterval = TimeSpan.FromSeconds(2);
-        private const string RiftExitPortalPrototypeName = "Entity/Transitions/CowLevelTransition.prototype";
+        private const string RiftExitPortalPrototypeName = "Entity/Transitions/ReturnToLastBaseDR.prototype";
         private const float SpecialRandomMapChance = 0.05f;
         private static readonly MythicRiftContentDefinition[] DefaultContentDefinitions =
         {
@@ -756,6 +756,7 @@ namespace MHServerEmu.Games.MythicRifts
             Party party = player.GetParty();
             if (party != null && party.NumMembers > 1 && player.IsPartyLeader() == false)
             {
+                Logger.Info($"Mythic Rift request rejected because requester is not party leader. playerDbId=0x{player.DatabaseUniqueId:X} partyId=0x{party.PartyId:X} leaderDbId=0x{party.LeaderId:X}");
                 errorMessage = "Only the party leader can request a group Mythic Rift run.";
                 return null;
             }
@@ -791,7 +792,7 @@ namespace MHServerEmu.Games.MythicRifts
             }
 
             RegisterInitialParticipants(runState, player, party);
-            Logger.Info($"Mythic Rift run {runState.Config.RunId} requested by playerDbId=0x{player.DatabaseUniqueId:X} at level {riftLevel}.");
+            Logger.Info($"Mythic Rift run {runState.Config.RunId} requested by playerDbId=0x{player.DatabaseUniqueId:X} at level {riftLevel}. partyId=0x{party?.PartyId ?? 0UL:X} partyLeaderDbId=0x{party?.LeaderId ?? 0UL:X} partyMembers={party?.NumMembers ?? 1}");
             return runState;
         }
 
