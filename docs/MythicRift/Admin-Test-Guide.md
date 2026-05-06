@@ -55,6 +55,7 @@ Expected result:
 - player-facing chat should describe the Rift at a high level: map, level, timer, and enemy quota; the random boss name is revealed when the quota is completed and the boss is summoned
 - the active random test pool still excludes `Ultron Terminal` and `Magneto / Stryker Bunker`, but both are now registered on their L60 terminal variants for fixed validation
 - the random map pool now also includes a first curated set of non-terminal private combat maps; these are map-only entries, so bosses still come from the validated terminal boss pool
+- `Doctor Strange Times Square / Dimensions Collide` is temporarily excluded from random selection like Ultron because Test Center saw a `region has not finished downloading` error in that Times Square map family
 - `Cosmic Doop Sector` is registered as a special Rift map with a dedicated fixed boss and a 5% random selection chance; it does not use the normal random boss pool
 - the server hides terminal-native objective HUD widgets during active Rift runs so a map like Fisk Tower should no longer keep showing a misleading native objective such as "defeat Kingpin" when the Rift boss is different
 - the server temporarily suspends the native terminal mission while the Rift is active, so the normal terminal objective tracker should be hidden rather than modified

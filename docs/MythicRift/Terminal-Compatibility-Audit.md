@@ -63,7 +63,7 @@ The next content expansion adds map-only Rift entries from private combat region
 | `wakanda-jungle` | `WakandaP1RegionL60` | `WakandaP1EntryTarget` | Private one-shot map with multiple populated areas and no registered metagame in the region data. |
 | `hydra-island-one-shot` | `HYDRAIslandPartDeuxRegionL60` | `Hydra1ShotEntryTarget` | Private one-shot map with many populated areas; selected for HYDRA visual variety. |
 | `daily-bugle` | `OpDailyBugleRegionL11To60` | `OpsDailyBugleStartTarget` | Private operation/event map with several populated areas and no terminal mission dependency. |
-| `dr-strange-times-square` | `DrStrangeTimesSquareRegionCosmic` | `DrStrangeTimesSquareEntryTargetCosmic` | Private static scenario map with simple entry data and no metagame listed. |
+| `dr-strange-times-square` | `DrStrangeTimesSquareRegionCosmic` | `DrStrangeTimesSquareEntryTargetCosmic` | Registered for fixed validation only. Test Center saw a `region has not finished downloading` error in this Times Square / Dimensions Collide family, so it is excluded from random selection until multiplayer streaming behavior is understood. |
 
 Recommended smoke-test command sequence:
 

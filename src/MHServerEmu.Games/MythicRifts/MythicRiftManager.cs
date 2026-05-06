@@ -163,6 +163,7 @@ namespace MHServerEmu.Games.MythicRifts
                 null,
                 null,
                 null,
+                RandomMapEligible: false,
                 RandomBossEligible: false),
             new(
                 "cosmic-doop-sector",
