@@ -50,7 +50,6 @@ These entries are map-only. They can be selected as Rift maps, but they do not p
 - Wakanda Jungle
 - HYDRA Island One-Shot
 - Daily Bugle Operation
-- Doctor Strange Times Square
 
 ## Current Special Low-Chance Map Pool
 
@@ -70,6 +69,8 @@ These entries are special Rift variants. They can be selected randomly only thro
   - registered on the L60 terminal region for fixed validation, but still excluded from random selection until the bunker transition / door flow is validated safely
 - Ultron
   - registered on the L60 terminal region for fixed validation after MonEll's local branch showed this path progressing better, but still excluded from random selection until multiplayer and repeated-run tests confirm it is safe
+- Doctor Strange Times Square / Dimensions Collide
+  - registered for fixed validation, but excluded from random selection after Test Center multiplayer produced a `region has not finished downloading` client-side/streaming error in the same Times Square family as Ultron
 
 ## What The Prototype Already Does
 
