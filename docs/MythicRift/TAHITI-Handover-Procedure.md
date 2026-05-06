@@ -15,7 +15,7 @@ It is written for a technical reviewer such as MonEll who needs to understand:
 
 ## One-Sentence Summary
 
-This is a server-side endgame prototype inspired by Diablo 3 Greater Rifts, built on top of existing Marvel Heroes Omega terminal content, using `PortalToRandomMaxAffixDungeon` as the current preferred technical launcher base, keeping `PortalToRandomDungeon` as a compatibility fallback, and `Cosmic Rift Beacon` as the planned player-facing identity.
+This is a server-side endgame prototype inspired by Diablo 3 Greater Rifts, built on top of existing Marvel Heroes Omega terminal content, using `PortalToRandomMaxAffixDungeon` as the only active technical launcher base, and `Cosmic Rift Beacon` as the planned player-facing identity.
 
 ## Recommended Way To Present It
 
@@ -24,7 +24,7 @@ Suggested structure when introducing it:
 1. Explain that it is intentionally server-first.
 2. Explain that the current test flow does not require a manual client patch.
 3. Explain that it reuses existing terminal content rather than inventing a fully custom dungeon stack from scratch.
-4. Explain that the current launcher identity is `Cosmic Rift Beacon`, but the visible in-game item is now preferably based on `PortalToRandomMaxAffixDungeon`, with `PortalToRandomDungeon` still supported as a legacy compatibility path.
+4. Explain that the current launcher identity is `Cosmic Rift Beacon`, and the visible in-game item is based only on `PortalToRandomMaxAffixDungeon` so stock `PortalToRandomDungeon` behavior remains isolated.
 5. Explain that this is now a reviewable prototype milestone, not just a design concept.
 
 ## Suggested Intro Message
@@ -36,7 +36,7 @@ This branch contains the current reviewable prototype for Cosmic Rift, a Diablo 
 
 The implementation is intentionally server-first and localized. The current test flow does not require a manual client patch and can be exercised through server-side commands plus existing game behavior.
 
-The current launcher model uses PortalToRandomMaxAffixDungeon as the preferred technical base, with PortalToRandomDungeon kept for compatibility and Cosmic Rift Beacon as the intended player-facing identity later on.
+The current launcher model uses PortalToRandomMaxAffixDungeon as the only active technical base, with Cosmic Rift Beacon as the intended player-facing identity later on.
 
 At this stage, the prototype already supports timed runs, kill quota before boss unlock, boss completion, reward resolution, persistent Rift progression, chained higher-difficulty runs, server-side beacon granting, and basic group/session safety behavior.
 
@@ -448,7 +448,7 @@ rift run [runId]
 rift status
 rift abandon
 rift entrypoints
-rift launchplan portal-to-random-dungeon
+rift launchplan cosmic-rift-consumable
 ```
 
 

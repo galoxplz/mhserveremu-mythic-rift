@@ -17,7 +17,7 @@ Current technical base:
 - no manual client patch is required for the current server-side test flow
 - the beacon can now be obtained either from a Danger Room hub vendor or from a server grant command
 - the actual item now prefers the game's `PortalToRandomMaxAffixDungeon` prototype as its technical base
-- `PortalToRandomDungeon` remains accepted as a legacy compatibility fallback for older test flows
+- `PortalToRandomDungeon` is no longer accepted as a Rift launcher fallback, because it is a stock item and should stay isolated from Cosmic Rift behavior
 - because both prototypes appear to be `DesignState: DevelopmentOnly`, TAHITI should patch the chosen live test item to `DesignState=Live`
 - `PortalToRandomMaxAffixDungeon` is treated as the dedicated preferred launcher base, so it can launch a Rift even if the live server creates or clones the purchased item without preserving the previous in-memory tracking entry
 - `rift diagbeacon` is a server-side prerequisite check only; it does not prove the final client click path, so live item-click tests should also check the `[MythicRiftLauncher]` logs if the item still reaches native Danger Room behavior
@@ -63,12 +63,16 @@ Expected result:
 - if the client keeps a generic counter widget visible, the server forces that counter to the active Rift kill quota; chat messages and `rift status` remain the authoritative no-client-patch fallback
 - the launcher now uses the configured Rift region during teleport instead of trusting the native target region baked into some terminal start targets; current terminal entries prefer `AltRegions/*RegionL60` to avoid `RegionBand` drift
 - successful Rift clears should spawn a return portal that takes players back to the Danger Room hub
+- current group launch expectation: the current party leader should use the Beacon while intended party members are also in the Danger Room hub; members outside the launch context may not be pulled in reliably
+- group progression is intentionally competitive but team-friendly: players who are inside the Rift at boss unlock and still inside at boss death unlock the next level even if their previous personal max was lower
+- leaving the party mid-run should not by itself invalidate the run or rewards; leaving the Rift region is what can fail or abandon the attempt before boss completion
+- if leader swap testing fails, check server logs for `Mythic Rift request rejected because requester is not party leader`
 - completed or aborted Rift regions now request shutdown once they become vacant, so re-entering the same terminal later should create a fresh instance instead of reusing stale kill-state
 - guaranteed chat timer warnings are now sent at 9, 8, 7, 6, 5, 4, 3, 2, and 1 minute remaining, plus 30 seconds remaining
 - guaranteed chat kill-progress messages are sent at 25%, 50%, and 75% enemy quota progress
 - the purchased launcher is now intercepted at top-level item use, so vendor-bought `PortalToRandomMaxAffixDungeon` variants do not need to rely on reaching the exact `UsePower` branch before Rift launch begins
 - if the client sends the item's `OnUsePower` directly without a reliable item source id, the server now searches the player's inventory for an owned `PortalToRandomMaxAffixDungeon` and intercepts that activation before native Danger Room scenario logic runs
-- the same vendor purchase flow still recognizes legacy `PortalToRandomDungeon` stock added through TAHITI patcher files, not only items injected by the server-side seller pass
+- the vendor purchase flow now recognizes only the chosen `PortalToRandomMaxAffixDungeon` beacon base, so stock `PortalToRandomDungeon` behavior remains untouched
 - once the final seller is chosen, this region-scoped seller pass can be narrowed to that specific vendor with a small follow-up patch
 - `rift diagbeacon 1 10` can now be used as a server-side self-check before live clicking the item, to verify prototype resolution, vendor item spec creation, temporary owned-item usability, launcher recognition, and Rift request conversion without depending on a successful client click
 - if the item still opens `DRRegionUniqueTutorialFight` or another native Danger Room scenario, capture the server log lines containing `[MythicRiftLauncher]`; those lines now show whether the click was intercepted, which item id/prototype was found, and whether the fallback path saw the chosen beacon power
@@ -195,7 +199,7 @@ Expected result:
 - beacon interception should still work even if the live server stacks or reuses `PortalToRandomMaxAffixDungeon` item instances differently than the local dev environment
 - once Mythic Rift has intercepted the click, the item should no longer fall through into any normal scenario result for that same use
 - for competitive progression, only players who were inside the Rift at boss unlock and still inside the Rift at boss death should unlock the next difficulty
-- legacy `PortalToRandomDungeon` / Danger Room behavior is not changed globally for non-beacon use
+- stock `PortalToRandomDungeon` / Danger Room behavior is not changed globally because it is no longer accepted by the Rift launcher
 - the run should emit in-game custom system messages when it starts, when the boss is unlocked, and when it completes or fails
 - the beacon use itself should also emit an immediate player-facing confirmation showing the selected map, boss, level, and time limit
 - after the quota and Rift boss are completed, a normal town/hub teleport should not invalidate the run because success is already recorded at boss death
@@ -605,7 +609,7 @@ rift armbeacon [minutes]
 rift disarmbeacon
 rift entrypoints
 rift launchcandidates
-rift launchplan portal-to-random-dungeon
+rift launchplan cosmic-rift-consumable
 ```
 
 Player preparation:
