@@ -49,7 +49,6 @@ These entries are map-only. They can be selected as Rift maps, but they do not p
 - Bronx Zoo
 - Wakanda Jungle
 - HYDRA Island One-Shot
-- Daily Bugle Operation
 
 ## Current Special Low-Chance Map Pool
 
@@ -71,6 +70,8 @@ These entries are special Rift variants. They can be selected randomly only thro
   - registered on the L60 terminal region for fixed validation after MonEll's local branch showed this path progressing better, but still excluded from random selection until multiplayer and repeated-run tests confirm it is safe
 - Doctor Strange Times Square / Dimensions Collide
   - registered for fixed validation, but excluded from random selection after Test Center multiplayer produced a `region has not finished downloading` client-side/streaming error in the same Times Square family as Ultron
+- Daily Bugle Operation
+  - registered for fixed validation, but excluded from random selection after Test Center feedback showed the native population is too low for the current kill-quota Rift loop without a dedicated respawner
 
 ## What The Prototype Already Does
 
@@ -118,6 +119,9 @@ These entries are special Rift variants. They can be selected randomly only thro
 - temporarily suspend active region-event missions during Rift runs, scoped only to the Rift region instance and restored when the run is removed, so the native "Region Events" tracker does not compete with the Rift objective
 - intercept native `Mission` / `MissionObjective` update packets for controlled terminal objectives while a Rift is active, preventing terminal bounty counters from rebuilding on the client after suppression
 - reuse any remaining native generic fraction tracker widget as a best-effort no-client-patch kill counter by forcing it to the active Rift kill quota
+- add server-driven Danger Room UI widgets for the Rift kill quota, timer, and selected Rift level by reusing client-known widget prototypes
+- show a localized center-screen entry banner once per player per run when the player actually enters the active Rift region
+- load generated Mythic Rift localized strings through the achievement string dump so banners/widgets can display Rift levels without a client `.sip` patch
 - avoid relying on native terminal objective tracker text for Rift UX; chat messages and `rift status` remain the authoritative no-client-patch fallback
 - prepare an end reward based on success or failure
 - distribute boss loot to a single player

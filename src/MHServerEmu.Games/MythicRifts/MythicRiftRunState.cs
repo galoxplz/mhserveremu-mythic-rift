@@ -16,6 +16,7 @@ namespace MHServerEmu.Games.MythicRifts
         private readonly HashSet<ulong> _bossUnlockEligiblePlayerDbIds = new();
         private readonly HashSet<ulong> _progressionEligiblePlayerDbIds = new();
         private readonly HashSet<ulong> _participantsSeenInRunRegion = new();
+        private readonly HashSet<ulong> _riftEntryBannerSentPlayerDbIds = new();
         private readonly HashSet<int> _sentTimeWarningThresholds = new();
         private readonly HashSet<int> _sentKillProgressMilestones = new();
 
@@ -161,6 +162,14 @@ namespace MHServerEmu.Games.MythicRifts
         public bool HasParticipantBeenSeenInRunRegion(ulong playerDbId)
         {
             return playerDbId != 0 && _participantsSeenInRunRegion.Contains(playerDbId);
+        }
+
+        public bool MarkRiftEntryBannerSent(ulong playerDbId)
+        {
+            if (playerDbId == 0)
+                return false;
+
+            return _riftEntryBannerSentPlayerDbIds.Add(playerDbId);
         }
 
         public bool HasRewardForPlayer(ulong playerDbId)
