@@ -120,8 +120,10 @@ These entries are special Rift variants. They can be selected randomly only thro
 - intercept native `Mission` / `MissionObjective` update packets for controlled terminal objectives while a Rift is active, preventing terminal bounty counters from rebuilding on the client after suppression
 - reuse any remaining native generic fraction tracker widget as a best-effort no-client-patch kill counter by forcing it to the active Rift kill quota
 - add server-driven Danger Room UI widgets for the Rift kill quota, timer, and selected Rift level by reusing client-known widget prototypes
+- resolve those client-known widget prototypes by prototype path first, falling back to known data refs only if path resolution fails, so the UI layer is more resilient across local and Test Center builds
 - show a localized center-screen entry banner once per player per run when the player actually enters the active Rift region
 - load generated Mythic Rift localized strings through the achievement string dump so banners/widgets can display Rift levels without a client `.sip` patch
+- local validation on 2026-05-09 confirmed the no-client-patch UI path renders in-game as a Danger Room-style top HUD frame with `Level N`, a kill progress bar, and a countdown timer
 - avoid relying on native terminal objective tracker text for Rift UX; chat messages and `rift status` remain the authoritative no-client-patch fallback
 - prepare an end reward based on success or failure
 - distribute boss loot to a single player
@@ -166,6 +168,7 @@ These entries are special Rift variants. They can be selected randomly only thro
 - expose a user-level `rift status` command so a player can inspect their own active Rift without admin-only run lists
 - expose a user-level `rift abandon` command so a participant can intentionally leave, cancel the active Rift, return online participants to the Danger Room hub, and start fresh without relogging
 - expose an admin `rift objectives` diagnostic command to inspect the active region/player mission tracker state and UI widgets when native objective suppression needs debugging
+- make `rift objectives` force-refresh the Rift UI widgets before dumping the provider and emit `riftUi.*` diagnostics for widget resolution, context, and post-refresh provider state
 - treat natural return-to-town / hub teleports out of the active Rift region as a failed/abandoned Rift attempt, so players cannot park or re-enter a stale Rift after leaving
 - fail timed-out Rifts and return online participants who are still inside the Rift to the Danger Room hub automatically
 - request shutdown of completed/aborted Rift regions when they become vacant, so later runs do not inherit stale terminal instance state

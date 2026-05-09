@@ -1971,6 +1971,8 @@ namespace MHServerEmu.Commands.Implementations
             AppendMissionManagerDiagnostics(lines, "regionMissionManager", region.MissionManager, runState?.Config.MissionProtoRef ?? PrototypeId.Invalid);
             AppendMissionManagerDiagnostics(lines, "playerMissionManager", player.MissionManager, runState?.Config.MissionProtoRef ?? PrototypeId.Invalid);
 
+            game.MythicRiftManager.ForceRefreshRiftUiForDiagnostics(runState, region, lines);
+
             string uiDump = region.UIDataProvider?.ToString() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(uiDump))
             {

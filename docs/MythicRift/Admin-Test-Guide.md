@@ -23,6 +23,24 @@ Current technical base:
 - `rift diagbeacon` is a server-side prerequisite check only; it does not prove the final client click path, so live item-click tests should also check the `[MythicRiftLauncher]` logs if the item still reaches native Danger Room behavior
 - the current prototype remains admin-oriented while the final player entry flow is still being refined
 
+## Local Deployment Gotcha
+
+When testing locally, make sure the running server process is the same folder that received the newest build.
+
+The current local test setup used by Galoux launches:
+
+```text
+C:\Users\admin\Desktop\MH Private Server\MHServerEmu-1.0.1\MHServerEmu\MHServerEmu.exe
+```
+
+Building the repo updates:
+
+```text
+C:\Users\admin\Desktop\PROJECT MHO\MHServerEmu-master\src\MHServerEmu\bin\x64\Release\net8.0
+```
+
+If the built files are not copied into the actually launched server folder, in-game commands can appear to work while newer UI/debug changes are missing. A quick sanity check is `rift objectives`: the current build should include `riftUi.*` diagnostic lines when a Rift is active.
+
 ## Preferred No-Admin Vendor Test
 
 Use this when you want to validate the newest server-only player flow with no admin item grant.
@@ -59,6 +77,7 @@ Expected result:
 - `Daily Bugle Operation` is temporarily excluded from random selection because its native population is too low for the current kill-quota loop without a dedicated respawner
 - `Cosmic Doop Sector` is registered as a special Rift map with a dedicated fixed boss and a 5% random selection chance; it does not use the normal random boss pool
 - active Rifts now try to show a center-screen localized entry banner, a Danger Room-style kill quota widget, a Danger Room timer widget, and a small Rift level widget before the quota bar
+- local validation on 2026-05-09 confirmed that the client renders the server-driven Danger Room UI frame without a client patch: `Level N`, `Complete Simulation` kill progress bar, and red `Time` countdown
 - chat messages remain enabled as the fallback/diagnostic path if any client-known UI widget does not render on a tester's client
 - the server hides terminal-native objective HUD widgets during active Rift runs so a map like Fisk Tower should no longer keep showing a misleading native objective such as "defeat Kingpin" when the Rift boss is different
 - the server temporarily suspends the native terminal mission while the Rift is active, so the normal terminal objective tracker should be hidden rather than modified
@@ -81,6 +100,7 @@ Expected result:
 - `rift diagbeacon 1 10` can now be used as a server-side self-check before live clicking the item, to verify prototype resolution, vendor item spec creation, temporary owned-item usability, launcher recognition, and Rift request conversion without depending on a successful client click
 - if the item still opens `DRRegionUniqueTutorialFight` or another native Danger Room scenario, capture the server log lines containing `[MythicRiftLauncher]`; those lines now show whether the click was intercepted, which item id/prototype was found, and whether the fallback path saw the chosen beacon power
 - if a native objective tracker still remains visible during the Rift, run `rift objectives` while standing in the Rift region and capture the output; it lists active region/player missions, objective widgets, and the region UI data provider so any remaining non-standard tracker source can be identified
+- for UI widget issues, capture the `riftUi.*` section from `rift objectives`; it reports the resolved widget prototypes, expected widget types, the active context, and whether the UI provider contains the refreshed widgets
 
 Player-selected level test:
 
