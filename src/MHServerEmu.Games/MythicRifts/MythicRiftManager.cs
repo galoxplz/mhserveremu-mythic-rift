@@ -1148,6 +1148,41 @@ namespace MHServerEmu.Games.MythicRifts
                 ClearRiftObjectiveWidgetsForMission(region, mission);
         }
 
+        public void ForceRefreshRiftUiForDiagnostics(MythicRiftRunState runState, Region currentRegion, List<string> lines)
+        {
+            if (lines == null)
+                return;
+
+            if (runState == null)
+            {
+                lines.Add("riftUi=skipped | reason=no active Rift run for player");
+                return;
+            }
+
+            Region boundRegion = runState.RegionId != 0
+                ? Game.RegionManager.GetRegion(runState.RegionId)
+                : null;
+
+            lines.Add(
+                $"riftUi.runId={runState.Config.RunId} | status={runState.Status} | boundRegion={(boundRegion?.PrototypeDataRef.GetNameFormatted() ?? "none")} | boundRegionId=0x{runState.RegionId:X} | currentMatchesBound={boundRegion != null && currentRegion?.Id == boundRegion.Id}");
+
+            if (runState.Status != MythicRiftRunStatus.Active)
+            {
+                lines.Add("riftUi=skipped | reason=Rift is not active");
+                return;
+            }
+
+            Region refreshRegion = boundRegion ?? currentRegion;
+            if (refreshRegion?.UIDataProvider == null)
+            {
+                lines.Add("riftUi=skipped | reason=Rift region or UIDataProvider not found");
+                return;
+            }
+
+            RefreshDangerRoomRiftWidgets(refreshRegion.UIDataProvider, runState, Game.CurrentTime);
+            AppendDangerRoomRiftWidgetDiagnostics(lines, refreshRegion.UIDataProvider, runState);
+        }
+
         private static void RefreshDangerRoomRiftWidgets(UIDataProvider uiDataProvider, MythicRiftRunState runState, TimeSpan currentTime)
         {
             if (uiDataProvider == null || runState?.Config == null)
@@ -1164,7 +1199,7 @@ namespace MHServerEmu.Games.MythicRifts
 
             UIWidgetGenericFraction quotaWidget = GetRiftGenericFractionWidget(
                 uiDataProvider,
-                RiftDangerRoomQuotaWidgetPrototypeRef,
+                GetRiftDangerRoomQuotaWidgetPrototypeRef(),
                 contextRef);
 
             if (quotaWidget != null)
@@ -1179,7 +1214,7 @@ namespace MHServerEmu.Games.MythicRifts
 
             UIWidgetGenericFraction timerWidget = GetRiftGenericFractionWidget(
                 uiDataProvider,
-                RiftDangerRoomTimerWidgetPrototypeRef,
+                GetRiftDangerRoomTimerWidgetPrototypeRef(),
                 contextRef);
 
             if (timerWidget != null)
@@ -1197,7 +1232,7 @@ namespace MHServerEmu.Games.MythicRifts
 
             UIWidgetMissionText levelWidget = GetRiftMissionTextWidget(
                 uiDataProvider,
-                RiftDangerRoomLevelWidgetPrototypeRef,
+                GetRiftDangerRoomLevelWidgetPrototypeRef(),
                 contextRef);
 
             if (levelWidget == null)
@@ -1216,14 +1251,68 @@ namespace MHServerEmu.Games.MythicRifts
             if (contextRef == PrototypeId.Invalid)
                 return;
 
-            uiDataProvider.DeleteWidget(RiftDangerRoomLevelWidgetPrototypeRef, contextRef);
-            uiDataProvider.DeleteWidget(RiftDangerRoomQuotaWidgetPrototypeRef, contextRef);
-            uiDataProvider.DeleteWidget(RiftDangerRoomTimerWidgetPrototypeRef, contextRef);
+            uiDataProvider.DeleteWidget(GetRiftDangerRoomLevelWidgetPrototypeRef(), contextRef);
+            uiDataProvider.DeleteWidget(GetRiftDangerRoomQuotaWidgetPrototypeRef(), contextRef);
+            uiDataProvider.DeleteWidget(GetRiftDangerRoomTimerWidgetPrototypeRef(), contextRef);
         }
 
         private static PrototypeId GetRiftWidgetContextRef(MythicRiftRunState runState)
         {
             return runState?.Config?.RegionProtoRef ?? PrototypeId.Invalid;
+        }
+
+        private static PrototypeId GetRiftDangerRoomLevelWidgetPrototypeRef()
+        {
+            return ResolveRiftWidgetPrototypeRef(RiftDangerRoomLevelWidgetPrototypeName, RiftDangerRoomLevelWidgetPrototypeRef);
+        }
+
+        private static PrototypeId GetRiftDangerRoomQuotaWidgetPrototypeRef()
+        {
+            return ResolveRiftWidgetPrototypeRef(RiftDangerRoomQuotaWidgetPrototypeName, RiftDangerRoomQuotaWidgetPrototypeRef);
+        }
+
+        private static PrototypeId GetRiftDangerRoomTimerWidgetPrototypeRef()
+        {
+            return ResolveRiftWidgetPrototypeRef(RiftDangerRoomTimerWidgetPrototypeName, RiftDangerRoomTimerWidgetPrototypeRef);
+        }
+
+        private static PrototypeId ResolveRiftWidgetPrototypeRef(string prototypeName, PrototypeId fallbackRef)
+        {
+            PrototypeId resolvedRef = string.IsNullOrWhiteSpace(prototypeName)
+                ? PrototypeId.Invalid
+                : GameDatabase.GetPrototypeRefByName(prototypeName);
+
+            if (resolvedRef != PrototypeId.Invalid && GameDatabase.GetPrototype<MetaGameDataPrototype>(resolvedRef) != null)
+                return resolvedRef;
+
+            return fallbackRef;
+        }
+
+        private static void AppendDangerRoomRiftWidgetDiagnostics(List<string> lines, UIDataProvider uiDataProvider, MythicRiftRunState runState)
+        {
+            if (lines == null)
+                return;
+
+            PrototypeId contextRef = GetRiftWidgetContextRef(runState);
+            lines.Add($"riftUi.context={contextRef.GetNameFormatted()}");
+            AppendRiftWidgetPrototypeDiagnostic(lines, "level", RiftDangerRoomLevelWidgetPrototypeName, GetRiftDangerRoomLevelWidgetPrototypeRef(), typeof(UIWidgetMissionTextPrototype));
+            AppendRiftWidgetPrototypeDiagnostic(lines, "quota", RiftDangerRoomQuotaWidgetPrototypeName, GetRiftDangerRoomQuotaWidgetPrototypeRef(), typeof(UIWidgetGenericFractionPrototype));
+            AppendRiftWidgetPrototypeDiagnostic(lines, "timer", RiftDangerRoomTimerWidgetPrototypeName, GetRiftDangerRoomTimerWidgetPrototypeRef(), typeof(UIWidgetGenericFractionPrototype));
+
+            string uiDump = uiDataProvider?.ToString() ?? string.Empty;
+            lines.Add(string.IsNullOrWhiteSpace(uiDump)
+                ? "riftUi.widgetsAfterRefresh=empty"
+                : "riftUi.widgetsAfterRefresh=present");
+        }
+
+        private static void AppendRiftWidgetPrototypeDiagnostic(List<string> lines, string label, string prototypeName, PrototypeId widgetRef, Type expectedPrototypeType)
+        {
+            MetaGameDataPrototype widgetProto = widgetRef != PrototypeId.Invalid
+                ? GameDatabase.GetPrototype<MetaGameDataPrototype>(widgetRef)
+                : null;
+
+            lines.Add(
+                $"riftUi.widget.{label}=name:{prototypeName} | ref:{widgetRef.GetNameFormatted()} | type:{widgetProto?.GetType().Name ?? "missing"} | expected:{expectedPrototypeType.Name} | valid:{widgetProto != null && expectedPrototypeType.IsInstanceOfType(widgetProto)}");
         }
 
         private static UIWidgetGenericFraction GetRiftGenericFractionWidget(UIDataProvider uiDataProvider, PrototypeId widgetRef, PrototypeId contextRef)
