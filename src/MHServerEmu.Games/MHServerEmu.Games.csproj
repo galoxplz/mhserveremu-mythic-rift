@@ -40,6 +40,12 @@
     <None Update="Data\Game\Achievements\AchievementStringMap_00_MainPatch.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="Data\Game\Achievements\AchievementStringMap_MythicRift.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Data\Game\Achievements\AchievementStringMap_MythicRiftLevelWidget.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="Data\Game\Achievements\Off\AchievementInfoMap_01_DisableBroken.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

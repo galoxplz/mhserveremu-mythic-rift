@@ -31,6 +31,17 @@ namespace MHServerEmu.Games.MythicRifts
         private static readonly TimeSpan CompletedRunRetention = TimeSpan.FromMinutes(5);
         private static readonly TimeSpan NativeBossSuppressionScanInterval = TimeSpan.FromSeconds(1);
         private static readonly TimeSpan RiftObjectiveWidgetRefreshInterval = TimeSpan.FromSeconds(2);
+        private const ulong RiftEntryBannerLocaleStringBase = 18000000000000000000UL;
+        private const int RiftEntryBannerLocalizedLevelLimit = 10000;
+        private const int RiftEntryBannerTimeToLiveMS = 5000;
+        private const string RiftDangerRoomLevelWidgetPrototypeName = "UI/MetaGame/MissionName.prototype";
+        private const string RiftDangerRoomQuotaWidgetPrototypeName = "UI/MetaGame/DangerRoom/DangerRoomCounterBarBASE.prototype";
+        private const string RiftDangerRoomTimerWidgetPrototypeName = "UI/MetaGame/DangerRoom/DangerRoomTimer.prototype";
+        private const ulong RiftDangerRoomLevelLocaleStringBase = 18000000000000010000UL;
+        private const int RiftDangerRoomLevelLocalizedLevelLimit = 10000;
+        private static readonly PrototypeId RiftDangerRoomLevelWidgetPrototypeRef = (PrototypeId)7164846210465729875UL;
+        private static readonly PrototypeId RiftDangerRoomQuotaWidgetPrototypeRef = (PrototypeId)1488507445230442250UL;
+        private static readonly PrototypeId RiftDangerRoomTimerWidgetPrototypeRef = (PrototypeId)15369535438503023451UL;
         private const string RiftExitPortalPrototypeName = "Entity/Transitions/ReturnToLastBaseDR.prototype";
         private const float SpecialRandomMapChance = 0.05f;
         private static readonly MythicRiftContentDefinition[] DefaultContentDefinitions =
@@ -154,6 +165,7 @@ namespace MHServerEmu.Games.MythicRifts
                 null,
                 null,
                 null,
+                RandomMapEligible: false,
                 RandomBossEligible: false),
             new(
                 "dr-strange-times-square",
@@ -1097,6 +1109,8 @@ namespace MHServerEmu.Games.MythicRifts
             if (region == null)
                 return;
 
+            RefreshDangerRoomRiftWidgets(region.UIDataProvider, runState, currentTime);
+
             using var missionHandle = HashSetPool<Mission>.Instance.Get(out HashSet<Mission> missions);
             AddNativeTerminalMission(missions, region.MissionManager, runState.Config.MissionProtoRef);
             AddNativeRegionEventMissions(missions, region.MissionManager);
@@ -1121,6 +1135,8 @@ namespace MHServerEmu.Games.MythicRifts
             if (region == null)
                 return;
 
+            ClearDangerRoomRiftWidgets(region.UIDataProvider, runState);
+
             using var missionHandle = HashSetPool<Mission>.Instance.Get(out HashSet<Mission> missions);
             AddNativeTerminalMission(missions, region.MissionManager, runState.Config.MissionProtoRef);
             AddNativeRegionEventMissions(missions, region.MissionManager);
@@ -1130,6 +1146,122 @@ namespace MHServerEmu.Games.MythicRifts
 
             foreach (Mission mission in missions)
                 ClearRiftObjectiveWidgetsForMission(region, mission);
+        }
+
+        private static void RefreshDangerRoomRiftWidgets(UIDataProvider uiDataProvider, MythicRiftRunState runState, TimeSpan currentTime)
+        {
+            if (uiDataProvider == null || runState?.Config == null)
+                return;
+
+            PrototypeId contextRef = GetRiftWidgetContextRef(runState);
+            if (contextRef == PrototypeId.Invalid)
+                return;
+
+            RefreshDangerRoomRiftLevelWidget(uiDataProvider, runState, contextRef);
+
+            int requiredCount = Math.Max(runState.Config.KillQuota, 1);
+            int currentCount = Math.Clamp(runState.CurrentKillCount, 0, requiredCount);
+
+            UIWidgetGenericFraction quotaWidget = GetRiftGenericFractionWidget(
+                uiDataProvider,
+                RiftDangerRoomQuotaWidgetPrototypeRef,
+                contextRef);
+
+            if (quotaWidget != null)
+            {
+                quotaWidget.SetAreaContext(contextRef);
+                quotaWidget.SetCount(currentCount, requiredCount);
+            }
+
+            TimeSpan remaining = runState.GetTimeRemaining(currentTime);
+            if (remaining <= TimeSpan.Zero)
+                return;
+
+            UIWidgetGenericFraction timerWidget = GetRiftGenericFractionWidget(
+                uiDataProvider,
+                RiftDangerRoomTimerWidgetPrototypeRef,
+                contextRef);
+
+            if (timerWidget != null)
+            {
+                timerWidget.SetAreaContext(contextRef);
+                timerWidget.SetTimeRemaining((long)remaining.TotalMilliseconds);
+            }
+        }
+
+        private static void RefreshDangerRoomRiftLevelWidget(UIDataProvider uiDataProvider, MythicRiftRunState runState, PrototypeId contextRef)
+        {
+            LocaleStringId levelText = GetDangerRoomRiftLevelLocaleStringId(runState.Config.RiftLevel);
+            if (levelText == LocaleStringId.Invalid)
+                return;
+
+            UIWidgetMissionText levelWidget = GetRiftMissionTextWidget(
+                uiDataProvider,
+                RiftDangerRoomLevelWidgetPrototypeRef,
+                contextRef);
+
+            if (levelWidget == null)
+                return;
+
+            levelWidget.SetAreaContext(contextRef);
+            levelWidget.SetText(levelText, LocaleStringId.Blank);
+        }
+
+        private static void ClearDangerRoomRiftWidgets(UIDataProvider uiDataProvider, MythicRiftRunState runState)
+        {
+            if (uiDataProvider == null || runState?.Config == null)
+                return;
+
+            PrototypeId contextRef = GetRiftWidgetContextRef(runState);
+            if (contextRef == PrototypeId.Invalid)
+                return;
+
+            uiDataProvider.DeleteWidget(RiftDangerRoomLevelWidgetPrototypeRef, contextRef);
+            uiDataProvider.DeleteWidget(RiftDangerRoomQuotaWidgetPrototypeRef, contextRef);
+            uiDataProvider.DeleteWidget(RiftDangerRoomTimerWidgetPrototypeRef, contextRef);
+        }
+
+        private static PrototypeId GetRiftWidgetContextRef(MythicRiftRunState runState)
+        {
+            return runState?.Config?.RegionProtoRef ?? PrototypeId.Invalid;
+        }
+
+        private static UIWidgetGenericFraction GetRiftGenericFractionWidget(UIDataProvider uiDataProvider, PrototypeId widgetRef, PrototypeId contextRef)
+        {
+            if (uiDataProvider == null || widgetRef == PrototypeId.Invalid)
+                return null;
+
+            if (GameDatabase.GetPrototype<MetaGameDataPrototype>(widgetRef) is not UIWidgetGenericFractionPrototype)
+                return null;
+
+            return uiDataProvider.GetWidget<UIWidgetGenericFraction>(widgetRef, contextRef);
+        }
+
+        private static UIWidgetMissionText GetRiftMissionTextWidget(UIDataProvider uiDataProvider, PrototypeId widgetRef, PrototypeId contextRef)
+        {
+            if (uiDataProvider == null || widgetRef == PrototypeId.Invalid)
+                return null;
+
+            if (GameDatabase.GetPrototype<MetaGameDataPrototype>(widgetRef) is not UIWidgetMissionTextPrototype)
+                return null;
+
+            return uiDataProvider.GetWidget<UIWidgetMissionText>(widgetRef, contextRef);
+        }
+
+        private static LocaleStringId GetRiftEntryBannerLocaleStringId(int riftLevel)
+        {
+            if (riftLevel <= 0 || riftLevel > RiftEntryBannerLocalizedLevelLimit)
+                return LocaleStringId.Invalid;
+
+            return (LocaleStringId)(RiftEntryBannerLocaleStringBase + (ulong)riftLevel);
+        }
+
+        private static LocaleStringId GetDangerRoomRiftLevelLocaleStringId(int riftLevel)
+        {
+            if (riftLevel <= 0 || riftLevel > RiftDangerRoomLevelLocalizedLevelLimit)
+                return LocaleStringId.Invalid;
+
+            return (LocaleStringId)(RiftDangerRoomLevelLocaleStringBase + (ulong)riftLevel);
         }
 
         private static void AddNativeTerminalMission(HashSet<Mission> missions, MissionManager missionManager, PrototypeId missionRef)
@@ -1502,6 +1634,9 @@ namespace MHServerEmu.Games.MythicRifts
             {
                 runState.MarkParticipantSeenInRunRegion(player.DatabaseUniqueId);
 
+                if (runState.Status == MythicRiftRunStatus.Active)
+                    TrySendRiftEntryBanner(runState, player);
+
                 if (runState.RegisterParticipant(player.DatabaseUniqueId) && runState.Status == MythicRiftRunStatus.Active)
                 {
                     SendStartRiftTimer(runState, player);
@@ -1511,6 +1646,30 @@ namespace MHServerEmu.Games.MythicRifts
                         showSender: false);
                 }
             }
+        }
+
+        private void TrySendRiftEntryBanner(MythicRiftRunState runState, Player player)
+        {
+            if (runState == null || player == null || runState.Status != MythicRiftRunStatus.Active)
+                return;
+
+            if (runState.MarkRiftEntryBannerSent(player.DatabaseUniqueId) == false)
+                return;
+
+            LocaleStringId bannerText = GetRiftEntryBannerLocaleStringId(runState.Config.RiftLevel);
+            if (bannerText == LocaleStringId.Invalid)
+            {
+                Logger.Warn($"Mythic Rift run {runState.Config.RunId} skipped entry banner because level {runState.Config.RiftLevel} is outside the localized banner range 1-{RiftEntryBannerLocalizedLevelLimit}.");
+                return;
+            }
+
+            player.SendBannerMessage(
+                bannerText,
+                TextStylePrototype.BannerMessageLarge,
+                RiftEntryBannerTimeToLiveMS,
+                BannerMessageStyle.FlyIn,
+                doNotQueue: true,
+                showImmediately: true);
         }
 
         private static int ResolveRequestedPlayerCount(Player player, Party party)

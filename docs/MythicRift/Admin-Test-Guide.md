@@ -56,7 +56,10 @@ Expected result:
 - the active random test pool still excludes `Ultron Terminal` and `Magneto / Stryker Bunker`, but both are now registered on their L60 terminal variants for fixed validation
 - the random map pool now also includes a first curated set of non-terminal private combat maps; these are map-only entries, so bosses still come from the validated terminal boss pool
 - `Doctor Strange Times Square / Dimensions Collide` is temporarily excluded from random selection like Ultron because Test Center saw a `region has not finished downloading` error in that Times Square map family
+- `Daily Bugle Operation` is temporarily excluded from random selection because its native population is too low for the current kill-quota loop without a dedicated respawner
 - `Cosmic Doop Sector` is registered as a special Rift map with a dedicated fixed boss and a 5% random selection chance; it does not use the normal random boss pool
+- active Rifts now try to show a center-screen localized entry banner, a Danger Room-style kill quota widget, a Danger Room timer widget, and a small Rift level widget before the quota bar
+- chat messages remain enabled as the fallback/diagnostic path if any client-known UI widget does not render on a tester's client
 - the server hides terminal-native objective HUD widgets during active Rift runs so a map like Fisk Tower should no longer keep showing a misleading native objective such as "defeat Kingpin" when the Rift boss is different
 - the server temporarily suspends the native terminal mission while the Rift is active, so the normal terminal objective tracker should be hidden rather than modified
 - the server temporarily suspends active `Region Events` missions inside the Rift instance, because the lighter client-side-only suppression did not hide that tracker reliably; this is scoped to the Rift region and restored when the run is cleaned up
