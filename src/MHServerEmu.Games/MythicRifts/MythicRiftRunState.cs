@@ -111,6 +111,14 @@ namespace MHServerEmu.Games.MythicRifts
                 BossUnlocked = true;
         }
 
+        public void ApplyTimePenalty(TimeSpan penalty)
+        {
+            if (Status != MythicRiftRunStatus.Active || ExpiresAt.HasValue == false || penalty <= TimeSpan.Zero)
+                return;
+
+            ExpiresAt = ExpiresAt.Value - penalty;
+        }
+
         public void MarkSuccess(TimeSpan completedAt)
         {
             if (Status != MythicRiftRunStatus.Active)

@@ -78,6 +78,12 @@ Expected result:
 - `Cosmic Doop Sector` is registered as a special Rift map with a dedicated fixed boss and a 5% random selection chance; it does not use the normal random boss pool
 - active Rifts now try to show a center-screen localized entry banner, a Danger Room-style kill quota widget, a Danger Room timer widget, and a small Rift level widget before the quota bar
 - local validation on 2026-05-09 confirmed that the client renders the server-driven Danger Room UI frame without a client patch: `Level N`, `Complete Simulation` kill progress bar, and red `Time` countdown
+- successful boss kills now send a short localized top-left completion banner: `COSMIC RIFT CLEARED`
+- player deaths inside an active Rift apply a 15-second timer penalty and refresh the timer UI
+- elite kill progress is weighted: champion enemies count as 3, elite enemies count as 5, and mini-boss enemies count as 8 toward the Rift quota
+- Rift regions enable native population respawns with a 20-second delay, scoped to the private Rift region, to reduce low-population softlocks without changing normal terminal behavior
+- Rift kill/death events now use a lightweight HUD-only refresh path; full native objective suppression runs less frequently to reduce per-kill server/UI work
+- admins can use `rift perf` while inside an active Rift to inspect players, entities, hostile agents, simulated agents, respawn-enabled areas, kill progress, and timer state
 - chat messages remain enabled as the fallback/diagnostic path if any client-known UI widget does not render on a tester's client
 - the server hides terminal-native objective HUD widgets during active Rift runs so a map like Fisk Tower should no longer keep showing a misleading native objective such as "defeat Kingpin" when the Rift boss is different
 - the server temporarily suspends the native terminal mission while the Rift is active, so the normal terminal objective tracker should be hidden rather than modified
