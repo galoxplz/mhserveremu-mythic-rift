@@ -122,8 +122,14 @@ These entries are special Rift variants. They can be selected randomly only thro
 - add server-driven Danger Room UI widgets for the Rift kill quota, timer, and selected Rift level by reusing client-known widget prototypes
 - resolve those client-known widget prototypes by prototype path first, falling back to known data refs only if path resolution fails, so the UI layer is more resilient across local and Test Center builds
 - show a localized center-screen entry banner once per player per run when the player actually enters the active Rift region
+- show a localized short top-left completion banner, `COSMIC RIFT CLEARED`, to online run players when the Rift boss dies and the run is marked successful
 - load generated Mythic Rift localized strings through the achievement string dump so banners/widgets can display Rift levels without a client `.sip` patch
 - local validation on 2026-05-09 confirmed the no-client-patch UI path renders in-game as a Danger Room-style top HUD frame with `Level N`, a kill progress bar, and a countdown timer
+- apply a WoW Mythic+-style 15-second timer penalty when a player avatar dies inside an active Rift region
+- weight elite kill count progress so harder enemies contribute more: champions = 3, elites = 5, mini-bosses = 8, normal enemies = 1
+- enable Rift-only native population respawns with a 20-second delay for the private Rift region; this is a conservative first step toward denser Rift gameplay without injecting custom mobs or changing normal terminals
+- optimize the active Rift loop by using HUD-only refreshes for kill/death events, moving full native objective suppression to a slower periodic pass, and caching resolved Rift UI widget prototype refs
+- add `rift perf` admin diagnostics for active Rift region load: total entities, agent counts, hostile/simulated agents, players, respawn-enabled areas, kill progress, and timer remaining
 - avoid relying on native terminal objective tracker text for Rift UX; chat messages and `rift status` remain the authoritative no-client-patch fallback
 - prepare an end reward based on success or failure
 - distribute boss loot to a single player

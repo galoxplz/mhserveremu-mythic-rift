@@ -29,11 +29,18 @@ namespace MHServerEmu.Games.MythicRifts
         private static readonly TimeSpan ParticipantDisconnectAbortGracePeriod = TimeSpan.FromMinutes(2);
         private static readonly TimeSpan PendingRunBindGracePeriod = TimeSpan.FromMinutes(2);
         private static readonly TimeSpan CompletedRunRetention = TimeSpan.FromMinutes(5);
-        private static readonly TimeSpan NativeBossSuppressionScanInterval = TimeSpan.FromSeconds(1);
-        private static readonly TimeSpan RiftObjectiveWidgetRefreshInterval = TimeSpan.FromSeconds(2);
+        private static readonly TimeSpan NativeBossSuppressionScanInterval = TimeSpan.FromSeconds(2);
+        private static readonly TimeSpan RiftObjectiveWidgetRefreshInterval = TimeSpan.FromSeconds(5);
+        private static readonly TimeSpan PlayerDeathTimePenalty = TimeSpan.FromSeconds(15);
+        private const int RiftPopulationRespawnDelayMS = 20000;
+        private const int ChampionKillCountCredit = 3;
+        private const int EliteKillCountCredit = 5;
+        private const int MiniBossKillCountCredit = 8;
         private const ulong RiftEntryBannerLocaleStringBase = 18000000000000000000UL;
         private const int RiftEntryBannerLocalizedLevelLimit = 10000;
         private const int RiftEntryBannerTimeToLiveMS = 5000;
+        private const ulong RiftClearedBannerLocaleStringIdValue = 18000000000000030001UL;
+        private const int RiftClearedBannerTimeToLiveMS = 2000;
         private const string RiftDangerRoomLevelWidgetPrototypeName = "UI/MetaGame/MissionName.prototype";
         private const string RiftDangerRoomQuotaWidgetPrototypeName = "UI/MetaGame/DangerRoom/DangerRoomCounterBarBASE.prototype";
         private const string RiftDangerRoomTimerWidgetPrototypeName = "UI/MetaGame/DangerRoom/DangerRoomTimer.prototype";
@@ -199,6 +206,9 @@ namespace MHServerEmu.Games.MythicRifts
         private readonly Dictionary<ulong, TimeSpan> _nextNativeBossSuppressionScanAt = new();
         private readonly Dictionary<ulong, TimeSpan> _nextRiftObjectiveWidgetRefreshAt = new();
         private readonly Dictionary<ulong, HashSet<Mission>> _serverSuspendedNativeObjectiveMissionsByRun = new();
+        private static PrototypeId _cachedRiftDangerRoomLevelWidgetPrototypeRef = PrototypeId.Invalid;
+        private static PrototypeId _cachedRiftDangerRoomQuotaWidgetPrototypeRef = PrototypeId.Invalid;
+        private static PrototypeId _cachedRiftDangerRoomTimerWidgetPrototypeRef = PrototypeId.Invalid;
         private ulong _nextRunId = 1;
 
         public Game Game { get; }
@@ -466,6 +476,7 @@ namespace MHServerEmu.Games.MythicRifts
                 return false;
 
             runState.AddKills(killCount);
+            RefreshRiftHudWidgets(runState, Game.CurrentTime);
             return true;
         }
 
@@ -653,6 +664,7 @@ namespace MHServerEmu.Games.MythicRifts
             RegisterRegionPlayersAsParticipants(runState, region);
             ApplyRunDifficultyToRegion(runState, region);
             EnsureRegionListener(region);
+            EnableRiftPopulationRespawns(runState, region);
             return true;
         }
 
@@ -910,6 +922,27 @@ namespace MHServerEmu.Games.MythicRifts
             _regionEntityDeadActions.Remove(regionId);
         }
 
+        private static void EnableRiftPopulationRespawns(MythicRiftRunState runState, Region region)
+        {
+            if (runState == null || region == null)
+                return;
+
+            int enabledCount = 0;
+            foreach (Area area in region.IterateAreas())
+            {
+                var spawnEvent = area?.PopulationArea?.SpawnEvent;
+                if (spawnEvent == null)
+                    continue;
+
+                spawnEvent.RespawnObject = true;
+                spawnEvent.RespawnDelayMS = RiftPopulationRespawnDelayMS;
+                enabledCount++;
+            }
+
+            if (enabledCount > 0)
+                Logger.Info($"Mythic Rift run {runState.Config.RunId} enabled Rift-only population respawns for {enabledCount} area(s), delay={RiftPopulationRespawnDelayMS}ms.");
+        }
+
         private void ApplyRunDifficultyToRegion(MythicRiftRunState runState, Region region)
         {
             if (runState == null || region == null || runState.RegionDifficultyScalingApplied)
@@ -1126,6 +1159,18 @@ namespace MHServerEmu.Games.MythicRifts
             }
         }
 
+        private void RefreshRiftHudWidgets(MythicRiftRunState runState, TimeSpan currentTime)
+        {
+            if (runState == null || runState.Status != MythicRiftRunStatus.Active || runState.RegionId == 0)
+                return;
+
+            Region region = Game.RegionManager.GetRegion(runState.RegionId);
+            if (region == null)
+                return;
+
+            RefreshDangerRoomRiftWidgets(region.UIDataProvider, runState, currentTime);
+        }
+
         private void ClearRiftObjectiveWidgets(MythicRiftRunState runState)
         {
             if (runState == null || runState.RegionId == 0)
@@ -1263,17 +1308,26 @@ namespace MHServerEmu.Games.MythicRifts
 
         private static PrototypeId GetRiftDangerRoomLevelWidgetPrototypeRef()
         {
-            return ResolveRiftWidgetPrototypeRef(RiftDangerRoomLevelWidgetPrototypeName, RiftDangerRoomLevelWidgetPrototypeRef);
+            if (_cachedRiftDangerRoomLevelWidgetPrototypeRef == PrototypeId.Invalid)
+                _cachedRiftDangerRoomLevelWidgetPrototypeRef = ResolveRiftWidgetPrototypeRef(RiftDangerRoomLevelWidgetPrototypeName, RiftDangerRoomLevelWidgetPrototypeRef);
+
+            return _cachedRiftDangerRoomLevelWidgetPrototypeRef;
         }
 
         private static PrototypeId GetRiftDangerRoomQuotaWidgetPrototypeRef()
         {
-            return ResolveRiftWidgetPrototypeRef(RiftDangerRoomQuotaWidgetPrototypeName, RiftDangerRoomQuotaWidgetPrototypeRef);
+            if (_cachedRiftDangerRoomQuotaWidgetPrototypeRef == PrototypeId.Invalid)
+                _cachedRiftDangerRoomQuotaWidgetPrototypeRef = ResolveRiftWidgetPrototypeRef(RiftDangerRoomQuotaWidgetPrototypeName, RiftDangerRoomQuotaWidgetPrototypeRef);
+
+            return _cachedRiftDangerRoomQuotaWidgetPrototypeRef;
         }
 
         private static PrototypeId GetRiftDangerRoomTimerWidgetPrototypeRef()
         {
-            return ResolveRiftWidgetPrototypeRef(RiftDangerRoomTimerWidgetPrototypeName, RiftDangerRoomTimerWidgetPrototypeRef);
+            if (_cachedRiftDangerRoomTimerWidgetPrototypeRef == PrototypeId.Invalid)
+                _cachedRiftDangerRoomTimerWidgetPrototypeRef = ResolveRiftWidgetPrototypeRef(RiftDangerRoomTimerWidgetPrototypeName, RiftDangerRoomTimerWidgetPrototypeRef);
+
+            return _cachedRiftDangerRoomTimerWidgetPrototypeRef;
         }
 
         private static PrototypeId ResolveRiftWidgetPrototypeRef(string prototypeName, PrototypeId fallbackRef)
@@ -1617,6 +1671,9 @@ namespace MHServerEmu.Games.MythicRifts
 
                 RegisterParticipantsFromEvent(runState, evt);
 
+                if (TryApplyPlayerDeathPenalty(runState, evt))
+                    continue;
+
                 if (IsExpectedBossKill(runState, evt))
                 {
                     runState.AttachBoss(evt.Defender.Id);
@@ -1654,8 +1711,9 @@ namespace MHServerEmu.Games.MythicRifts
                     continue;
 
                 int previousKillCount = runState.CurrentKillCount;
-                runState.AddKills(1);
-                RefreshRiftObjectiveWidgets(runState, Game.CurrentTime, force: true);
+                int killCredit = GetKillCountCredit(evt);
+                runState.AddKills(killCredit);
+                RefreshRiftHudWidgets(runState, Game.CurrentTime);
 
                 if (runState.BossUnlocked && previousKillCount < runState.Config.KillQuota)
                 {
@@ -1675,6 +1733,33 @@ namespace MHServerEmu.Games.MythicRifts
                     TryNotifyKillProgress(runState);
                 }
             }
+        }
+
+        private bool TryApplyPlayerDeathPenalty(MythicRiftRunState runState, in EntityDeadGameEvent evt)
+        {
+            if (runState == null || runState.Status != MythicRiftRunStatus.Active)
+                return false;
+
+            if (evt.Defender is not Avatar deadAvatar)
+                return false;
+
+            Player deadPlayer = deadAvatar.GetOwnerOfType<Player>();
+            if (deadPlayer == null || IsPlayerInRunRegion(deadPlayer, runState) == false)
+                return false;
+
+            runState.RegisterParticipant(deadPlayer.DatabaseUniqueId);
+            runState.ApplyTimePenalty(PlayerDeathTimePenalty);
+            SendStartRiftTimer(runState);
+            RefreshRiftHudWidgets(runState, Game.CurrentTime);
+
+            string remaining = FormatDuration(runState.GetTimeRemaining(Game.CurrentTime));
+            NotifyRunPlayers(runState, $"[Cosmic Rift] {deadPlayer.GetName()} died. Death penalty: -{(int)PlayerDeathTimePenalty.TotalSeconds} sec. Time remaining: {remaining}.");
+            Logger.Info($"Mythic Rift run {runState.Config.RunId} applied a {PlayerDeathTimePenalty.TotalSeconds:0}s death penalty to playerDbId=0x{deadPlayer.DatabaseUniqueId:X}.");
+
+            if (runState.HasExpired(Game.CurrentTime))
+                CompleteRunFailure(runState, Game.CurrentTime, "Time expired after a death penalty. Base boss rewards only.", returnParticipantsToHub: true);
+
+            return true;
         }
 
         private static bool IsExpectedBossKill(MythicRiftRunState runState, in EntityDeadGameEvent evt)
@@ -1974,6 +2059,21 @@ namespace MHServerEmu.Games.MythicRifts
             return evt.Defender.TagPlayers.HasTags;
         }
 
+        private static int GetKillCountCredit(in EntityDeadGameEvent evt)
+        {
+            RankPrototype rankProto = evt.Defender?.GetRankPrototype();
+            if (rankProto == null)
+                return 1;
+
+            return rankProto.Rank switch
+            {
+                Rank.Champion => ChampionKillCountCredit,
+                Rank.Elite => EliteKillCountCredit,
+                Rank.MiniBoss => MiniBossKillCountCredit,
+                _ => 1
+            };
+        }
+
         private MythicRiftRunConfig CreateRunConfig(MythicRiftContentEntry content, MythicRiftContentEntry bossContent, int riftLevel, int requestedPlayerCount, int killQuota, TimeSpan timeLimit)
         {
             if (content == null || bossContent == null)
@@ -2093,6 +2193,7 @@ namespace MHServerEmu.Games.MythicRifts
             string successMessage = eligibleUnlockCount > 0
                 ? $"Rift cleared. Next level unlocked for {eligibleUnlockCount} eligible player(s). Bonus loot granted."
                 : "Rift cleared. Loot granted, but no players met the next-level unlock rule.";
+            TrySendRiftClearedBanner(runState);
             NotifyRunCompleted(runState, success: true, successMessage);
             TrySpawnReturnPortal(runState);
             return true;
@@ -2469,7 +2570,8 @@ namespace MHServerEmu.Games.MythicRifts
                 if (runState.MarkKillProgressMilestoneSent(milestonePercent) == false)
                     continue;
 
-                NotifyRunPlayers(runState, $"[Cosmic Rift] Progress: {runState.CurrentKillCount}/{requiredCount} enemies defeated.");
+                int displayedKillCount = Math.Min(runState.CurrentKillCount, requiredCount);
+                NotifyRunPlayers(runState, $"[Cosmic Rift] Progress: {displayedKillCount}/{requiredCount} enemy progress.");
             }
         }
 
@@ -2482,6 +2584,23 @@ namespace MHServerEmu.Games.MythicRifts
                 ? $"[Cosmic Rift] Rift complete! {ResolveBossDisplayName(runState.Config)} defeated in {runState.Config.Content.DisplayName}. Level {runState.Config.RiftLevel} cleared. {statusMessage}"
                 : $"[Cosmic Rift] Rift closed: {runState.Config.Content.DisplayName} | Level {runState.Config.RiftLevel}. {statusMessage}";
             NotifyRunPlayers(runState, message);
+        }
+
+        private void TrySendRiftClearedBanner(MythicRiftRunState runState)
+        {
+            if (runState == null || runState.Status != MythicRiftRunStatus.Success)
+                return;
+
+            foreach (Player player in GetRunPlayers(runState))
+            {
+                player.SendBannerMessage(
+                    (LocaleStringId)RiftClearedBannerLocaleStringIdValue,
+                    TextStylePrototype.BannerMessageLarge,
+                    RiftClearedBannerTimeToLiveMS,
+                    BannerMessageStyle.FlyIn,
+                    doNotQueue: true,
+                    showImmediately: true);
+            }
         }
 
         private void TryNotifyRunTimeWarnings(MythicRiftRunState runState, TimeSpan currentTime)

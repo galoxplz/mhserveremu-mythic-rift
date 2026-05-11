@@ -1574,6 +1574,78 @@ namespace MHServerEmu.Commands.Implementations
             return string.Empty;
         }
 
+        [Command("perf")]
+        [CommandDescription("Displays lightweight Rift region performance diagnostics for the invoking player's active run.")]
+        [CommandUsage("rift perf")]
+        [CommandUserLevel(AccountUserLevel.Admin)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        public string Perf(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            Player player = playerConnection?.Player;
+            if (game == null || player == null)
+                return "Game or player not found.";
+
+            MythicRiftRunState runState = game.MythicRiftManager.GetInProgressRunForPlayer(player.DatabaseUniqueId);
+            if (runState == null)
+                return "No active Cosmic Rift run found for this player.";
+
+            Region region = runState.RegionId != 0
+                ? game.RegionManager.GetRegion(runState.RegionId)
+                : null;
+            if (region == null)
+                return $"Rift run {runState.Config.RunId} has no bound region.";
+
+            int entityCount = 0;
+            int agentCount = 0;
+            int aliveAgentCount = 0;
+            int hostileAgentCount = 0;
+            int simulatedAgentCount = 0;
+            foreach (Entity entity in region.Entities)
+            {
+                entityCount++;
+                if (entity is not Agent agent)
+                    continue;
+
+                agentCount++;
+                if (agent.IsDestroyed || agent.IsDead || agent.IsInWorld == false)
+                    continue;
+
+                aliveAgentCount++;
+                if (agent.IsHostileToPlayers())
+                    hostileAgentCount++;
+
+                if (agent.IsSimulated)
+                    simulatedAgentCount++;
+            }
+
+            int playerCount = 0;
+            foreach (Player _ in new PlayerIterator(region))
+                playerCount++;
+
+            int areaCount = 0;
+            int respawnAreaCount = 0;
+            foreach (Area area in region.IterateAreas())
+            {
+                areaCount++;
+                if (area?.PopulationArea?.SpawnEvent?.RespawnObject == true)
+                    respawnAreaCount++;
+            }
+
+            List<string> lines = new()
+            {
+                $"Rift perf runId={runState.Config.RunId} | status={runState.Status} | map={runState.Config.Content.DisplayName} | level={runState.Config.RiftLevel}",
+                $"region={region.PrototypeName} | regionId=0x{region.Id:X} | players={playerCount}",
+                $"entities={entityCount} | agents={agentCount} | aliveAgents={aliveAgentCount} | hostileAgents={hostileAgentCount} | simulatedAgents={simulatedAgentCount}",
+                $"areas={areaCount} | respawnAreas={respawnAreaCount} | killProgress={Math.Min(runState.CurrentKillCount, runState.Config.KillQuota)}/{runState.Config.KillQuota} | bossUnlocked={runState.BossUnlocked}",
+                $"timerRemaining={runState.GetTimeRemaining(game.CurrentTime).TotalSeconds:0}s | privateRiftRegion=True"
+            };
+
+            CommandHelper.SendMessages(client, lines);
+            return string.Empty;
+        }
+
         [Command("status")]
         [CommandDescription("Displays the invoking player's active Cosmic Rift run.")]
         [CommandUsage("rift status")]
