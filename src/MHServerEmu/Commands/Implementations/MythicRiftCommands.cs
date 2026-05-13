@@ -1636,7 +1636,7 @@ namespace MHServerEmu.Commands.Implementations
             List<string> lines = new()
             {
                 $"Rift perf runId={runState.Config.RunId} | status={runState.Status} | map={runState.Config.Content.DisplayName} | level={runState.Config.RiftLevel}",
-                $"region={region.PrototypeName} | regionId=0x{region.Id:X} | players={playerCount}",
+                $"region={region.PrototypeName} | regionId=0x{region.Id:X} | players={playerCount} | participants={runState.ParticipantCount} | earlyExits={runState.EarlyExitPlayerDbIds.Count}",
                 $"entities={entityCount} | agents={agentCount} | aliveAgents={aliveAgentCount} | hostileAgents={hostileAgentCount} | simulatedAgents={simulatedAgentCount}",
                 $"areas={areaCount} | respawnAreas={respawnAreaCount} | killProgress={Math.Min(runState.CurrentKillCount, runState.Config.KillQuota)}/{runState.Config.KillQuota} | bossUnlocked={runState.BossUnlocked}",
                 $"timerRemaining={runState.GetTimeRemaining(game.CurrentTime).TotalSeconds:0}s | privateRiftRegion=True"
@@ -2188,7 +2188,7 @@ namespace MHServerEmu.Commands.Implementations
                 $"killQuota={runState.CurrentKillCount}/{runState.Config.KillQuota} | bossUnlocked={runState.BossUnlocked} | rewardsGranted={runState.RewardsGranted}",
                 $"timeLimit={runState.Config.TimeLimit.TotalMinutes:0} min | remaining={runState.GetTimeRemaining(currentTime).TotalMinutes:0.##} min | d3EquivalentLevel={runState.Config.Difficulty.EquivalentD3RiftLevel:F2} | groupHealth x{runState.Config.Difficulty.GroupHealthMultiplier:F3} | HP x{runState.Config.Difficulty.HealthMultiplier:F3} | damage x{runState.Config.Difficulty.DamageMultiplier:F3}",
                 $"regionId=0x{runState.RegionId:X} | bossEntityId=0x{runState.BossEntityId:X}",
-                $"participants={runState.ParticipantCount} | rewardedPlayers={runState.RewardedPlayerCount}",
+                $"participants={runState.ParticipantCount} | earlyExits={runState.EarlyExitPlayerDbIds.Count} | rewardedPlayers={runState.RewardedPlayerCount}",
                 $"competitiveEligibility=bossUnlock:{runState.BossUnlockEligiblePlayerDbIds.Count} | bossKill:{runState.ProgressionEligiblePlayerDbIds.Count}",
                 $"nextUnlockOnSuccess={runState.Config.RiftLevel + 1}"
             };

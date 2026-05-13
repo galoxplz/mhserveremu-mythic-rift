@@ -79,6 +79,7 @@ Expected result:
 - active Rifts now try to show a center-screen localized entry banner, a Danger Room-style kill quota widget, a Danger Room timer widget, and a small Rift level widget before the quota bar
 - local validation on 2026-05-09 confirmed that the client renders the server-driven Danger Room UI frame without a client patch: `Level N`, `Complete Simulation` kill progress bar, and red `Time` countdown
 - successful boss kills now send a short localized top-left completion banner: `COSMIC RIFT CLEARED`
+- repeated completion banners now rotate through several localized string ids to avoid client-side duplicate/stale banner suppression during repeated same-map tests
 - player deaths inside an active Rift apply a 15-second timer penalty and refresh the timer UI
 - elite kill progress is weighted: champion enemies count as 3, elite enemies count as 5, and mini-boss enemies count as 8 toward the Rift quota
 - Rift regions enable native population respawns with a 20-second delay, scoped to the private Rift region, to reduce low-population softlocks without changing normal terminal behavior
@@ -94,7 +95,8 @@ Expected result:
 - successful Rift clears should spawn a return portal that takes players back to the Danger Room hub
 - current group launch expectation: the current party leader should use the Beacon while intended party members are also in the Danger Room hub; members outside the launch context may not be pulled in reliably
 - group progression is intentionally competitive but team-friendly: players who are inside the Rift at boss unlock and still inside at boss death unlock the next level even if their previous personal max was lower
-- leaving the party mid-run should not by itself invalidate the run or rewards; leaving the Rift region is what can fail or abandon the attempt before boss completion
+- leaving the party mid-run should not by itself invalidate the run or rewards
+- leaving the Rift region before completion now removes only that player from Rift eligibility; remaining players inside the Rift can continue the run
 - if leader swap testing fails, check server logs for `Mythic Rift request rejected because requester is not party leader`
 - completed or aborted Rift regions now request shutdown once they become vacant, so re-entering the same terminal later should create a fresh instance instead of reusing stale kill-state
 - guaranteed chat timer warnings are now sent at 9, 8, 7, 6, 5, 4, 3, 2, and 1 minute remaining, plus 30 seconds remaining
@@ -152,11 +154,11 @@ rift runs
 
 Expected result:
 
-- leaving the bound Rift region before completion closes the Rift attempt
+- in solo, leaving the bound Rift region before completion closes the Rift attempt because no eligible participants remain inside
 - the player who already returned to town stays outside the Rift
-- any online participants still inside the Rift are returned to the Danger Room hub
-- the run is removed so a fresh Beacon can start a new Rift
-- chat should clearly say that the Rift closed because someone left before completion and that a new Beacon is required
+- in a group, only the player who left is marked as an early exit and becomes ineligible for rewards or level unlocks
+- remaining online participants inside the Rift should be able to continue kill progress and finish normally
+- `rift status` / `rift perf` should show `earlyExits` once a player has left early
 
 Timer expiration test:
 
@@ -312,7 +314,8 @@ Expected result:
 - the run should report `content=taskmaster`
 - terminal fixed-content runs should report the selected terminal as the boss source
 - non-terminal fixed-content runs should report the selected map as `content`, with a separate terminal `bossSource`
-- for party tests, the Rift should no longer auto-close immediately just because another party member is still zoning; only a player who has actually been seen inside the Rift can now trigger the "participant left early" failure path
+- for party tests, the Rift should no longer auto-close immediately just because another party member is still zoning
+- only a player who has actually been seen inside the Rift can be marked as an early exit, and that early exit should not stop other players from continuing
 - teleport should target the `entryTarget` resolved for the selected terminal
 - normal unarmed Danger Room behavior should remain unchanged globally
 
@@ -695,8 +698,8 @@ At the current stage, this prototype already supports:
 - boss unlock and boss completion logic
 - success/failure reward resolution
 - player-visible active Rift status through `rift status`
-- player abandon flow through `rift abandon`; leaving cancels the active Rift and returns online participants to the Danger Room hub
-- automatic closure when a tracked participant leaves the active Rift region before completion
+- player abandon flow through `rift abandon`; this intentionally cancels the whole active Rift and returns online participants to the Danger Room hub
+- natural early exit flow; a player leaving the active Rift region before completion is removed from eligibility, while remaining players can continue
 
 ## Current Limitations
 

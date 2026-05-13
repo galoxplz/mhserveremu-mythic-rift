@@ -39,7 +39,8 @@ namespace MHServerEmu.Games.MythicRifts
         private const ulong RiftEntryBannerLocaleStringBase = 18000000000000000000UL;
         private const int RiftEntryBannerLocalizedLevelLimit = 10000;
         private const int RiftEntryBannerTimeToLiveMS = 5000;
-        private const ulong RiftClearedBannerLocaleStringIdValue = 18000000000000030001UL;
+        private const ulong RiftClearedBannerLocaleStringBase = 18000000000000030000UL;
+        private const int RiftClearedBannerLocaleStringCount = 20;
         private const int RiftClearedBannerTimeToLiveMS = 2000;
         private const string RiftDangerRoomLevelWidgetPrototypeName = "UI/MetaGame/MissionName.prototype";
         private const string RiftDangerRoomQuotaWidgetPrototypeName = "UI/MetaGame/DangerRoom/DangerRoomCounterBarBASE.prototype";
@@ -564,6 +565,9 @@ namespace MHServerEmu.Games.MythicRifts
             if (runState.Status is not (MythicRiftRunStatus.Success or MythicRiftRunStatus.Failed))
                 return false;
 
+            if (runState.HasParticipantLeftEarly(player.DatabaseUniqueId))
+                return false;
+
             runState.RegisterParticipant(player.DatabaseUniqueId);
             if (runState.HasRewardForPlayer(player.DatabaseUniqueId))
                 return false;
@@ -627,7 +631,10 @@ namespace MHServerEmu.Games.MythicRifts
                 if (region != null)
                 {
                     foreach (Player regionPlayer in new PlayerIterator(region))
-                        recipientDbIds.Add(regionPlayer.DatabaseUniqueId);
+                    {
+                        if (runState.HasParticipantLeftEarly(regionPlayer.DatabaseUniqueId) == false)
+                            recipientDbIds.Add(regionPlayer.DatabaseUniqueId);
+                    }
                 }
             }
 
@@ -692,7 +699,7 @@ namespace MHServerEmu.Games.MythicRifts
                 if (TryAbortRunForDisconnectedParticipants(runState, currentTime))
                     continue;
 
-                if (TryAbortRunForParticipantExit(runState, currentTime))
+                if (TryHandleParticipantExit(runState, currentTime))
                 {
                     runsToRemove ??= new();
                     runsToRemove.Add(runState.Config.RunId);
@@ -1303,7 +1310,16 @@ namespace MHServerEmu.Games.MythicRifts
 
         private static PrototypeId GetRiftWidgetContextRef(MythicRiftRunState runState)
         {
-            return runState?.Config?.RegionProtoRef ?? PrototypeId.Invalid;
+            if (runState?.Config == null)
+                return PrototypeId.Invalid;
+
+            // Reusing the same region context for repeated runs of the same map can leave the
+            // client-side Danger Room HUD in a stale state. The boss prototype is a real,
+            // client-known ref and varies more often while still being stable for the run.
+            if (runState.Config.BossProtoRef != PrototypeId.Invalid)
+                return runState.Config.BossProtoRef;
+
+            return runState.Config.RegionProtoRef;
         }
 
         private static PrototypeId GetRiftDangerRoomLevelWidgetPrototypeRef()
@@ -1977,12 +1993,12 @@ namespace MHServerEmu.Games.MythicRifts
 
             RegionPrototype currentRegionProto = region.Prototype;
             RegionPrototype expectedRegionProto = content.RegionProtoRef.As<RegionPrototype>();
-            if (RegionPrototype.Equivalent(expectedRegionProto, currentRegionProto))
+            if (AreRegionsEquivalent(expectedRegionProto, currentRegionProto))
                 return true;
 
             RegionConnectionTargetPrototype startTargetProto = content.StartTargetProtoRef.As<RegionConnectionTargetPrototype>();
             RegionPrototype startTargetRegionProto = startTargetProto?.Region.As<RegionPrototype>();
-            return RegionPrototype.Equivalent(startTargetRegionProto, currentRegionProto);
+            return AreRegionsEquivalent(startTargetRegionProto, currentRegionProto);
         }
 
         private void TrackLastCompletedMapContent(MythicRiftRunState runState)
@@ -2026,7 +2042,7 @@ namespace MHServerEmu.Games.MythicRifts
 
             foreach (Player player in new PlayerIterator(region))
             {
-                if (player?.DatabaseUniqueId != 0)
+                if (player?.DatabaseUniqueId != 0 && runState.HasParticipantLeftEarly(player.DatabaseUniqueId) == false)
                     playerDbIds.Add(player.DatabaseUniqueId);
             }
 
@@ -2280,15 +2296,20 @@ namespace MHServerEmu.Games.MythicRifts
 
             RegionPrototype currentRegionProto = region.Prototype;
             RegionPrototype expectedRegionProto = runState.Config.RegionProtoRef.As<RegionPrototype>();
-            if (RegionPrototype.Equivalent(expectedRegionProto, currentRegionProto))
+            if (AreRegionsEquivalent(expectedRegionProto, currentRegionProto))
                 return true;
 
             RegionConnectionTargetPrototype startTargetProto = runState.Config.StartTargetProtoRef.As<RegionConnectionTargetPrototype>();
             RegionPrototype startTargetRegionProto = startTargetProto?.Region.As<RegionPrototype>();
-            if (RegionPrototype.Equivalent(startTargetRegionProto, currentRegionProto))
+            if (AreRegionsEquivalent(startTargetRegionProto, currentRegionProto))
                 return true;
 
             return false;
+        }
+
+        private static bool AreRegionsEquivalent(RegionPrototype regionA, RegionPrototype regionB)
+        {
+            return RegionPrototype.Equivalent(regionA, regionB) || RegionPrototype.Equivalent(regionB, regionA);
         }
 
         private static bool IsPlayerInRunRegion(Player player, MythicRiftRunState runState)
@@ -2331,12 +2352,13 @@ namespace MHServerEmu.Games.MythicRifts
             RegisterRegionPlayersAsParticipants(runState, region);
         }
 
-        private bool TryAbortRunForParticipantExit(MythicRiftRunState runState, TimeSpan currentTime)
+        private bool TryHandleParticipantExit(MythicRiftRunState runState, TimeSpan currentTime)
         {
             if (runState == null || runState.Status != MythicRiftRunStatus.Active || runState.RegionId == 0)
                 return false;
 
-            foreach (ulong participantPlayerDbId in runState.ParticipantPlayerDbIds)
+            List<ulong> exitedPlayerDbIds = null;
+            foreach (ulong participantPlayerDbId in runState.ParticipantPlayerDbIds.ToList())
             {
                 Player player = Game.EntityManager.GetEntityByDbGuid<Player>(participantPlayerDbId);
                 if (player == null || player.GetRegion() == null)
@@ -2348,14 +2370,46 @@ namespace MHServerEmu.Games.MythicRifts
                 if (IsPlayerInRunRegion(player, runState))
                     continue;
 
-                string reason = "A participant left the Rift before completion. The Rift has closed and a new Beacon is required.";
-                if (AbortRun(runState, currentTime, reason) == false)
-                    return false;
-
-                int returnedPlayerCount = ReturnRunParticipantsToDangerRoomHub(runState, player, includePlayersAlreadyOutsideRunRegion: false);
-                Logger.Info($"Mythic Rift run {runState.Config.RunId} returned {returnedPlayerCount} online participant(s) to the Danger Room hub after participant exit.");
-                return true;
+                if (runState.MarkParticipantLeftEarly(participantPlayerDbId))
+                {
+                    exitedPlayerDbIds ??= new();
+                    exitedPlayerDbIds.Add(participantPlayerDbId);
+                }
             }
+
+            if (exitedPlayerDbIds != null)
+            {
+                foreach (ulong exitedPlayerDbId in exitedPlayerDbIds)
+                {
+                    Player exitedPlayer = Game.EntityManager.GetEntityByDbGuid<Player>(exitedPlayerDbId);
+                    string playerName = exitedPlayer?.GetName() ?? $"0x{exitedPlayerDbId:X}";
+                    NotifyRunPlayers(runState, $"[Cosmic Rift] {playerName} left the Rift and is no longer eligible for rewards or level unlocks.");
+                    Logger.Info($"Mythic Rift run {runState.Config.RunId} marked participant playerDbId=0x{exitedPlayerDbId:X} as left early.");
+                }
+            }
+
+            if (runState.ParticipantCount > 0 || HasAnyPlayerInRunRegion(runState))
+                return false;
+
+            string reason = "All participants left the Rift before completion. The Rift has closed and a new Beacon is required.";
+            if (AbortRun(runState, currentTime, reason) == false)
+                return false;
+
+            Logger.Info($"Mythic Rift run {runState.Config.RunId} aborted after all participants left the Rift region.");
+            return true;
+        }
+
+        private bool HasAnyPlayerInRunRegion(MythicRiftRunState runState)
+        {
+            if (runState == null || runState.RegionId == 0)
+                return false;
+
+            Region region = Game.RegionManager.GetRegion(runState.RegionId);
+            if (region == null)
+                return false;
+
+            foreach (Player _ in new PlayerIterator(region))
+                return true;
 
             return false;
         }
@@ -2591,16 +2645,23 @@ namespace MHServerEmu.Games.MythicRifts
             if (runState == null || runState.Status != MythicRiftRunStatus.Success)
                 return;
 
+            LocaleStringId bannerText = GetRiftClearedBannerLocaleStringId(runState.Config.RunId);
             foreach (Player player in GetRunPlayers(runState))
             {
                 player.SendBannerMessage(
-                    (LocaleStringId)RiftClearedBannerLocaleStringIdValue,
+                    bannerText,
                     TextStylePrototype.BannerMessageLarge,
                     RiftClearedBannerTimeToLiveMS,
                     BannerMessageStyle.FlyIn,
                     doNotQueue: true,
                     showImmediately: true);
             }
+        }
+
+        private static LocaleStringId GetRiftClearedBannerLocaleStringId(ulong runId)
+        {
+            ulong offset = runId % (ulong)RiftClearedBannerLocaleStringCount;
+            return (LocaleStringId)(RiftClearedBannerLocaleStringBase + offset + 1UL);
         }
 
         private void TryNotifyRunTimeWarnings(MythicRiftRunState runState, TimeSpan currentTime)
@@ -2711,7 +2772,10 @@ namespace MHServerEmu.Games.MythicRifts
                 if (region != null)
                 {
                     foreach (Player regionPlayer in new PlayerIterator(region))
-                        recipientDbIds.Add(regionPlayer.DatabaseUniqueId);
+                    {
+                        if (runState.HasParticipantLeftEarly(regionPlayer.DatabaseUniqueId) == false)
+                            recipientDbIds.Add(regionPlayer.DatabaseUniqueId);
+                    }
                 }
             }
 

@@ -59,7 +59,7 @@ The next content expansion adds map-only Rift entries from private combat region
 
 | Map id | Region | Start target | Why selected |
 |---|---|---|---|
-| `bronx-zoo` | `BronxZooRegionL60` | `ZooEntryTarget` | Large private one-shot map with many populated areas and no terminal boss dependency. |
+| `bronx-zoo` | `BronxZooRegionL60` | `ZooEntryTarget` | Large private one-shot map with many populated areas and no terminal boss dependency. Current code now matches base/alt region equivalence in both directions to help one-shot L60 variants bind and scale correctly if the live region resolves through its base prototype. |
 | `wakanda-jungle` | `WakandaP1RegionL60` | `WakandaP1EntryTarget` | Private one-shot map with multiple populated areas and no registered metagame in the region data. |
 | `hydra-island-one-shot` | `HYDRAIslandPartDeuxRegionL60` | `Hydra1ShotEntryTarget` | Private one-shot map with many populated areas; selected for HYDRA visual variety. |
 | `daily-bugle` | `OpDailyBugleRegionL11To60` | `OpsDailyBugleStartTarget` | Registered for fixed validation only. Test Center feedback found its native population too low for the current kill-quota loop unless a dedicated respawner is added. |
