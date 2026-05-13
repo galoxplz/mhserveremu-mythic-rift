@@ -100,7 +100,8 @@ These entries are special Rift variants. They can be selected randomly only thro
 - fail a run automatically on expiration
 - abort a run automatically if all tracked participants stay offline too long
 - remove completed or abandoned runs automatically after retention or after the completed Rift region becomes empty
-- close and remove an active Rift if a tracked online participant leaves the bound Rift region before completion
+- mark a tracked online participant as an early exit if they leave the bound Rift region before completion, removing that player from rewards/unlocks while allowing remaining players inside to continue
+- abort an active Rift after all eligible participants have left the Rift region before completion
 - auto-bind a pending run to the real target terminal region when a participant enters it
 - auto-start the timer once that region binding is established
 - bind a run to an existing region
@@ -123,18 +124,19 @@ These entries are special Rift variants. They can be selected randomly only thro
 - resolve those client-known widget prototypes by prototype path first, falling back to known data refs only if path resolution fails, so the UI layer is more resilient across local and Test Center builds
 - show a localized center-screen entry banner once per player per run when the player actually enters the active Rift region
 - show a localized short top-left completion banner, `COSMIC RIFT CLEARED`, to online run players when the Rift boss dies and the run is marked successful
+- rotate completion banner locale string ids across repeated runs to reduce client-side duplicate/stale banner issues in same-map test loops
 - load generated Mythic Rift localized strings through the achievement string dump so banners/widgets can display Rift levels without a client `.sip` patch
 - local validation on 2026-05-09 confirmed the no-client-patch UI path renders in-game as a Danger Room-style top HUD frame with `Level N`, a kill progress bar, and a countdown timer
 - apply a WoW Mythic+-style 15-second timer penalty when a player avatar dies inside an active Rift region
 - weight elite kill count progress so harder enemies contribute more: champions = 3, elites = 5, mini-bosses = 8, normal enemies = 1
 - enable Rift-only native population respawns with a 20-second delay for the private Rift region; this is a conservative first step toward denser Rift gameplay without injecting custom mobs or changing normal terminals
 - optimize the active Rift loop by using HUD-only refreshes for kill/death events, moving full native objective suppression to a slower periodic pass, and caching resolved Rift UI widget prototype refs
-- add `rift perf` admin diagnostics for active Rift region load: total entities, agent counts, hostile/simulated agents, players, respawn-enabled areas, kill progress, and timer remaining
+- add `rift perf` admin diagnostics for active Rift region load: total entities, agent counts, hostile/simulated agents, players, participants, early exits, respawn-enabled areas, kill progress, and timer remaining
 - avoid relying on native terminal objective tracker text for Rift UX; chat messages and `rift status` remain the authoritative no-client-patch fallback
 - prepare an end reward based on success or failure
 - distribute boss loot to a single player
-- distribute boss loot to all tracked participants of the run
-- automatically distribute end-of-run rewards to tracked participants when the run completes
+- distribute boss loot to all eligible tracked participants of the run
+- automatically distribute end-of-run rewards to eligible tracked participants when the run completes
 - automatically unlock the next Rift level on success
 - resolve a future Rift launcher item into a validated run request through a dedicated launcher service
 - prepare a testable `item prototype -> launch plan -> run request` flow without wiring the global item `OnUse` path yet
@@ -178,7 +180,8 @@ These entries are special Rift variants. They can be selected randomly only thro
 - treat natural return-to-town / hub teleports out of the active Rift region as a failed/abandoned Rift attempt, so players cannot park or re-enter a stale Rift after leaving
 - fail timed-out Rifts and return online participants who are still inside the Rift to the Danger Room hub automatically
 - request shutdown of completed/aborted Rift regions when they become vacant, so later runs do not inherit stale terminal instance state
-- only treat a participant exit as Rift-breaking after that participant has actually been seen inside the active Rift region, preventing immediate party-run aborts while members are still zoning in
+- only treat a player as an early exit after that player has actually been seen inside the active Rift region, preventing immediate party-run aborts while members are still zoning in
+- let remaining players keep progressing after another player leaves early, including after party leadership changes
 - retry the configured random boss spawn on later eligible kills if the first spawn attempt fails exactly on quota unlock
 - keep the current group launch rule leader-driven: the active party leader starts the run, and intended participants should be in the Danger Room hub before beacon use
 - log party id, leader db id, and requester db id for Rift requests and non-leader rejections, so leader-swap issues can be diagnosed from Test Center logs

@@ -16,6 +16,7 @@ namespace MHServerEmu.Games.MythicRifts
         private readonly HashSet<ulong> _bossUnlockEligiblePlayerDbIds = new();
         private readonly HashSet<ulong> _progressionEligiblePlayerDbIds = new();
         private readonly HashSet<ulong> _participantsSeenInRunRegion = new();
+        private readonly HashSet<ulong> _earlyExitPlayerDbIds = new();
         private readonly HashSet<ulong> _riftEntryBannerSentPlayerDbIds = new();
         private readonly HashSet<int> _sentTimeWarningThresholds = new();
         private readonly HashSet<int> _sentKillProgressMilestones = new();
@@ -42,6 +43,7 @@ namespace MHServerEmu.Games.MythicRifts
         public IReadOnlyCollection<ulong> BossUnlockEligiblePlayerDbIds => _bossUnlockEligiblePlayerDbIds;
         public IReadOnlyCollection<ulong> ProgressionEligiblePlayerDbIds => _progressionEligiblePlayerDbIds;
         public IReadOnlyCollection<ulong> ParticipantsSeenInRunRegionPlayerDbIds => _participantsSeenInRunRegion;
+        public IReadOnlyCollection<ulong> EarlyExitPlayerDbIds => _earlyExitPlayerDbIds;
         public int ParticipantCount => _participantPlayerDbIds.Count;
         public int RewardedPlayerCount => _rewardedPlayerDbIds.Count;
         public bool IsInProgress => Status == MythicRiftRunStatus.Pending || Status == MythicRiftRunStatus.Active;
@@ -156,12 +158,37 @@ namespace MHServerEmu.Games.MythicRifts
             if (playerDbId == 0)
                 return false;
 
+            if (_earlyExitPlayerDbIds.Contains(playerDbId))
+                return false;
+
             return _participantPlayerDbIds.Add(playerDbId);
+        }
+
+        public bool MarkParticipantLeftEarly(ulong playerDbId)
+        {
+            if (playerDbId == 0)
+                return false;
+
+            bool wasParticipant = _participantPlayerDbIds.Remove(playerDbId);
+            _participantsSeenInRunRegion.Remove(playerDbId);
+            _bossUnlockEligiblePlayerDbIds.Remove(playerDbId);
+            _progressionEligiblePlayerDbIds.Remove(playerDbId);
+            _riftEntryBannerSentPlayerDbIds.Remove(playerDbId);
+            _earlyExitPlayerDbIds.Add(playerDbId);
+            return wasParticipant;
+        }
+
+        public bool HasParticipantLeftEarly(ulong playerDbId)
+        {
+            return playerDbId != 0 && _earlyExitPlayerDbIds.Contains(playerDbId);
         }
 
         public bool MarkParticipantSeenInRunRegion(ulong playerDbId)
         {
             if (playerDbId == 0)
+                return false;
+
+            if (_earlyExitPlayerDbIds.Contains(playerDbId))
                 return false;
 
             return _participantsSeenInRunRegion.Add(playerDbId);
