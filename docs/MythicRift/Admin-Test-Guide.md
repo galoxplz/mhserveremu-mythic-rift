@@ -127,6 +127,20 @@ Expected result:
 - `rift level max` returns the next beacon launch level to the player's highest unlocked level
 - the next purchased or granted beacon uses the selected launch level, not always the highest unlocked level
 
+Admin progress reset test:
+
+```text
+rift progression
+rift resetprogress
+rift progression
+```
+
+Expected result:
+
+- `rift resetprogress` resets the invoking player's highest unlocked Rift level to `1`
+- the selected launch level is also reset back to level `1`
+- this is intentionally admin-only for controlled Test Center resets
+
 Player-facing stop test:
 
 ```text
@@ -692,6 +706,7 @@ At the current stage, this prototype already supports:
 - conversion of that intent into a Rift run
 - level access validation
 - automatic use of the player's highest unlocked Rift level
+- admin reset of an individual tester's progression through `rift resetprogress`
 - a default 10-minute launcher timer
 - terminal-region binding
 - kill quota tracking

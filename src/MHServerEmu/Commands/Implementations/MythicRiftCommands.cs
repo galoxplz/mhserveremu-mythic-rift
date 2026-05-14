@@ -333,6 +333,23 @@ namespace MHServerEmu.Commands.Implementations
             return $"Player highest unlocked Rift level set to {appliedLevel}.";
         }
 
+        [Command("resetprogress")]
+        [CommandDescription("Resets the invoking player's Cosmic Rift progression and selected launch level back to level 1.")]
+        [CommandUsage("rift resetprogress")]
+        [CommandUserLevel(AccountUserLevel.Admin)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        public string ResetProgress(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            Player player = playerConnection?.Player;
+            if (game == null || player == null)
+                return "Game or player not found.";
+
+            int appliedLevel = game.MythicRiftManager.ResetRiftProgress(player.DatabaseUniqueId);
+            return $"Player Cosmic Rift progression reset. Highest unlocked Rift level={appliedLevel} | selected launch level={game.MythicRiftManager.GetPreferredLaunchRiftLevel(player.DatabaseUniqueId)}.";
+        }
+
         [Command("debug")]
         [CommandDescription("Builds a debug run config for an existing Mythic Rift entry without starting a live run.")]
         [CommandUsage("rift debug [contentId] [level] [players] [killQuota] [minutes]")]
