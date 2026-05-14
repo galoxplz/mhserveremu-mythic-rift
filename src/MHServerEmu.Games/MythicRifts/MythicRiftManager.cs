@@ -320,6 +320,15 @@ namespace MHServerEmu.Games.MythicRifts
             return normalizedLevel;
         }
 
+        public int ResetRiftProgress(ulong playerDbId)
+        {
+            if (playerDbId == 0)
+                return 1;
+
+            _preferredLaunchRiftLevelByPlayer.Remove(playerDbId);
+            return SetHighestUnlockedRiftLevel(playerDbId, 1);
+        }
+
         public int GrantNextRiftLevel(ulong playerDbId, int completedLevel)
         {
             if (playerDbId == 0)

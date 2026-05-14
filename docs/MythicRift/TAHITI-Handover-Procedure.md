@@ -443,6 +443,7 @@ rift previewrandom [count] [level] [players] [minutes]
 rift validaterandompool [level] [players] [minutes]
 rift access [level]
 rift progression
+rift resetprogress
 rift runs
 rift run [runId]
 rift status

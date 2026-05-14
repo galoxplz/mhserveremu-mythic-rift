@@ -96,6 +96,7 @@ These entries are special Rift variants. They can be selected randomly only thro
 - persist the highest unlocked Rift level inside the Player's persistent data
 - verify whether a player can access a given Rift level
 - let a player choose a lower unlocked launch level through `rift level [level]`, while `rift level max` returns to the highest unlocked level
+- let admins reset an individual tester's Rift progression and selected launch level back to level 1 through `rift resetprogress`
 - manage a server-side timer
 - fail a run automatically on expiration
 - abort a run automatically if all tracked participants stay offline too long
@@ -295,6 +296,7 @@ Current practical launcher stage
 - `rift access [level]`
 - `rift progression`
 - `rift setaccess [level]`
+- `rift resetprogress`
 - `rift request [level] [killQuota] [minutes]`
 - `rift requestauto [level] [minutes]`
 - `rift requestportal [level] [minutes]`
