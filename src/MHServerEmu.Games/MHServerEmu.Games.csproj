@@ -49,9 +49,6 @@
     <None Update="Data\Game\Achievements\AchievementStringMap_MythicRiftMessages.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Data\Game\StringOverrides\ServerSideStringPropertyOverrides_MythicRift.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
     <None Update="Data\Game\Achievements\Off\AchievementInfoMap_01_DisableBroken.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

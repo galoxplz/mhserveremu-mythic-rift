@@ -69,12 +69,17 @@ namespace MHServerEmu.Games.Entities
         private const int VendorInvalidXP = -1;
         private const string MythicRiftDangerRoomVendorMode = "danger-room-hub-any-vendor";
         private const string MythicRiftDangerRoomVendorTypeName = "VendorDangerRoomRewards";
+        private const string MythicRiftVendorHint =
+            "[Cosmic Rift] The bottom Danger Room Scenario in this vendor is the Cosmic Rift Beacon. Buy it, then use it from the Danger Room Hub to start a Cosmic Rift.";
+        private const string MythicRiftPurchaseHint =
+            "[Cosmic Rift] Beacon purchased. Use this item from the Danger Room Hub to open your selected Rift level.";
 
         private static readonly Item DummyItem = new(null);     // Dummy item instance to calculate character unlock ES costs
 
         private readonly HashSet<PrototypeId> _initializedVendorTypeProtoRefs = new();
         private readonly Dictionary<PrototypeId, VendorPurchaseData> _vendorPurchaseDataDict = new();   // InventoryPrototype key
         private readonly HashSet<ulong> _mythicRiftVendorItemIds = new();
+        private bool _mythicRiftVendorHintSent;
 
         public void InitializeVendorInventory(PrototypeId inventoryProtoRef)
         {
@@ -245,6 +250,8 @@ namespace MHServerEmu.Games.Entities
 
             if (TryAddMythicRiftVendorItem(vendorTypeProto))
                 SendMessage(NetMessageVendorRefresh.CreateBuilder().SetVendorTypeProtoId((ulong)vendorTypeProtoRef).Build());
+
+            TrySendMythicRiftVendorHint();
         }
 
         public bool SellItemToVendor(int avatarIndex, ulong itemId, ulong vendorId)
@@ -1096,6 +1103,8 @@ namespace MHServerEmu.Games.Entities
             OnScoringEvent(new(ScoringEventType.ItemBought, clonedItem.Prototype, rarityProto, count));
             OnScoringEvent(new(ScoringEventType.ItemCollected, clonedItem.Prototype, rarityProto, count));
 
+            Game.ChatManager?.SendChatFromCustomSystem(this, MythicRiftPurchaseHint, showSender: false);
+
             return true;
         }
 
@@ -1257,6 +1266,15 @@ namespace MHServerEmu.Games.Entities
         private void CleanupTrackedMythicRiftVendorItems()
         {
             _mythicRiftVendorItemIds.RemoveWhere(itemId => Game?.EntityManager.GetEntity<Item>(itemId) == null);
+        }
+
+        private void TrySendMythicRiftVendorHint()
+        {
+            if (_mythicRiftVendorHintSent || Game?.ChatManager == null)
+                return;
+
+            _mythicRiftVendorHintSent = true;
+            Game.ChatManager.SendChatFromCustomSystem(this, MythicRiftVendorHint, showSender: false);
         }
 
         private VendorResult CanSellItemToVendor(int avatarIndex, ulong itemId, ulong vendorId)

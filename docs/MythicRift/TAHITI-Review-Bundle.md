@@ -41,6 +41,7 @@ Current technical launcher base:
 - native `Mission` / `MissionObjective` update interception for controlled terminal objectives while a Rift is active, so terminal bounty counters do not rebuild on the client after suppression
 - best-effort reuse of any remaining native generic fraction tracker as the active Rift kill quota counter
 - no-client-patch player feedback through chat messages and `rift status`, instead of relying on native terminal objective tracker text for Rift-specific UX
+- vendor/purchase chat hints identify the stock-looking `Danger Room Scenario` item as the Cosmic Rift Beacon, because the vendor item name/tooltip is static client-side UI without a client/game-data patch
 - success / failure reward resolution
 - timed success SIF/RIF bonus
 - persistent Rift level progression
