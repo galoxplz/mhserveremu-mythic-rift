@@ -722,7 +722,7 @@ At the current stage, this prototype already supports:
 
 ## Current Limitations
 
-- the dedicated Rift item now attempts to display as `Mythic Rift Scenario`, but this still depends on the presentation prototype and string map being present in the deployed server/game-data files
+- the dedicated Rift item now attempts to display as `Mythic Rift Scenario`, but this still depends on the prototype patch and string map being present in the deployed server/game-data files
 - there is no final capital NPC or interactable yet
 - progression now persists in the Player save data, but still needs broader long-session testing
 - the current launcher flow is meant for admin testing and iteration, not final player UX
