@@ -10,11 +10,13 @@ Current product-facing identity:
 
 Current launcher identity:
 
-- `Cosmic Rift Beacon`
+- `Mythic Rift Scenario` in the vendor/player inventory when the presentation shell resolves
+- `Cosmic Rift Beacon` remains the server-side/debug identity
 
 Current technical launcher base:
 
 - `PortalToRandomMaxAffixDungeon`
+- `DangerRoomScenarioCrateUniqueCableFight` is used as the player-facing presentation shell
 
 ## Why It Should Be Easy To Review
 
@@ -41,7 +43,8 @@ Current technical launcher base:
 - native `Mission` / `MissionObjective` update interception for controlled terminal objectives while a Rift is active, so terminal bounty counters do not rebuild on the client after suppression
 - best-effort reuse of any remaining native generic fraction tracker as the active Rift kill quota counter
 - no-client-patch player feedback through chat messages and `rift status`, instead of relying on native terminal objective tracker text for Rift-specific UX
-- vendor/purchase chat hints identify the stock-looking `Danger Room Scenario` item as the Cosmic Rift Beacon, because the vendor item name/tooltip is static client-side UI without a client/game-data patch
+- vendor stock now attempts to display as `Mythic Rift Scenario` by creating the sold item from `DangerRoomScenarioCrateUniqueCableFight` while keeping `PortalToRandomMaxAffixDungeon` as the technical launcher/fallback
+- vendor/purchase chat hints still exist as a fallback if the presentation shell or `Z_` string map is missing on a test server
 - success / failure reward resolution
 - timed success SIF/RIF bonus
 - persistent Rift level progression

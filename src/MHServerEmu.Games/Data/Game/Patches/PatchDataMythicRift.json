@@ -6,5 +6,21 @@
     "Description": "Enable the unused PortalToRandomMaxAffixDungeon launcher base for Cosmic Rift server-side testing.",
     "ValueType": "Enum",
     "Value": "Live"
+  },
+  {
+    "Enabled": true,
+    "Prototype": "Entity/Items/Consumables/Prototypes/DangerRoom/PortalToRandomMaxAffixDungeon.prototype",
+    "Path": "DisplayName",
+    "Description": "Fallback display name for server-side Cosmic Rift launcher surfaces when the presentation item cannot be used.",
+    "ValueType": "LocaleStringId",
+    "Value": 18000000000000080010
+  },
+  {
+    "Enabled": true,
+    "Prototype": "Entity/Items/Consumables/Prototypes/DangerRoom/PortalToRandomMaxAffixDungeon.prototype",
+    "Path": "TooltipDescription",
+    "Description": "Fallback tooltip for server-side Cosmic Rift launcher surfaces when the presentation item cannot be used.",
+    "ValueType": "LocaleStringId",
+    "Value": 18000000000000080011
   }
 ]
