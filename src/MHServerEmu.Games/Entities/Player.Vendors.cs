@@ -1194,10 +1194,8 @@ namespace MHServerEmu.Games.Entities
             if (itemSpec == null)
                 return Logger.WarnReturn(false, $"TryAddMythicRiftVendorItem(): Failed to create ItemSpec for {itemProtoRef.GetNameFormatted()}");
 
-            itemSpec = MythicRiftItemPresentation.ApplyLauncherPresentation(itemSpec);
-
             using EntitySettings settings = ObjectPoolManager.Instance.Get<EntitySettings>();
-            settings.EntityRef = itemSpec.ItemProtoRef;
+            settings.EntityRef = itemProtoRef;
             settings.ItemSpec = itemSpec;
 
             if (IsInGame == false)

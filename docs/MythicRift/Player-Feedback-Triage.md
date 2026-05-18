@@ -5,7 +5,7 @@ This file tracks the first wider-player review pass shared by MonEll on 2026-05-
 ## Fixed / Improved In This Pass
 
 - Map rotation felt too repetitive. The server now keeps a short recent-map history per requester and party member and excludes those recent picks when the random pool has alternatives.
-- The dedicated launcher item should not reuse the generic Danger Room scenario name. The vendor path now tries to sell the existing presentation shell `DangerRoomScenarioCrateUniqueCableFight`, localized as `Mythic Rift Scenario`, while the technical launcher/fallback remains `PortalToRandomMaxAffixDungeon`.
+- The dedicated launcher item should not reuse the generic Danger Room scenario name. The vendor path now sells `PortalToRandomMaxAffixDungeon` directly and relies on prototype display-name/tooltip patches plus `AchievementStringMap_Z_MythicRiftScenario.json` to present it as `Mythic Rift Scenario`.
 - Admin reset already exists through `rift resetprogress`; this is intended for test cleanup, not automatic reset on relog.
 
 ## Expected / Current Design

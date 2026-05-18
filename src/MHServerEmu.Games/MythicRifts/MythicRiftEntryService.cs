@@ -181,12 +181,10 @@ namespace MHServerEmu.Games.MythicRifts
                 CandidateItemPrototypeName = MythicRiftLauncherService.CosmicRiftBeaconPrototypeName,
                 AcceptedCandidateItemPrototypeNames = new[]
                 {
-                    MythicRiftLauncherService.CosmicRiftBeaconPrototypeName,
-                    MythicRiftLauncherService.PresentationCosmicRiftBeaconPrototypeName,
-                    MythicRiftLauncherService.PresentationCosmicRiftBeaconPrototypePath
+                    MythicRiftLauncherService.CosmicRiftBeaconPrototypeName
                 },
                 CandidateTransitionPrototypeName = "ReturnToLastBaseDR",
-                Notes = "Official current direction for the feature: Cosmic Rift uses PortalToRandomMaxAffixDungeon as the technical launcher base, can present it as Mythic Rift Scenario, and returns players through the Danger Room base transition."
+                Notes = "Official current direction for the feature: Cosmic Rift uses PortalToRandomMaxAffixDungeon as the active technical launcher base, patches its player-facing strings to Mythic Rift Scenario when available, and returns players through the Danger Room base transition."
             });
         }
 
@@ -203,19 +201,6 @@ namespace MHServerEmu.Games.MythicRifts
                 PatcherFriendly = true,
                 Recommendation = "chosen",
                 Notes = "Official chosen launcher base for the project. It matches the random-dungeon identity, appears unreferenced in normal gameplay, and should be the safest long-term item base once TAHITI patches its DesignState to Live."
-            });
-
-            RegisterLauncherItemCandidate(new MythicRiftLauncherItemCandidate
-            {
-                PrototypeName = MythicRiftLauncherService.PresentationCosmicRiftBeaconPrototypeName,
-                DisplayName = MythicRiftItemPresentation.PresentationDisplayName,
-                SourceFamily = "DangerRoom / ScenarioCrate",
-                IsLikelyUnusedOrLowRisk = true,
-                IsShopLinked = false,
-                SupportsRandomThemeIdentity = false,
-                PatcherFriendly = true,
-                Recommendation = "chosen-presentation",
-                Notes = "Player-facing wrapper used for vendor and inventory presentation. The server still resolves this into the Cosmic Rift consumable flow."
             });
 
             RegisterLauncherItemCandidate(new MythicRiftLauncherItemCandidate

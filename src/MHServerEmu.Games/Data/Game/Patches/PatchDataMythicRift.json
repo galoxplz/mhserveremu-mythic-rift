@@ -11,7 +11,7 @@
     "Enabled": true,
     "Prototype": "Entity/Items/Consumables/Prototypes/DangerRoom/PortalToRandomMaxAffixDungeon.prototype",
     "Path": "DisplayName",
-    "Description": "Fallback display name for server-side Cosmic Rift launcher surfaces when the presentation item cannot be used.",
+    "Description": "Display name for the dedicated Cosmic Rift launcher item.",
     "ValueType": "LocaleStringId",
     "Value": 18000000000000080010
   },
@@ -19,7 +19,7 @@
     "Enabled": true,
     "Prototype": "Entity/Items/Consumables/Prototypes/DangerRoom/PortalToRandomMaxAffixDungeon.prototype",
     "Path": "TooltipDescription",
-    "Description": "Fallback tooltip for server-side Cosmic Rift launcher surfaces when the presentation item cannot be used.",
+    "Description": "Tooltip for the dedicated Cosmic Rift launcher item.",
     "ValueType": "LocaleStringId",
     "Value": 18000000000000080011
   }
