@@ -24,14 +24,10 @@ namespace MHServerEmu.Games.MythicRifts
         public const string CosmicRiftBeaconDisplayName = "Cosmic Rift Beacon";
         public const string PreferredCosmicRiftBeaconPrototypeName = "PortalToRandomMaxAffixDungeon";
         public const string CosmicRiftBeaconPrototypeName = PreferredCosmicRiftBeaconPrototypeName;
-        public const string PresentationCosmicRiftBeaconPrototypeName = MythicRiftItemPresentation.PresentationPrototypeName;
-        public const string PresentationCosmicRiftBeaconPrototypePath = MythicRiftItemPresentation.PresentationPrototypePath;
         public static readonly TimeSpan DefaultLauncherTimeLimit = TimeSpan.FromMinutes(10);
         private static readonly string[] SupportedCosmicRiftBeaconPrototypeNames =
         {
-            CosmicRiftBeaconPrototypeName,
-            PresentationCosmicRiftBeaconPrototypeName,
-            PresentationCosmicRiftBeaconPrototypePath
+            CosmicRiftBeaconPrototypeName
         };
         private readonly Dictionary<string, string> _candidateToEntryPointId = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<ulong, MythicRiftLauncherIntent> _pendingIntentsByPlayerDbId = new();
@@ -1056,8 +1052,6 @@ namespace MHServerEmu.Games.MythicRifts
         private void RegisterDefaultMappings()
         {
             RegisterCandidateMapping(CosmicRiftBeaconPrototypeName, MythicRiftEntryService.ConsumablePortalEntryPointId);
-            RegisterCandidateMapping(PresentationCosmicRiftBeaconPrototypeName, MythicRiftEntryService.ConsumablePortalEntryPointId);
-            RegisterCandidateMapping(PresentationCosmicRiftBeaconPrototypePath, MythicRiftEntryService.ConsumablePortalEntryPointId);
         }
 
         private void RegisterCandidateMapping(string prototypeName, string entryPointId)
