@@ -15,7 +15,7 @@ It is written for a technical reviewer such as MonEll who needs to understand:
 
 ## One-Sentence Summary
 
-This is a server-side endgame prototype inspired by Diablo 3 Greater Rifts, built on top of existing Marvel Heroes Omega terminal content, using `PortalToRandomMaxAffixDungeon` as the only active technical launcher base, and `Cosmic Rift Beacon` as the planned player-facing identity.
+This is a server-side endgame prototype inspired by Diablo 3 Greater Rifts, built on top of existing Marvel Heroes Omega terminal content, using `PortalToRandomMaxAffixDungeon` as the technical launcher base and `DangerRoomScenarioCrateUniqueCableFight` as the current `Mythic Rift Scenario` presentation item.
 
 ## Recommended Way To Present It
 
@@ -24,7 +24,7 @@ Suggested structure when introducing it:
 1. Explain that it is intentionally server-first.
 2. Explain that the current test flow does not require a manual client patch.
 3. Explain that it reuses existing terminal content rather than inventing a fully custom dungeon stack from scratch.
-4. Explain that the current launcher identity is `Cosmic Rift Beacon`, and the visible in-game item is based only on `PortalToRandomMaxAffixDungeon` so stock `PortalToRandomDungeon` behavior remains isolated.
+4. Explain that the current vendor item should display as `Mythic Rift Scenario`, while the technical launcher stays isolated from stock `PortalToRandomDungeon` behavior.
 5. Explain that this is now a reviewable prototype milestone, not just a design concept.
 
 ## Suggested Intro Message
@@ -36,7 +36,7 @@ This branch contains the current reviewable prototype for Cosmic Rift, a Diablo 
 
 The implementation is intentionally server-first and localized. The current test flow does not require a manual client patch and can be exercised through server-side commands plus existing game behavior.
 
-The current launcher model uses PortalToRandomMaxAffixDungeon as the only active technical base, with Cosmic Rift Beacon as the intended player-facing identity later on.
+The current launcher model uses PortalToRandomMaxAffixDungeon as the technical base, with DangerRoomScenarioCrateUniqueCableFight as the player-facing Mythic Rift Scenario wrapper.
 
 At this stage, the prototype already supports timed runs, kill quota before boss unlock, boss completion, reward resolution, persistent Rift progression, chained higher-difficulty runs, server-side beacon granting, and basic group/session safety behavior.
 
@@ -85,7 +85,7 @@ Current implemented prototype behavior:
 - timed success SIF/RIF bonus
 - server-side granting of the beacon item
 - direct beacon use in-game from a server-granted `PortalToRandomMaxAffixDungeon`
-- direct beacon use in-game from vendor-bought or patcher-added `PortalToRandomMaxAffixDungeon` stock, even when the live server does not preserve an in-memory tracked charge for that exact item instance
+- direct beacon use in-game from vendor-bought `DangerRoomScenarioCrateUniqueCableFight` presentation stock or patcher-added `PortalToRandomMaxAffixDungeon` stock, even when the live server does not preserve an in-memory tracked charge for that exact item instance
 - default Danger Room hub vendor stock injection for the current beacon, so the basic test flow no longer requires an admin item grant
 - launcher item consumption after a committed Rift launch
 - random map plus separately selected random terminal boss source
@@ -97,7 +97,7 @@ Current implemented prototype behavior:
 - interception of native `Mission` / `MissionObjective` update packets for controlled terminal objectives while a Rift is active, so terminal bounty counters do not rebuild on the client after suppression
 - best-effort reuse of any remaining native generic fraction tracker as the active Rift kill quota counter
 - no-client-patch player feedback through chat messages and `rift status`, instead of relying on native terminal objective tracker text for Rift-specific UX
-- vendor/purchase chat hints explain that the stock-looking `Danger Room Scenario` item is the Cosmic Rift Beacon, because static item names/tooltips are resolved client-side without a client/game-data patch
+- vendor stock attempts to show `Mythic Rift Scenario` through the presentation-item swap; vendor/purchase chat hints remain as a fallback if the presentation strings are not present on a test server
 - safe interception of the chosen beacon base so the Mythic Rift path no longer falls back into a normal scenario behavior after a successful Rift launch
 - safer chain-running from inside terminals because the random map picker now excludes the terminal region the requester / party is currently standing in
 - persistent unlocked Rift progression
@@ -195,13 +195,14 @@ Player-facing feature name:
 
 - `Cosmic Rift`
 
-Planned player-facing launcher name:
+Current player-facing launcher name:
 
-- `Cosmic Rift Beacon`
+- `Mythic Rift Scenario`
 
 Current technical launcher base:
 
 - `PortalToRandomMaxAffixDungeon`
+- `DangerRoomScenarioCrateUniqueCableFight` as the presentation shell
 
 Current implemented seller path:
 
@@ -232,9 +233,9 @@ Current fallback seller for a more character-driven presentation:
 
 Important clarification:
 
-- the current test flow prefers the existing `PortalToRandomMaxAffixDungeon` game item as the technical base
-- the newest server-side seller pass lets testers buy that launcher directly from a `Danger Room` hub vendor before any final NPC lock is chosen
-- if TAHITI later wants a cleaner visible in-game identity, that would likely be done as optional patcher-delivered game-file polish
+- the current test flow keeps the existing `PortalToRandomMaxAffixDungeon` game item as the technical base
+- the newest server-side seller pass lets testers buy a `Mythic Rift Scenario` presentation item directly from a `Danger Room` hub vendor before any final NPC lock is chosen
+- if the presentation strings do not load in a given environment, the server-side chat hints still explain what the item does
 
 ## Fastest Test Flow
 
@@ -242,7 +243,7 @@ This is the simplest demonstration path.
 
 1. Move the player to the Danger Room hub and open the Danger Room rewards vendor.
 
-2. Buy the injected `PortalToRandomMaxAffixDungeon` launcher item.
+2. Buy the injected `Mythic Rift Scenario` launcher item.
 
 3. Use the purchased item in-game.
 

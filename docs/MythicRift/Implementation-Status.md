@@ -146,16 +146,16 @@ These entries are special Rift variants. They can be selected randomly only thro
 - consume that intent later to convert it cleanly into a Rift run
 - auto-consume that intent at the player's selected launch level, defaulting to their highest currently unlocked Rift level
 - apply a default 10-minute launcher timer when no other time limit is provided
-- distribute the `Cosmic Rift Beacon` directly from the server without relying on a custom client-side vendor
+- distribute the `Cosmic Rift Beacon` / `Mythic Rift Scenario` directly from the server without relying on a custom client-side vendor
 - inject the preferred beacon into the Danger Room rewards vendor stock by default, so testers no longer need an admin grant for the basic flow
-- provide vendor-open and purchase chat hints so players understand that the stock-looking `Danger Room Scenario` entry is the Cosmic Rift Beacon
-- document that static vendor item naming/tooltip text remains a client-data limitation without a client/game-data patch or a better existing item candidate
+- present the injected vendor item as `DangerRoomScenarioCrateUniqueCableFight`, localized as `Mythic Rift Scenario`, while keeping `PortalToRandomMaxAffixDungeon` as the technical base/fallback
+- provide vendor-open and purchase chat hints as a fallback when a test server/client still shows stock-looking text
 - track the specific granted `Cosmic Rift Beacon` item instances server-side
 - register vendor-bought beacon items when purchased
 - let tracked beacon instances launch a Rift directly on use, without needing a prior intent-consume step
 - consume the committed launcher item after the Rift launch succeeds
 - allow tracked beacon launches to fall back to player-level tracked charges when inventory stacking or item instance ids differ on the live server
-- allow the preferred unused beacon base, `PortalToRandomMaxAffixDungeon`, to launch directly even when no in-memory tracked charge exists, so patcher-added vendor stock and live-server item cloning do not accidentally fall back into the native Danger Room tutorial/scenario path
+- allow the preferred unused beacon base, `PortalToRandomMaxAffixDungeon`, and the `DangerRoomScenarioCrateUniqueCableFight` presentation shell to launch directly even when no in-memory tracked charge exists, so patcher-added vendor stock and live-server item cloning do not accidentally fall back into the native Danger Room tutorial/scenario path
 - intercept client power activations for the chosen beacon's `OnUsePower` as a fallback when the client does not send a reliable item source id
 - emit `[MythicRiftLauncher]` server logs for both successful beacon interception and failed chosen-beacon power interception, making live Test Center debugging easier
 - suppress the native scenario continuation whenever Mythic Rift has explicitly intercepted a compatible beacon item use
@@ -331,8 +331,8 @@ Current practical launcher stage
 - It introduces no database migration at this stage.
 - It is explicitly framed to avoid dependence on a manual client patch.
 - If game files are needed later, they should ideally be deployable through the Patcher.
-- The current preferred player-facing direction is now an item-driven portal flow based only on `PortalToRandomMaxAffixDungeon`, because removing the `PortalToRandomDungeon` compatibility path should isolate the Rift launcher more cleanly from normal Danger Room gameplay.
-- The client vendor/tooltip UI still displays the stock `Danger Room Scenario` name for `PortalToRandomMaxAffixDungeon`; server-side prototype/string overrides do not affect that static client UI path. The current no-client-patch mitigation is explicit chat guidance when the Danger Room vendor opens and when the beacon is purchased.
+- The current preferred player-facing direction is now an item-driven portal flow where `PortalToRandomMaxAffixDungeon` remains the technical launcher base, but vendor stock is presented through `DangerRoomScenarioCrateUniqueCableFight` so the client can display `Mythic Rift Scenario` without a custom client patch.
+- The server still keeps explicit chat guidance when the Danger Room vendor opens and when the beacon is purchased, because this remains the safest fallback if presentation strings or prototype patches are missing on a test environment.
 - Random enemy replacement is still intentionally deferred. The current server-side-safe implementation randomizes the terminal map and boss source, but keeps native terminal enemy populations until we validate a safe way to replace or overlay mobs without breaking map scripts.
 - A basic no-client-patch player-facing level selector now exists through chat commands. A cleaner item/NPC UI for showing progression and selecting levels remains future UX polish because dynamic per-player item tooltip changes are not realistic without client-side UI/data support.
 

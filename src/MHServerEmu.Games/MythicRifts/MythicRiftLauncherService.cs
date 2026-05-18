@@ -24,10 +24,14 @@ namespace MHServerEmu.Games.MythicRifts
         public const string CosmicRiftBeaconDisplayName = "Cosmic Rift Beacon";
         public const string PreferredCosmicRiftBeaconPrototypeName = "PortalToRandomMaxAffixDungeon";
         public const string CosmicRiftBeaconPrototypeName = PreferredCosmicRiftBeaconPrototypeName;
+        public const string PresentationCosmicRiftBeaconPrototypeName = MythicRiftItemPresentation.PresentationPrototypeName;
+        public const string PresentationCosmicRiftBeaconPrototypePath = MythicRiftItemPresentation.PresentationPrototypePath;
         public static readonly TimeSpan DefaultLauncherTimeLimit = TimeSpan.FromMinutes(10);
         private static readonly string[] SupportedCosmicRiftBeaconPrototypeNames =
         {
-            CosmicRiftBeaconPrototypeName
+            CosmicRiftBeaconPrototypeName,
+            PresentationCosmicRiftBeaconPrototypeName,
+            PresentationCosmicRiftBeaconPrototypePath
         };
         private readonly Dictionary<string, string> _candidateToEntryPointId = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<ulong, MythicRiftLauncherIntent> _pendingIntentsByPlayerDbId = new();
@@ -38,6 +42,8 @@ namespace MHServerEmu.Games.MythicRifts
         private PrototypeId _chosenBeaconPrototypeRef = PrototypeId.Invalid;
         private bool _chosenBeaconOnUsePowerResolved;
         private PrototypeId _chosenBeaconOnUsePowerRef = PrototypeId.Invalid;
+        private bool _supportedBeaconOnUsePowersResolved;
+        private readonly HashSet<PrototypeId> _supportedBeaconOnUsePowerRefs = new();
 
         public Game Game { get; }
         public MythicRiftEntryService EntryService => Game.MythicRiftEntryService;
@@ -118,8 +124,28 @@ namespace MHServerEmu.Games.MythicRifts
 
         public bool IsChosenBeaconOnUsePower(PrototypeId powerProtoRef)
         {
-            PrototypeId chosenOnUsePowerProtoRef = ResolveChosenBeaconOnUsePowerRef();
-            return chosenOnUsePowerProtoRef != PrototypeId.Invalid && chosenOnUsePowerProtoRef == powerProtoRef;
+            if (powerProtoRef == PrototypeId.Invalid)
+                return false;
+
+            ResolveSupportedBeaconOnUsePowers();
+            return _supportedBeaconOnUsePowerRefs.Contains(powerProtoRef);
+        }
+
+        private void ResolveSupportedBeaconOnUsePowers()
+        {
+            if (_supportedBeaconOnUsePowersResolved)
+                return;
+
+            foreach (string prototypeName in SupportedCosmicRiftBeaconPrototypeNames)
+            {
+                PrototypeId itemProtoRef = ResolvePrototypeRefByName(prototypeName);
+                ItemPrototype itemProto = itemProtoRef.As<ItemPrototype>();
+                PrototypeId onUsePowerProtoRef = itemProto?.GetOnUsePower() ?? PrototypeId.Invalid;
+                if (onUsePowerProtoRef != PrototypeId.Invalid)
+                    _supportedBeaconOnUsePowerRefs.Add(onUsePowerProtoRef);
+            }
+
+            _supportedBeaconOnUsePowersResolved = true;
         }
 
         public bool TryFindOwnedChosenBeaconItemGrantingPower(Player player, PrototypeId powerProtoRef, out Item item)
@@ -274,7 +300,7 @@ namespace MHServerEmu.Games.MythicRifts
             if (player == null || item == null)
                 return false;
 
-            if (IsPreferredCosmicRiftBeaconPrototype(item.PrototypeDataRef) == false)
+            if (IsChosenBeaconPrototype(item.PrototypeDataRef) == false)
                 return false;
 
             AddTrackedBeaconCharges(player.DatabaseUniqueId, item.Id, Math.Max(item.CurrentStackSize, 1));
@@ -296,7 +322,7 @@ namespace MHServerEmu.Games.MythicRifts
                 foreach (var entry in inventory)
                 {
                     Item item = Game.EntityManager.GetEntity<Item>(entry.Id);
-                    if (item == null || IsPreferredCosmicRiftBeaconPrototype(item.PrototypeDataRef) == false)
+                    if (item == null || IsChosenBeaconPrototype(item.PrototypeDataRef) == false)
                         continue;
 
                     int stackCount = Math.Max(item.CurrentStackSize, 1);
@@ -490,20 +516,20 @@ namespace MHServerEmu.Games.MythicRifts
 
             int availableCharges = GetTrackedBeaconChargeCount(player, item);
             bool usingGenericTrackedChargeFallback = false;
-            bool usingDirectPreferredBeaconFallback = false;
+            bool usingDirectChosenBeaconFallback = false;
             if (availableCharges <= 0)
             {
-                // The direct fallback is scoped to the preferred unused beacon base. This keeps normal Danger Room
+                // The direct fallback is scoped to the approved Rift launcher family. This keeps normal Danger Room
                 // scenario items on their native path while allowing patcher-added stock to work without session
                 // tracking state.
-                if (PrototypeNameMatches(item.PrototypeDataRef, CosmicRiftBeaconPrototypeName) == false)
+                if (IsChosenBeaconPrototype(item.PrototypeDataRef) == false)
                     return null;
 
                 availableCharges = GetTotalTrackedBeaconCharges(player.DatabaseUniqueId);
                 if (availableCharges > 0)
                     usingGenericTrackedChargeFallback = true;
                 else
-                    usingDirectPreferredBeaconFallback = true;
+                    usingDirectChosenBeaconFallback = true;
             }
 
             MythicRiftArmedLauncherState armedState = GetArmedLauncherState(player.DatabaseUniqueId);
@@ -518,7 +544,7 @@ namespace MHServerEmu.Games.MythicRifts
                 return null;
 
             result.InterceptedItemUse = true;
-            result.UsedTrackedBeaconInstance = usingDirectPreferredBeaconFallback == false;
+            result.UsedTrackedBeaconInstance = usingDirectChosenBeaconFallback == false;
             result.ConsumedArmedLaunchMode = armedState != null;
 
             if (result.Success)
@@ -532,14 +558,14 @@ namespace MHServerEmu.Games.MythicRifts
 
                 if (usingGenericTrackedChargeFallback)
                     ConsumeAnyTrackedBeaconCharge(player.DatabaseUniqueId);
-                else if (usingDirectPreferredBeaconFallback == false)
+                else if (usingDirectChosenBeaconFallback == false)
                     ConsumeTrackedBeaconCharge(player.DatabaseUniqueId, item.Id);
 
                 if (armedState != null)
                     _armedLaunchesByPlayerDbId.Remove(player.DatabaseUniqueId);
             }
 
-            Logger.Info($"[MythicRiftLauncher] Intercepted beacon use playerDbId=0x{player.DatabaseUniqueId:X} itemId={item.Id} prototype={item.PrototypeDataRef.GetNameFormatted()} trackedCharges={availableCharges} directPreferredFallback={usingDirectPreferredBeaconFallback} success={result.Success} teleportAttempted={result.TeleportAttempted} teleportSucceeded={result.TeleportSucceeded} teleportError={result.TeleportErrorMessage ?? string.Empty}");
+            Logger.Info($"[MythicRiftLauncher] Intercepted beacon use playerDbId=0x{player.DatabaseUniqueId:X} itemId={item.Id} prototype={item.PrototypeDataRef.GetNameFormatted()} trackedCharges={availableCharges} directChosenFallback={usingDirectChosenBeaconFallback} success={result.Success} teleportAttempted={result.TeleportAttempted} teleportSucceeded={result.TeleportSucceeded} teleportError={result.TeleportErrorMessage ?? string.Empty}");
 
             NotifyLauncherUse(player, result);
 
@@ -911,6 +937,10 @@ namespace MHServerEmu.Games.MythicRifts
             if (string.IsNullOrWhiteSpace(itemPrototypeName))
                 return PrototypeId.Invalid;
 
+            PrototypeId directProtoRef = GameDatabase.GetPrototypeRefByName(itemPrototypeName);
+            if (directProtoRef.As<ItemPrototype>() != null)
+                return directProtoRef;
+
             foreach (PrototypeId candidateProtoRef in GameDatabase.DataDirectory.IteratePrototypesInHierarchy<ItemPrototype>())
             {
                 ItemPrototype candidateProto = candidateProtoRef.As<ItemPrototype>();
@@ -979,16 +1009,55 @@ namespace MHServerEmu.Games.MythicRifts
                 return false;
 
             string rawName = prototypeRef.GetName();
-            if (string.Equals(rawName, expectedName, StringComparison.OrdinalIgnoreCase))
+            if (PrototypeNameMatches(rawName, expectedName))
                 return true;
 
             string formattedName = prototypeRef.GetNameFormatted();
-            return string.Equals(formattedName, expectedName, StringComparison.OrdinalIgnoreCase);
+            return PrototypeNameMatches(formattedName, expectedName);
+        }
+
+        private static bool PrototypeNameMatches(string actualName, string expectedName)
+        {
+            if (string.IsNullOrWhiteSpace(actualName) || string.IsNullOrWhiteSpace(expectedName))
+                return false;
+
+            if (string.Equals(actualName, expectedName, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            string actualNormalized = NormalizePrototypeName(actualName);
+            string expectedNormalized = NormalizePrototypeName(expectedName);
+            if (string.Equals(actualNormalized, expectedNormalized, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            return string.Equals(
+                GetPrototypeShortName(actualNormalized),
+                GetPrototypeShortName(expectedNormalized),
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string NormalizePrototypeName(string prototypeName)
+        {
+            string normalized = prototypeName.Replace('\\', '/').Trim();
+            const string prototypeSuffix = ".prototype";
+            if (normalized.EndsWith(prototypeSuffix, StringComparison.OrdinalIgnoreCase))
+                normalized = normalized[..^prototypeSuffix.Length];
+
+            return normalized;
+        }
+
+        private static string GetPrototypeShortName(string prototypeName)
+        {
+            int separatorIndex = prototypeName.LastIndexOf('/');
+            return separatorIndex >= 0 && separatorIndex + 1 < prototypeName.Length
+                ? prototypeName[(separatorIndex + 1)..]
+                : prototypeName;
         }
 
         private void RegisterDefaultMappings()
         {
             RegisterCandidateMapping(CosmicRiftBeaconPrototypeName, MythicRiftEntryService.ConsumablePortalEntryPointId);
+            RegisterCandidateMapping(PresentationCosmicRiftBeaconPrototypeName, MythicRiftEntryService.ConsumablePortalEntryPointId);
+            RegisterCandidateMapping(PresentationCosmicRiftBeaconPrototypePath, MythicRiftEntryService.ConsumablePortalEntryPointId);
         }
 
         private void RegisterCandidateMapping(string prototypeName, string entryPointId)
@@ -1068,7 +1137,7 @@ namespace MHServerEmu.Games.MythicRifts
             foreach (var entry in inventory)
             {
                 Item item = Game.EntityManager.GetEntity<Item>(entry.Id);
-                if (item == null || PrototypeNameMatches(item.PrototypeDataRef, CosmicRiftBeaconPrototypeName) == false)
+                if (item == null || IsChosenBeaconPrototype(item.PrototypeDataRef) == false)
                     continue;
 
                 snapshot[item.Id] = item.CurrentStackSize;

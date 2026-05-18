@@ -71,9 +71,9 @@ namespace MHServerEmu.Games.Entities
         private const string MythicRiftDangerRoomVendorMode = "danger-room-hub-any-vendor";
         private const string MythicRiftDangerRoomVendorTypeName = "VendorDangerRoomRewards";
         private const string MythicRiftVendorHint =
-            "[Cosmic Rift] The bottom Danger Room Scenario in this vendor is the Cosmic Rift Beacon. Buy it, then use it from the Danger Room Hub to start a Cosmic Rift.";
+            "[Cosmic Rift] Buy the Mythic Rift Scenario from this vendor, then use it from the Danger Room Hub to start a Cosmic Rift.";
         private const string MythicRiftPurchaseHint =
-            "[Cosmic Rift] Beacon purchased. Use this item from the Danger Room Hub to open your selected Rift level.";
+            "[Cosmic Rift] Mythic Rift Scenario purchased. Use this item from the Danger Room Hub to open your selected Rift level.";
 
         private static readonly Item DummyItem = new(null);     // Dummy item instance to calculate character unlock ES costs
 
@@ -1065,7 +1065,7 @@ namespace MHServerEmu.Games.Entities
             if (item == null || vendor == null || Game?.MythicRiftLauncherService == null)
                 return false;
 
-            if (Game.MythicRiftLauncherService.IsPreferredCosmicRiftBeaconPrototype(item.PrototypeDataRef) == false)
+            if (Game.MythicRiftLauncherService.IsChosenBeaconPrototype(item.PrototypeDataRef) == false)
                 return false;
 
             if (Game.MythicRiftLauncherService.TryRegisterTrackedBeaconItem(this, item) == false)
@@ -1131,7 +1131,7 @@ namespace MHServerEmu.Games.Entities
             foreach (var entry in inventory)
             {
                 Item existingItem = Game.EntityManager.GetEntity<Item>(entry.Id);
-                if (existingItem != null && existingItem.PrototypeDataRef == itemProtoRef)
+                if (existingItem != null && Game.MythicRiftLauncherService.IsChosenBeaconPrototype(existingItem.PrototypeDataRef))
                 {
                     _mythicRiftVendorItemIds.Add(existingItem.Id);
                     return false;
@@ -1146,8 +1146,10 @@ namespace MHServerEmu.Games.Entities
             if (itemSpec == null)
                 return Logger.WarnReturn(false, $"TryAddMythicRiftVendorItem(): Failed to create ItemSpec for {itemProtoRef.GetNameFormatted()}");
 
+            itemSpec = MythicRiftItemPresentation.ApplyLauncherPresentation(itemSpec);
+
             using EntitySettings settings = ObjectPoolManager.Instance.Get<EntitySettings>();
-            settings.EntityRef = itemProtoRef;
+            settings.EntityRef = itemSpec.ItemProtoRef;
             settings.ItemSpec = itemSpec;
 
             if (IsInGame == false)
@@ -1165,7 +1167,7 @@ namespace MHServerEmu.Games.Entities
             }
 
             _mythicRiftVendorItemIds.Add(item.Id);
-            Logger.Info($"[MythicRiftVendor] Added {MythicRiftLauncherService.CosmicRiftBeaconPrototypeName} to vendorType={vendorTypeProto.DataRef.GetNameFormatted()} inventory={inventory.PrototypeDataRef.GetNameFormatted()} mode={MythicRiftDangerRoomVendorMode}");
+            Logger.Info($"[MythicRiftVendor] Added {item.PrototypeDataRef.GetNameFormatted()} to vendorType={vendorTypeProto.DataRef.GetNameFormatted()} inventory={inventory.PrototypeDataRef.GetNameFormatted()} technicalBase={MythicRiftLauncherService.CosmicRiftBeaconPrototypeName} mode={MythicRiftDangerRoomVendorMode}");
             return true;
         }
 
