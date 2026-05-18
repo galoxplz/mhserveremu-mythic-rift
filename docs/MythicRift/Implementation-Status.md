@@ -87,6 +87,7 @@ These entries are special Rift variants. They can be selected randomly only thro
 - support special low-chance random maps, currently used by `Cosmic Doop Sector` at 5%, with fixed own boss selection
 - avoid selecting the same boss-source entry as the chosen map when the random pool offers alternatives
 - avoid immediately repeating the last completed Rift terminal map for the requester or party when another random map is available
+- avoid recent map repeats for the requester or party by keeping a short server-side recent-map history, reducing streaks like repeated Fisk Tower / Hydra Island while still falling back gracefully when the pool is exhausted
 - avoid re-rolling the terminal content that the requester or party is currently standing in when chaining the next random Rift from a still-open terminal region
 - use a default kill quota specific to the selected terminal content
 - calculate D3-like Rift level scaling
@@ -147,6 +148,8 @@ These entries are special Rift variants. They can be selected randomly only thro
 - apply a default 10-minute launcher timer when no other time limit is provided
 - distribute the `Cosmic Rift Beacon` directly from the server without relying on a custom client-side vendor
 - inject the preferred beacon into the Danger Room rewards vendor stock by default, so testers no longer need an admin grant for the basic flow
+- override the dedicated launcher item's display name server-side as `Mythic Rift Scenario` without changing the shared Danger Room scenario locale string used by other items
+- patch the dedicated launcher prototype's display/tooltip locale ids to unique Mythic Rift strings where the server-side patcher path is respected
 - track the specific granted `Cosmic Rift Beacon` item instances server-side
 - register vendor-bought beacon items when purchased
 - let tracked beacon instances launch a Rift directly on use, without needing a prior intent-consume step
@@ -329,6 +332,7 @@ Current practical launcher stage
 - It is explicitly framed to avoid dependence on a manual client patch.
 - If game files are needed later, they should ideally be deployable through the Patcher.
 - The current preferred player-facing direction is now an item-driven portal flow based only on `PortalToRandomMaxAffixDungeon`, because removing the `PortalToRandomDungeon` compatibility path should isolate the Rift launcher more cleanly from normal Danger Room gameplay.
+- The current item-name direction is server-side only: use a targeted `DisplayNameOverride` property plus unique locale ids for `PortalToRandomMaxAffixDungeon`, instead of overriding the shared scenario string and accidentally renaming every Danger Room scenario.
 - Random enemy replacement is still intentionally deferred. The current server-side-safe implementation randomizes the terminal map and boss source, but keeps native terminal enemy populations until we validate a safe way to replace or overlay mobs without breaking map scripts.
 - A basic no-client-patch player-facing level selector now exists through chat commands. A cleaner item/NPC UI for showing progression and selecting levels remains future UX polish because dynamic per-player item tooltip changes are not realistic without client-side UI/data support.
 

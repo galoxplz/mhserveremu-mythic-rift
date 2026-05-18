@@ -4,9 +4,9 @@
 
 This guide is meant to let TAHITI admins test the current **Cosmic Rift Beacon** flow without any custom client-side vendor or launcher work.
 
-Current player-facing identity:
+Current player-facing / vendor identity:
 
-- `Cosmic Rift Beacon`
+- `Mythic Rift Scenario`
 
 Current technical base:
 
@@ -20,6 +20,7 @@ Current technical base:
 - `PortalToRandomDungeon` is no longer accepted as a Rift launcher fallback, because it is a stock item and should stay isolated from Cosmic Rift behavior
 - because both prototypes appear to be `DesignState: DevelopmentOnly`, TAHITI should patch the chosen live test item to `DesignState=Live`
 - `PortalToRandomMaxAffixDungeon` is treated as the dedicated preferred launcher base, so it can launch a Rift even if the live server creates or clones the purchased item without preserving the previous in-memory tracking entry
+- the server now provides a targeted string override for `PortalToRandomMaxAffixDungeon` so this dedicated item can appear as `Mythic Rift Scenario` without overriding the shared string used by every normal Danger Room scenario
 - `rift diagbeacon` is a server-side prerequisite check only; it does not prove the final client click path, so live item-click tests should also check the `[MythicRiftLauncher]` logs if the item still reaches native Danger Room behavior
 - the current prototype remains admin-oriented while the final player entry flow is still being refined
 
@@ -236,7 +237,7 @@ Expected result:
 - `rift beaconmode` should report the created `runId`, selected `content`, `region`, and `entryTarget`
 - `rift run [runId]` should show a `bossSource` that may differ from the selected map content
 - `rift run [runId]` should show `competitiveEligibility=bossUnlock:X | bossKill:Y` so admins can verify who qualified for the next-level unlock rule
-- when an alternative exists in the random pool, the next random Rift should avoid immediately repeating the last terminal map played by the requester or party members
+- when alternatives exist in the random pool, the next random Rift should avoid the recent map history for the requester and party members, not only the immediately previous map
 - when the pool allows it, the random `bossSource` now avoids matching the selected map entry so admins can validate true map/boss mixing more easily
 - the terminal's native linked boss should be suppressed by the server during the Rift so players cannot kill the normal terminal boss before the quota
 - the only boss that should complete the Rift is the configured/spawned Rift boss, and only after the enemy quota is complete
@@ -577,7 +578,7 @@ Expected behavior:
 These notes are important when reviewing test-center feedback.
 
 - the current updated build is intended to keep successful beacon clicks inside the Mythic Rift flow instead of falling back into a normal Danger Room result
-- the current updated build also excludes the requester's current terminal region and last completed terminal map from the next random pick when alternatives exist
+- the current updated build excludes the requester's current terminal region and recent selected/completed maps from the next random pick when alternatives exist
 - if a tester reports "sometimes it turned back into a regular Danger Room" or "I got the same dead terminal again with no mobs", first confirm they were on the newest build
 - boss loot is still inherited from the reused terminal boss loot tables for now, so observations such as cube shard drops are expected at this stage
 - this means the current prototype validates gameplay flow first, not final reward identity
@@ -718,7 +719,7 @@ At the current stage, this prototype already supports:
 
 ## Current Limitations
 
-- the visible item name in the client is still tied to the base game prototype unless later changed through patcher-delivered game files
+- the dedicated Rift item name now has a server-side override path, but admins should still verify the vendor, inventory, and tooltip display in the live client because not every client UI text path is guaranteed to respect server-side properties
 - there is no final capital NPC or interactable yet
 - progression now persists in the Player save data, but still needs broader long-session testing
 - the current launcher flow is meant for admin testing and iteration, not final player UX

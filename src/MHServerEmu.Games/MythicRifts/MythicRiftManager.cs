@@ -36,6 +36,7 @@ namespace MHServerEmu.Games.MythicRifts
         private const int ChampionKillCountCredit = 3;
         private const int EliteKillCountCredit = 5;
         private const int MiniBossKillCountCredit = 8;
+        private const int RecentRandomMapHistoryLimit = 4;
         private const ulong RiftEntryBannerLocaleStringBase = 18000000000000000000UL;
         private const int RiftEntryBannerLocalizedLevelLimit = 10000;
         private const int RiftEntryBannerTimeToLiveMS = 5000;
@@ -204,6 +205,7 @@ namespace MHServerEmu.Games.MythicRifts
         private readonly Dictionary<ulong, int> _highestUnlockedRiftLevelByPlayer = new();
         private readonly Dictionary<ulong, int> _preferredLaunchRiftLevelByPlayer = new();
         private readonly Dictionary<ulong, string> _lastCompletedMapContentIdByPlayer = new();
+        private readonly Dictionary<ulong, List<string>> _recentRandomMapContentIdsByPlayer = new();
         private readonly Dictionary<ulong, TimeSpan> _nextNativeBossSuppressionScanAt = new();
         private readonly Dictionary<ulong, TimeSpan> _nextRiftObjectiveWidgetRefreshAt = new();
         private readonly Dictionary<ulong, HashSet<Mission>> _serverSuspendedNativeObjectiveMissionsByRun = new();
@@ -833,6 +835,9 @@ namespace MHServerEmu.Games.MythicRifts
             }
 
             RegisterInitialParticipants(runState, player, party);
+            if (useRandomContent)
+                TrackRecentlySelectedMapContent(runState);
+
             Logger.Info($"Mythic Rift run {runState.Config.RunId} requested by playerDbId=0x{player.DatabaseUniqueId:X} at level {riftLevel}. partyId=0x{party?.PartyId ?? 0UL:X} partyLeaderDbId=0x{party?.LeaderId ?? 0UL:X} partyMembers={party?.NumMembers ?? 1}");
             return runState;
         }
@@ -1954,6 +1959,7 @@ namespace MHServerEmu.Games.MythicRifts
 
             ulong resolvedPlayerDbId = player?.DatabaseUniqueId ?? playerDbId;
             TryAddLastCompletedMapContentId(excludedContentIds, resolvedPlayerDbId);
+            TryAddRecentRandomMapContentIds(excludedContentIds, resolvedPlayerDbId);
             TryAddCurrentRegionMapContentId(excludedContentIds, player?.GetRegion());
         }
 
@@ -1969,6 +1975,21 @@ namespace MHServerEmu.Games.MythicRifts
                 return;
 
             excludedContentIds.Add(contentId);
+        }
+
+        private void TryAddRecentRandomMapContentIds(HashSet<string> excludedContentIds, ulong playerDbId)
+        {
+            if (excludedContentIds == null || playerDbId == 0)
+                return;
+
+            if (_recentRandomMapContentIdsByPlayer.TryGetValue(playerDbId, out List<string> recentContentIds) == false)
+                return;
+
+            foreach (string recentContentId in recentContentIds)
+            {
+                if (string.IsNullOrWhiteSpace(recentContentId) == false)
+                    excludedContentIds.Add(recentContentId);
+            }
         }
 
         private void TryAddCurrentRegionMapContentId(HashSet<string> excludedContentIds, Region region)
@@ -2019,8 +2040,39 @@ namespace MHServerEmu.Games.MythicRifts
             foreach (ulong playerDbId in runState.ParticipantPlayerDbIds)
             {
                 if (playerDbId != 0)
+                {
                     _lastCompletedMapContentIdByPlayer[playerDbId] = contentId;
+                    TrackRecentRandomMapContentId(playerDbId, contentId);
+                }
             }
+        }
+
+        private void TrackRecentlySelectedMapContent(MythicRiftRunState runState)
+        {
+            string contentId = runState?.Config?.Content?.Id;
+            if (string.IsNullOrWhiteSpace(contentId))
+                return;
+
+            foreach (ulong playerDbId in runState.ParticipantPlayerDbIds)
+                TrackRecentRandomMapContentId(playerDbId, contentId);
+        }
+
+        private void TrackRecentRandomMapContentId(ulong playerDbId, string contentId)
+        {
+            if (playerDbId == 0 || string.IsNullOrWhiteSpace(contentId))
+                return;
+
+            if (_recentRandomMapContentIdsByPlayer.TryGetValue(playerDbId, out List<string> recentContentIds) == false)
+            {
+                recentContentIds = new();
+                _recentRandomMapContentIdsByPlayer[playerDbId] = recentContentIds;
+            }
+
+            recentContentIds.RemoveAll(existingContentId => string.Equals(existingContentId, contentId, StringComparison.OrdinalIgnoreCase));
+            recentContentIds.Add(contentId);
+
+            while (recentContentIds.Count > RecentRandomMapHistoryLimit)
+                recentContentIds.RemoveAt(0);
         }
 
         private void CaptureBossUnlockEligibility(MythicRiftRunState runState)
