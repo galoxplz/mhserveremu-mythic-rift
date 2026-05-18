@@ -148,8 +148,8 @@ These entries are special Rift variants. They can be selected randomly only thro
 - apply a default 10-minute launcher timer when no other time limit is provided
 - distribute the `Cosmic Rift Beacon` directly from the server without relying on a custom client-side vendor
 - inject the preferred beacon into the Danger Room rewards vendor stock by default, so testers no longer need an admin grant for the basic flow
-- override the dedicated launcher item's display name server-side as `Mythic Rift Scenario` without changing the shared Danger Room scenario locale string used by other items
-- patch the dedicated launcher prototype's display/tooltip locale ids to unique Mythic Rift strings where the server-side patcher path is respected
+- provide vendor-open and purchase chat hints so players understand that the stock-looking `Danger Room Scenario` entry is the Cosmic Rift Beacon
+- document that static vendor item naming/tooltip text remains a client-data limitation without a client/game-data patch or a better existing item candidate
 - track the specific granted `Cosmic Rift Beacon` item instances server-side
 - register vendor-bought beacon items when purchased
 - let tracked beacon instances launch a Rift directly on use, without needing a prior intent-consume step
@@ -332,7 +332,7 @@ Current practical launcher stage
 - It is explicitly framed to avoid dependence on a manual client patch.
 - If game files are needed later, they should ideally be deployable through the Patcher.
 - The current preferred player-facing direction is now an item-driven portal flow based only on `PortalToRandomMaxAffixDungeon`, because removing the `PortalToRandomDungeon` compatibility path should isolate the Rift launcher more cleanly from normal Danger Room gameplay.
-- The current item-name direction is server-side only: use a targeted `DisplayNameOverride` property plus unique locale ids for `PortalToRandomMaxAffixDungeon`, instead of overriding the shared scenario string and accidentally renaming every Danger Room scenario.
+- The client vendor/tooltip UI still displays the stock `Danger Room Scenario` name for `PortalToRandomMaxAffixDungeon`; server-side prototype/string overrides do not affect that static client UI path. The current no-client-patch mitigation is explicit chat guidance when the Danger Room vendor opens and when the beacon is purchased.
 - Random enemy replacement is still intentionally deferred. The current server-side-safe implementation randomizes the terminal map and boss source, but keeps native terminal enemy populations until we validate a safe way to replace or overlay mobs without breaking map scripts.
 - A basic no-client-patch player-facing level selector now exists through chat commands. A cleaner item/NPC UI for showing progression and selecting levels remains future UX polish because dynamic per-player item tooltip changes are not realistic without client-side UI/data support.
 

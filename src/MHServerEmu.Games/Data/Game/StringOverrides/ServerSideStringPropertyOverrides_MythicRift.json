@@ -1,8 +1,0 @@
-[
-  {
-    "Enabled": true,
-    "Prototype": "Entity/Items/Consumables/Prototypes/DangerRoom/PortalToRandomMaxAffixDungeon.prototype",
-    "Property": "DisplayNameOverride",
-    "LocaleStringId": 18000000000000040001
-  }
-]

@@ -6,7 +6,8 @@ This guide is meant to let TAHITI admins test the current **Cosmic Rift Beacon**
 
 Current player-facing / vendor identity:
 
-- `Mythic Rift Scenario`
+- The vendor/client tooltip currently still shows the stock `Danger Room Scenario` text for the launcher item.
+- The server clarifies this with Cosmic Rift chat messages when the Danger Room vendor opens and when the item is purchased.
 
 Current technical base:
 
@@ -20,7 +21,8 @@ Current technical base:
 - `PortalToRandomDungeon` is no longer accepted as a Rift launcher fallback, because it is a stock item and should stay isolated from Cosmic Rift behavior
 - because both prototypes appear to be `DesignState: DevelopmentOnly`, TAHITI should patch the chosen live test item to `DesignState=Live`
 - `PortalToRandomMaxAffixDungeon` is treated as the dedicated preferred launcher base, so it can launch a Rift even if the live server creates or clones the purchased item without preserving the previous in-memory tracking entry
-- the server now provides a targeted string override for `PortalToRandomMaxAffixDungeon` so this dedicated item can appear as `Mythic Rift Scenario` without overriding the shared string used by every normal Danger Room scenario
+- server-side item name/tooltip overrides were tested and are not considered reliable for the vendor tooltip/list UI, because that client screen resolves the static item prototype text locally from the client data
+- the current no-client-patch mitigation is a clear chat hint: the bottom `Danger Room Scenario` sold by the Danger Room vendor is the Cosmic Rift Beacon
 - `rift diagbeacon` is a server-side prerequisite check only; it does not prove the final client click path, so live item-click tests should also check the `[MythicRiftLauncher]` logs if the item still reaches native Danger Room behavior
 - the current prototype remains admin-oriented while the final player entry flow is still being refined
 
@@ -719,7 +721,7 @@ At the current stage, this prototype already supports:
 
 ## Current Limitations
 
-- the dedicated Rift item name now has a server-side override path, but admins should still verify the vendor, inventory, and tooltip display in the live client because not every client UI text path is guaranteed to respect server-side properties
+- the dedicated Rift item still appears as a stock `Danger Room Scenario` in the vendor and tooltip without a client/game-data patch or a different existing item with suitable client-side text
 - there is no final capital NPC or interactable yet
 - progression now persists in the Player save data, but still needs broader long-session testing
 - the current launcher flow is meant for admin testing and iteration, not final player UX

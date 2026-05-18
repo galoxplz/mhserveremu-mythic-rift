@@ -97,6 +97,7 @@ Current implemented prototype behavior:
 - interception of native `Mission` / `MissionObjective` update packets for controlled terminal objectives while a Rift is active, so terminal bounty counters do not rebuild on the client after suppression
 - best-effort reuse of any remaining native generic fraction tracker as the active Rift kill quota counter
 - no-client-patch player feedback through chat messages and `rift status`, instead of relying on native terminal objective tracker text for Rift-specific UX
+- vendor/purchase chat hints explain that the stock-looking `Danger Room Scenario` item is the Cosmic Rift Beacon, because static item names/tooltips are resolved client-side without a client/game-data patch
 - safe interception of the chosen beacon base so the Mythic Rift path no longer falls back into a normal scenario behavior after a successful Rift launch
 - safer chain-running from inside terminals because the random map picker now excludes the terminal region the requester / party is currently standing in
 - persistent unlocked Rift progression
