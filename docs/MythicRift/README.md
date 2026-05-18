@@ -9,7 +9,8 @@ Recommended reading order:
 3. `Architecture.md`
 4. `Implementation-Status.md`
 5. `Admin-Test-Guide.md`
-6. `TAHITI-Review-Bundle.md`
+6. `Player-Feedback-Triage.md`
+7. `TAHITI-Review-Bundle.md`
 
 These documents are meant to help reviewers, collaborators, and server leads quickly understand:
 

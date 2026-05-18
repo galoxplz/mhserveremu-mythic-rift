@@ -58,5 +58,14 @@
   },
   "18000000000000030020": {
     "en_us": "COSMIC RIFT CLEARED"
+  },
+  "18000000000000040001": {
+    "en_us": "Mythic Rift Scenario"
+  },
+  "18000000000000040002": {
+    "en_us": "Opens a server-side Mythic Rift challenge from the Danger Room."
+  },
+  "18000000000000040003": {
+    "en_us": ""
   }
 }

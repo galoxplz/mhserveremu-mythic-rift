@@ -234,6 +234,7 @@ namespace MHServerEmu.Games.Entities
             Properties[PropertyEnum.VariationSeed] = settings.VariationSeed != 0 ? settings.VariationSeed : Game.Random.Next(1, 10000);
 
             TagPlayers = new(this);
+            ApplyServerSideStringPropertyOverrides();
 
             return true;
         }
@@ -246,6 +247,15 @@ namespace MHServerEmu.Games.Entities
         public void ClearSpawnSpec()
         {
             SpawnSpec = null;
+        }
+
+        private void ApplyServerSideStringPropertyOverrides()
+        {
+            if (ServerSideStringOverrideManager.TryGetWorldEntityPropertyOverrides(PrototypeDataRef, out IReadOnlyDictionary<PropertyEnum, LocaleStringId> overrides) == false)
+                return;
+
+            foreach (KeyValuePair<PropertyEnum, LocaleStringId> kvp in overrides)
+                Properties[kvp.Key] = (ulong)kvp.Value;
         }
 
         public override bool Serialize(Archive archive)
