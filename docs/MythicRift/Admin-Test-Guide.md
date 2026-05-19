@@ -306,7 +306,7 @@ Special low-chance map id:
 
 - `cosmic-doop-sector`
 
-Fixed-test-only StoryRevamp / treasure-room ids:
+Fixed-test-only StoryRevamp / treasure-room ids with server-side Rift population:
 
 - `sabretooth-showdown`
 - `supervillain-rec-center`
@@ -319,7 +319,7 @@ Fixed-test-only StoryRevamp / treasure-room ids:
 - `tr-norway-tomb`
 - `tr-sacred-dojo`
 
-These entries are intentionally not random-selected yet. Use them for focused tester passes first, then promote only stable maps into the normal random pool.
+These entries are intentionally not random-selected yet. They now use a controlled server-side Rift population overlay, because several of these StoryRevamp / showdown rooms do not spawn enough native enemies for normal quota gameplay. Use them for focused tester passes first, then promote only stable maps into the normal random pool.
 
 Example flow:
 
@@ -348,7 +348,7 @@ Expected result:
 - the run should report `content=taskmaster`
 - terminal fixed-content runs should report the selected terminal as the boss source
 - non-terminal fixed-content runs should report the selected map as `content`, with a separate terminal `bossSource`
-- StoryRevamp / treasure-room fixed-test runs should behave like map-only Rifts: selected room as `content`, random validated terminal boss as `bossSource`, quota before boss spawn, and cleanup after exit
+- StoryRevamp / treasure-room fixed-test runs should behave like map-only Rifts: selected room as `content`, random validated terminal boss as `bossSource`, `customPopulation=True`, quota before boss spawn, and cleanup after exit
 - for party tests, the Rift should no longer auto-close immediately just because another party member is still zoning
 - only a player who has actually been seen inside the Rift can be marked as an early exit, and that early exit should not stop other players from continuing
 - teleport should target the `entryTarget` resolved for the selected terminal

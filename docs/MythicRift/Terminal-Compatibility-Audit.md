@@ -104,6 +104,8 @@ Use one beacon after arming. Expected result: the run enters the Cosmic Doop spa
 
 These entries were added for focused Test Center validation only. They resolve server-side as concrete `PrivateStory` regions, have valid `StartTarget` refs that point back to their own region, are approved/non-abstract, and have `ObjectiveGraph=Off`. They are not random-selected yet; promote only the maps that pass live multiplayer tests.
 
+Because several of these rooms have little or no native population when entered outside their original story flow, they now run with a controlled server-side Rift population overlay. The overlay spawns validated `EndGameRandoms01` hostile mobs near players while the quota phase is active, then stops once the boss unlocks. This keeps the rooms usable like normal terminal Rifts without requiring client-side map edits.
+
 | Map id | Region | Start target | Kill quota | Notes |
 |---|---|---|---:|---|
 | `sabretooth-showdown` | `CH0705SabretoothShowdownRegion` | `CH07SabretoothShowdownTarget` | 45 | Best concrete Showdown candidate found under StoryRevamp. |
@@ -134,7 +136,7 @@ rift armbeaconfixed tr-norway-tomb 10
 rift armbeaconfixed tr-sacred-dojo 10
 ```
 
-Use one beacon after each `armbeaconfixed` command. Expected result: selected map loads, Rift HUD appears, kill quota progresses, random validated terminal boss spawns only after quota, completion portal returns players to Danger Room, and the instance cleans up after exit/abandon/timeout.
+Use one beacon after each `armbeaconfixed` command. Expected result: selected map loads, Rift HUD appears, `customPopulation=True` appears in `rift status` / `rift run [runId]`, kill quota progresses from spawned Rift mobs, random validated terminal boss spawns only after quota, completion portal returns players to Danger Room, and the instance cleans up after exit/abandon/timeout.
 
 ## Detailed Recheck Notes
 

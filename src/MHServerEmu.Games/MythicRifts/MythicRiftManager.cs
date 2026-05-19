@@ -9,6 +9,7 @@ using MHServerEmu.Games.GameData;
 using MHServerEmu.Games.GameData.Prototypes;
 using MHServerEmu.Games.Loot;
 using MHServerEmu.Games.Missions;
+using MHServerEmu.Games.Navi;
 using MHServerEmu.Games.Properties;
 using MHServerEmu.Games.Regions;
 using MHServerEmu.Games.Social.Parties;
@@ -32,6 +33,16 @@ namespace MHServerEmu.Games.MythicRifts
         private static readonly TimeSpan NativeBossSuppressionScanInterval = TimeSpan.FromSeconds(2);
         private static readonly TimeSpan RiftObjectiveWidgetRefreshInterval = TimeSpan.FromSeconds(5);
         private static readonly TimeSpan PlayerDeathTimePenalty = TimeSpan.FromSeconds(15);
+        private static readonly TimeSpan CustomRiftPopulationSpawnInterval = TimeSpan.FromSeconds(4);
+        private const int CustomRiftPopulationBaseTargetAlive = 18;
+        private const int CustomRiftPopulationTargetAlivePerExtraPlayer = 4;
+        private const int CustomRiftPopulationBaseMaxAlive = 30;
+        private const int CustomRiftPopulationMaxAlivePerExtraPlayer = 6;
+        private const int CustomRiftPopulationBaseSpawnBatch = 8;
+        private const int CustomRiftPopulationSpawnBatchPerExtraPlayer = 2;
+        private const float CustomRiftPopulationSpawnMinDistance = 450f;
+        private const float CustomRiftPopulationSpawnMaxDistance = 1500f;
+        private const float CustomRiftPopulationFallbackSpawnDistance = 700f;
         private const int RiftPopulationRespawnDelayMS = 20000;
         private const int ChampionKillCountCredit = 3;
         private const int EliteKillCountCredit = 5;
@@ -53,6 +64,25 @@ namespace MHServerEmu.Games.MythicRifts
         private static readonly PrototypeId RiftDangerRoomTimerWidgetPrototypeRef = (PrototypeId)15369535438503023451UL;
         private const string RiftExitPortalPrototypeName = "Entity/Transitions/ReturnToLastBaseDR.prototype";
         private const float SpecialRandomMapChance = 0.05f;
+        private static readonly string[] CustomRiftPopulationMobPrototypeNames =
+        {
+            "Entity/Characters/Mobs/EndGameRandoms01/ThugEG06.prototype",
+            "Entity/Characters/Mobs/EndGameRandoms01/MaggiaGoonEG06.prototype",
+            "Entity/Characters/Mobs/EndGameRandoms01/MaggiaBruiserEG06.prototype",
+            "Entity/Characters/Mobs/EndGameRandoms01/HydraGunnerEG13.prototype",
+            "Entity/Characters/Mobs/EndGameRandoms01/HydraPowerBrawlerEG13.prototype",
+            "Entity/Characters/Mobs/EndGameRandoms01/HydraPlasmaCasterEG13.prototype",
+            "Entity/Characters/Mobs/EndGameRandoms01/HandNinjaEG11.prototype",
+            "Entity/Characters/Mobs/EndGameRandoms01/HandAssassinEG11.prototype",
+            "Entity/Characters/Mobs/EndGameRandoms01/PurifierAcolyteEG10.prototype",
+            "Entity/Characters/Mobs/EndGameRandoms01/PurifierGrenadierEG10.prototype",
+            "Entity/Characters/Mobs/EndGameRandoms01/DoombotInfernoEG12.prototype",
+            "Entity/Characters/Mobs/EndGameRandoms01/ServoGuardRangedEG12.prototype",
+            "Entity/Characters/Mobs/EndGameRandoms01/BroodSoldierEG08.prototype",
+            "Entity/Characters/Mobs/EndGameRandoms01/BroodFlyerEG08.prototype",
+            "Entity/Characters/Mobs/EndGameRandoms01/RaptorEG04.prototype",
+            "Entity/Characters/Mobs/EndGameRandoms01/MoloidEG01.prototype"
+        };
         private static readonly MythicRiftContentDefinition[] DefaultContentDefinitions =
         {
             new(
@@ -206,7 +236,8 @@ namespace MHServerEmu.Games.MythicRifts
                 null,
                 null,
                 RandomMapEligible: false,
-                RandomBossEligible: false),
+                RandomBossEligible: false,
+                UseCustomPopulation: true),
             new(
                 "supervillain-rec-center",
                 "Supervillain Rec Center",
@@ -216,7 +247,8 @@ namespace MHServerEmu.Games.MythicRifts
                 null,
                 null,
                 RandomMapEligible: false,
-                RandomBossEligible: false),
+                RandomBossEligible: false,
+                UseCustomPopulation: true),
             new(
                 "sc-kill-house",
                 "Stryker Kill House",
@@ -226,7 +258,8 @@ namespace MHServerEmu.Games.MythicRifts
                 null,
                 null,
                 RandomMapEligible: false,
-                RandomBossEligible: false),
+                RandomBossEligible: false,
+                UseCustomPopulation: true),
             new(
                 "sc-missile-silo",
                 "Stryker Missile Silo",
@@ -236,7 +269,8 @@ namespace MHServerEmu.Games.MythicRifts
                 null,
                 null,
                 RandomMapEligible: false,
-                RandomBossEligible: false),
+                RandomBossEligible: false,
+                UseCustomPopulation: true),
             new(
                 "sc-mineshaft",
                 "Stryker Mineshaft",
@@ -246,7 +280,8 @@ namespace MHServerEmu.Games.MythicRifts
                 null,
                 null,
                 RandomMapEligible: false,
-                RandomBossEligible: false),
+                RandomBossEligible: false,
+                UseCustomPopulation: true),
             new(
                 "sc-dino-graveyard",
                 "Dino Graveyard",
@@ -256,7 +291,8 @@ namespace MHServerEmu.Games.MythicRifts
                 null,
                 null,
                 RandomMapEligible: false,
-                RandomBossEligible: false),
+                RandomBossEligible: false,
+                UseCustomPopulation: true),
             new(
                 "sc-fire-swamp",
                 "Fire Swamp",
@@ -266,7 +302,8 @@ namespace MHServerEmu.Games.MythicRifts
                 null,
                 null,
                 RandomMapEligible: false,
-                RandomBossEligible: false),
+                RandomBossEligible: false,
+                UseCustomPopulation: true),
             new(
                 "tr-asgard-estate",
                 "Asgard Estate",
@@ -276,7 +313,8 @@ namespace MHServerEmu.Games.MythicRifts
                 null,
                 null,
                 RandomMapEligible: false,
-                RandomBossEligible: false),
+                RandomBossEligible: false,
+                UseCustomPopulation: true),
             new(
                 "tr-norway-tomb",
                 "Norway Tomb",
@@ -286,7 +324,8 @@ namespace MHServerEmu.Games.MythicRifts
                 null,
                 null,
                 RandomMapEligible: false,
-                RandomBossEligible: false),
+                RandomBossEligible: false,
+                UseCustomPopulation: true),
             new(
                 "tr-sacred-dojo",
                 "Sacred Dojo",
@@ -296,7 +335,8 @@ namespace MHServerEmu.Games.MythicRifts
                 null,
                 null,
                 RandomMapEligible: false,
-                RandomBossEligible: false),
+                RandomBossEligible: false,
+                UseCustomPopulation: true),
         };
 
         private readonly List<MythicRiftContentEntry> _contentPool = new();
@@ -312,6 +352,7 @@ namespace MHServerEmu.Games.MythicRifts
         private static PrototypeId _cachedRiftDangerRoomLevelWidgetPrototypeRef = PrototypeId.Invalid;
         private static PrototypeId _cachedRiftDangerRoomQuotaWidgetPrototypeRef = PrototypeId.Invalid;
         private static PrototypeId _cachedRiftDangerRoomTimerWidgetPrototypeRef = PrototypeId.Invalid;
+        private static PrototypeId[] _cachedCustomRiftPopulationMobPrototypeRefs;
         private ulong _nextRunId = 1;
 
         public Game Game { get; }
@@ -795,6 +836,7 @@ namespace MHServerEmu.Games.MythicRifts
                 RegisterBoundRegionPlayersAsParticipants(runState);
                 UpdateParticipantPresence(runState, currentTime);
                 TryAutoBindAndStartPendingRun(runState, currentTime);
+                MaintainCustomRiftPopulation(runState, currentTime);
                 SuppressNativeTerminalBosses(runState, currentTime);
                 RefreshRiftObjectiveWidgets(runState, currentTime);
 
@@ -2280,6 +2322,222 @@ namespace MHServerEmu.Games.MythicRifts
             };
         }
 
+        private void MaintainCustomRiftPopulation(MythicRiftRunState runState, TimeSpan currentTime)
+        {
+            if (runState?.Config?.Content?.UseCustomPopulation != true)
+                return;
+
+            if (runState.Status != MythicRiftRunStatus.Active || runState.RegionId == 0 || runState.BossUnlocked)
+                return;
+
+            if (currentTime < runState.NextCustomPopulationSpawnAt)
+                return;
+
+            Region region = Game.RegionManager.GetRegion(runState.RegionId);
+            if (region == null)
+                return;
+
+            int liveCount = CountLiveCustomRiftPopulationEntities(runState, region);
+            int maxAlive = GetCustomRiftPopulationMaxAlive(runState);
+            if (liveCount >= maxAlive)
+            {
+                runState.SetNextCustomPopulationSpawnAt(currentTime + CustomRiftPopulationSpawnInterval);
+                return;
+            }
+
+            int targetAlive = GetCustomRiftPopulationTargetAlive(runState);
+            if (liveCount >= targetAlive)
+            {
+                runState.SetNextCustomPopulationSpawnAt(currentTime + CustomRiftPopulationSpawnInterval);
+                return;
+            }
+
+            int spawnBatch = Math.Min(GetCustomRiftPopulationSpawnBatch(runState), maxAlive - liveCount);
+            int spawned = 0;
+            for (int i = 0; i < spawnBatch; i++)
+            {
+                if (TrySpawnCustomRiftPopulationMob(runState, region))
+                    spawned++;
+            }
+
+            runState.SetNextCustomPopulationSpawnAt(currentTime + CustomRiftPopulationSpawnInterval);
+
+            if (spawned > 0)
+                Logger.Debug($"Mythic Rift run {runState.Config.RunId} spawned {spawned} custom population mob(s) for {runState.Config.Content.Id}. liveBefore={liveCount} totalSpawned={runState.CustomPopulationTotalSpawned}");
+        }
+
+        private int CountLiveCustomRiftPopulationEntities(MythicRiftRunState runState, Region region)
+        {
+            if (runState == null || region == null)
+                return 0;
+
+            int liveCount = 0;
+            foreach (ulong entityId in runState.CustomPopulationEntityIds.ToArray())
+            {
+                WorldEntity entity = Game.EntityManager.GetEntity<WorldEntity>(entityId);
+                if (entity == null || entity.IsDestroyed || entity.IsDead || entity.Region != region)
+                {
+                    runState.RemoveCustomPopulationEntity(entityId);
+                    continue;
+                }
+
+                if (entity is Agent && entity.IsHostileToPlayers())
+                    liveCount++;
+            }
+
+            return liveCount;
+        }
+
+        private bool TrySpawnCustomRiftPopulationMob(MythicRiftRunState runState, Region region)
+        {
+            if (runState == null || region == null)
+                return false;
+
+            Player anchorPlayer = PickCustomRiftPopulationAnchorPlayer(runState, region);
+            Avatar anchorAvatar = anchorPlayer?.CurrentAvatar;
+            if (anchorAvatar == null || anchorAvatar.IsAliveInWorld == false || anchorAvatar.Region != region)
+                return false;
+
+            AgentPrototype mobProto = PickCustomRiftPopulationMobPrototype();
+            if (mobProto == null || mobProto.Bounds == null)
+                return false;
+
+            Vector3 spawnPosition = anchorAvatar.RegionLocation.Position + (anchorAvatar.Forward * CustomRiftPopulationFallbackSpawnDistance);
+            Bounds spawnBounds = new(mobProto.Bounds, spawnPosition);
+            PathFlags pathFlags = Region.GetPathFlagsForEntity(mobProto);
+
+            bool foundPosition = region.ChooseRandomPositionNearPoint(
+                ref spawnBounds,
+                pathFlags,
+                PositionCheckFlags.CanBeBlockedEntity | PositionCheckFlags.PreferNoEntity,
+                BlockingCheckFlags.CheckSpawns,
+                CustomRiftPopulationSpawnMinDistance,
+                CustomRiftPopulationSpawnMaxDistance,
+                out spawnPosition,
+                maxPositionTests: 96);
+
+            if (foundPosition == false)
+            {
+                spawnBounds.Center = anchorAvatar.RegionLocation.Position + (anchorAvatar.Forward * CustomRiftPopulationFallbackSpawnDistance);
+                foundPosition = region.ChoosePositionAtOrNearPoint(
+                    ref spawnBounds,
+                    pathFlags,
+                    PositionCheckFlags.CanBeBlockedEntity | PositionCheckFlags.PreferNoEntity,
+                    BlockingCheckFlags.None,
+                    CustomRiftPopulationFallbackSpawnDistance,
+                    out spawnPosition,
+                    maxPositionTests: 48);
+            }
+
+            if (foundPosition == false)
+                return false;
+
+            Cell spawnCell = region.GetCellAtPosition(spawnPosition);
+            if (spawnCell == null)
+                return false;
+
+            spawnPosition = RegionLocation.ProjectToFloor(region, spawnPosition);
+            spawnPosition.Z += mobProto.Bounds.GetBoundHalfHeight();
+
+            using EntitySettings settings = ObjectPoolManager.Instance.Get<EntitySettings>();
+            settings.EntityRef = mobProto.DataRef;
+            settings.Position = spawnPosition;
+            settings.Orientation = anchorAvatar.RegionLocation.Orientation;
+            settings.RegionId = region.Id;
+            settings.Cell = spawnCell;
+            settings.IsPopulation = true;
+
+            using PropertyCollection settingsProperties = ObjectPoolManager.Instance.Get<PropertyCollection>();
+            int level = spawnCell.Area.GetCharacterLevel(mobProto);
+            settingsProperties[PropertyEnum.CharacterLevel] = level;
+            settingsProperties[PropertyEnum.CombatLevel] = level;
+            settingsProperties[PropertyEnum.DifficultyTier] = region.DifficultyTierRef;
+            settingsProperties[PropertyEnum.Rank] = mobProto.Rank;
+            settingsProperties[PropertyEnum.MissionXEncounterHostilityOk] = true;
+            if (runState.Config.MissionProtoRef != PrototypeId.Invalid)
+                settingsProperties[PropertyEnum.MissionPrototype] = runState.Config.MissionProtoRef;
+            settings.Properties = settingsProperties;
+
+            Agent spawnedAgent = Game.EntityManager.CreateEntity(settings) as Agent;
+            if (spawnedAgent == null)
+                return false;
+
+            if (mobProto.ModifiersGuaranteed != null && mobProto.ModifiersGuaranteed.Length > 0)
+            {
+                foreach (PrototypeId boost in mobProto.ModifiersGuaranteed)
+                    spawnedAgent.Properties[PropertyEnum.EnemyBoost, boost] = true;
+            }
+
+            runState.RegisterCustomPopulationEntity(spawnedAgent.Id);
+            return true;
+        }
+
+        private Player PickCustomRiftPopulationAnchorPlayer(MythicRiftRunState runState, Region region)
+        {
+            if (runState == null || region == null)
+                return null;
+
+            List<Player> players = new();
+            foreach (Player player in new PlayerIterator(region))
+            {
+                if (player?.DatabaseUniqueId == 0 || runState.HasParticipantLeftEarly(player.DatabaseUniqueId))
+                    continue;
+
+                if (player.CurrentAvatar?.IsAliveInWorld == true)
+                    players.Add(player);
+            }
+
+            if (players.Count == 0)
+                return null;
+
+            return players[Game.Random.Next(0, players.Count)];
+        }
+
+        private AgentPrototype PickCustomRiftPopulationMobPrototype()
+        {
+            PrototypeId[] mobRefs = GetCustomRiftPopulationMobPrototypeRefs();
+            if (mobRefs.Length == 0)
+                return null;
+
+            PrototypeId mobRef = mobRefs[Game.Random.Next(0, mobRefs.Length)];
+            return mobRef.As<AgentPrototype>();
+        }
+
+        private static PrototypeId[] GetCustomRiftPopulationMobPrototypeRefs()
+        {
+            if (_cachedCustomRiftPopulationMobPrototypeRefs != null)
+                return _cachedCustomRiftPopulationMobPrototypeRefs;
+
+            List<PrototypeId> resolvedRefs = new();
+            foreach (string prototypeName in CustomRiftPopulationMobPrototypeNames)
+            {
+                PrototypeId prototypeRef = ResolvePrototype(prototypeName);
+                if (prototypeRef != PrototypeId.Invalid && prototypeRef.As<AgentPrototype>() != null)
+                    resolvedRefs.Add(prototypeRef);
+            }
+
+            _cachedCustomRiftPopulationMobPrototypeRefs = resolvedRefs.ToArray();
+            return _cachedCustomRiftPopulationMobPrototypeRefs;
+        }
+
+        private static int GetCustomRiftPopulationTargetAlive(MythicRiftRunState runState)
+        {
+            int extraPlayers = Math.Max((runState?.Config?.EffectivePlayerCount ?? 1) - 1, 0);
+            return CustomRiftPopulationBaseTargetAlive + (extraPlayers * CustomRiftPopulationTargetAlivePerExtraPlayer);
+        }
+
+        private static int GetCustomRiftPopulationMaxAlive(MythicRiftRunState runState)
+        {
+            int extraPlayers = Math.Max((runState?.Config?.EffectivePlayerCount ?? 1) - 1, 0);
+            return CustomRiftPopulationBaseMaxAlive + (extraPlayers * CustomRiftPopulationMaxAlivePerExtraPlayer);
+        }
+
+        private static int GetCustomRiftPopulationSpawnBatch(MythicRiftRunState runState)
+        {
+            int extraPlayers = Math.Max((runState?.Config?.EffectivePlayerCount ?? 1) - 1, 0);
+            return CustomRiftPopulationBaseSpawnBatch + (extraPlayers * CustomRiftPopulationSpawnBatchPerExtraPlayer);
+        }
+
         private bool TrySpawnConfiguredBoss(MythicRiftRunState runState, WorldEntity anchorEntity)
         {
             if (runState == null || runState.RegionId == 0 || runState.BossEntityId != 0)
@@ -3040,7 +3298,8 @@ namespace MHServerEmu.Games.MythicRifts
                 RandomMapEligible = definition.RandomMapEligible,
                 RandomBossEligible = definition.RandomBossEligible,
                 IsSpecialRandomMap = definition.IsSpecialRandomMap,
-                UseOwnBossSourceWhenSelected = definition.UseOwnBossSourceWhenSelected
+                UseOwnBossSourceWhenSelected = definition.UseOwnBossSourceWhenSelected,
+                UseCustomPopulation = definition.UseCustomPopulation
             };
 
             if (content.IsValid == false)
@@ -3133,6 +3392,7 @@ namespace MHServerEmu.Games.MythicRifts
             bool RandomMapEligible = true,
             bool RandomBossEligible = true,
             bool IsSpecialRandomMap = false,
-            bool UseOwnBossSourceWhenSelected = false);
+            bool UseOwnBossSourceWhenSelected = false,
+            bool UseCustomPopulation = false);
     }
 }
