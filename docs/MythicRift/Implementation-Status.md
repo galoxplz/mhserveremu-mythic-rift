@@ -333,7 +333,7 @@ Current practical launcher stage
 - If game files are needed later, they should ideally be deployable through the Patcher.
 - The current preferred player-facing direction is now an item-driven portal flow where `PortalToRandomMaxAffixDungeon` remains the technical launcher base, but vendor stock is presented through `DangerRoomScenarioCrateUniqueCableFight` so the client can display `Mythic Rift Scenario` without a custom client patch.
 - The server still keeps explicit chat guidance when the Danger Room vendor opens and when the beacon is purchased, because this remains the safest fallback if presentation strings or prototype patches are missing on a test environment.
-- Random enemy replacement is still intentionally deferred. The current server-side-safe implementation randomizes the terminal map and boss source, but keeps native terminal enemy populations until we validate a safe way to replace or overlay mobs without breaking map scripts.
+- Random enemy replacement for normal terminal maps is still intentionally deferred. The current server-side-safe implementation randomizes the terminal map and boss source, keeps native terminal enemy populations for terminal content, and now adds a controlled server-side population overlay only for fixed-test StoryRevamp / treasure-room maps that otherwise have too few native spawns.
 - A basic no-client-patch player-facing level selector now exists through chat commands. A cleaner item/NPC UI for showing progression and selecting levels remains future UX polish because dynamic per-player item tooltip changes are not realistic without client-side UI/data support.
 
 ## Build / SDK Note

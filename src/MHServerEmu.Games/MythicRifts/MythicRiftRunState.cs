@@ -18,6 +18,7 @@ namespace MHServerEmu.Games.MythicRifts
         private readonly HashSet<ulong> _participantsSeenInRunRegion = new();
         private readonly HashSet<ulong> _earlyExitPlayerDbIds = new();
         private readonly HashSet<ulong> _riftEntryBannerSentPlayerDbIds = new();
+        private readonly HashSet<ulong> _customPopulationEntityIds = new();
         private readonly HashSet<int> _sentTimeWarningThresholds = new();
         private readonly HashSet<int> _sentKillProgressMilestones = new();
 
@@ -35,6 +36,8 @@ namespace MHServerEmu.Games.MythicRifts
         public TimeSpan? CompletedAt { get; private set; }
         public TimeSpan? ExpiresAt { get; private set; }
         public TimeSpan LastParticipantOnlineAt { get; private set; }
+        public TimeSpan NextCustomPopulationSpawnAt { get; private set; }
+        public int CustomPopulationTotalSpawned { get; private set; }
         public bool RegionDifficultyScalingApplied { get; private set; }
         public float RegionPlayerToMobDamageMultiplierBeforeScaling { get; private set; } = 1f;
         public float RegionMobToPlayerDamageMultiplierBeforeScaling { get; private set; } = 1f;
@@ -44,6 +47,7 @@ namespace MHServerEmu.Games.MythicRifts
         public IReadOnlyCollection<ulong> ProgressionEligiblePlayerDbIds => _progressionEligiblePlayerDbIds;
         public IReadOnlyCollection<ulong> ParticipantsSeenInRunRegionPlayerDbIds => _participantsSeenInRunRegion;
         public IReadOnlyCollection<ulong> EarlyExitPlayerDbIds => _earlyExitPlayerDbIds;
+        public IReadOnlyCollection<ulong> CustomPopulationEntityIds => _customPopulationEntityIds;
         public int ParticipantCount => _participantPlayerDbIds.Count;
         public int RewardedPlayerCount => _rewardedPlayerDbIds.Count;
         public bool IsInProgress => Status == MythicRiftRunStatus.Pending || Status == MythicRiftRunStatus.Active;
@@ -263,6 +267,28 @@ namespace MHServerEmu.Games.MythicRifts
         public bool MarkKillProgressMilestoneSent(int milestonePercent)
         {
             return milestonePercent > 0 && _sentKillProgressMilestones.Add(milestonePercent);
+        }
+
+        public void SetNextCustomPopulationSpawnAt(TimeSpan nextSpawnAt)
+        {
+            NextCustomPopulationSpawnAt = nextSpawnAt;
+        }
+
+        public bool RegisterCustomPopulationEntity(ulong entityId)
+        {
+            if (entityId == 0)
+                return false;
+
+            bool added = _customPopulationEntityIds.Add(entityId);
+            if (added)
+                CustomPopulationTotalSpawned++;
+
+            return added;
+        }
+
+        public bool RemoveCustomPopulationEntity(ulong entityId)
+        {
+            return entityId != 0 && _customPopulationEntityIds.Remove(entityId);
         }
 
         public bool HasExpired(TimeSpan currentTime)

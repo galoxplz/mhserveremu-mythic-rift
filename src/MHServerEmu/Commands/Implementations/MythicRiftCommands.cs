@@ -47,7 +47,7 @@ namespace MHServerEmu.Commands.Implementations
             };
 
             foreach (MythicRiftContentEntry content in contentPool.OrderBy(entry => entry.DisplayName))
-                lines.Add($"{content.Id}: {content.DisplayName} | mapEligible={content.RandomMapEligible} | bossEligible={content.RandomBossEligible} | special={content.IsSpecialRandomMap} | fixedOwnBoss={content.UseOwnBossSourceWhenSelected} | defaultKillQuota={content.DefaultKillQuota} | region={content.RegionProtoRef.GetNameFormatted()} | entryTarget={content.StartTargetProtoRef.GetNameFormatted()} | boss={content.BossProtoRef.GetNameFormatted()}");
+                lines.Add($"{content.Id}: {content.DisplayName} | mapEligible={content.RandomMapEligible} | bossEligible={content.RandomBossEligible} | special={content.IsSpecialRandomMap} | fixedOwnBoss={content.UseOwnBossSourceWhenSelected} | customPopulation={content.UseCustomPopulation} | defaultKillQuota={content.DefaultKillQuota} | region={content.RegionProtoRef.GetNameFormatted()} | entryTarget={content.StartTargetProtoRef.GetNameFormatted()} | boss={content.BossProtoRef.GetNameFormatted()}");
 
             CommandHelper.SendMessages(client, lines);
             return string.Empty;
@@ -119,7 +119,7 @@ namespace MHServerEmu.Commands.Implementations
                 bool contentValid = content.IsValid;
 
                 lines.Add(
-                    $"{content.Id}: mapEligible={content.RandomMapEligible} | bossEligible={content.RandomBossEligible} | special={content.IsSpecialRandomMap} | fixedOwnBoss={content.UseOwnBossSourceWhenSelected} | contentValid={contentValid} | regionValid={regionValid} | startTargetValid={startTargetValid} | targetMatchesRegion={targetMatchesRegion} | bossSourceValid={bossSourceValid} | region={content.RegionProtoRef.GetNameFormatted()} | entryTarget={content.StartTargetProtoRef.GetNameFormatted()}");
+                    $"{content.Id}: mapEligible={content.RandomMapEligible} | bossEligible={content.RandomBossEligible} | special={content.IsSpecialRandomMap} | fixedOwnBoss={content.UseOwnBossSourceWhenSelected} | customPopulation={content.UseCustomPopulation} | contentValid={contentValid} | regionValid={regionValid} | startTargetValid={startTargetValid} | targetMatchesRegion={targetMatchesRegion} | bossSourceValid={bossSourceValid} | region={content.RegionProtoRef.GetNameFormatted()} | entryTarget={content.StartTargetProtoRef.GetNameFormatted()}");
             }
 
             CommandHelper.SendMessages(client, lines);
@@ -2207,6 +2207,7 @@ namespace MHServerEmu.Commands.Implementations
                 $"regionId=0x{runState.RegionId:X} | bossEntityId=0x{runState.BossEntityId:X}",
                 $"participants={runState.ParticipantCount} | earlyExits={runState.EarlyExitPlayerDbIds.Count} | rewardedPlayers={runState.RewardedPlayerCount}",
                 $"competitiveEligibility=bossUnlock:{runState.BossUnlockEligiblePlayerDbIds.Count} | bossKill:{runState.ProgressionEligiblePlayerDbIds.Count}",
+                $"customPopulation={runState.Config.Content.UseCustomPopulation} | customSpawned={runState.CustomPopulationTotalSpawned} | customTracked={runState.CustomPopulationEntityIds.Count}",
                 $"nextUnlockOnSuccess={runState.Config.RiftLevel + 1}"
             };
 
