@@ -7,7 +7,7 @@ This file tracks the first wider-player review pass shared by MonEll on 2026-05-
 - Map rotation felt too repetitive. The server now keeps a short recent-map history per requester and party member and excludes those recent picks when the random pool has alternatives.
 - The dedicated launcher item should not reuse the generic Danger Room scenario name. The vendor path now tries to sell the existing presentation shell `DangerRoomScenarioCrateUniqueCableFight`, localized as `Mythic Rift Scenario`, while the technical launcher/fallback remains `PortalToRandomMaxAffixDungeon`.
 - Admin reset already exists through `rift resetprogress`; this is intended for test cleanup, not automatic reset on relog.
-- Fixed-test StoryRevamp / showdown / treasure-room maps now have a controlled server-side Rift population overlay, so rooms with missing native spawns can still progress kill quota like normal Rift maps during focused tests.
+- Compact StoryRevamp / showdown / treasure-room maps are now checkpoint boss rooms instead of classic quota maps. Every 10th Rift level routes to one of these rooms, summons a random validated boss immediately, and uses extra boss health tuning on top of normal Rift scaling.
 
 ## Expected / Current Design
 
@@ -15,7 +15,7 @@ This file tracks the first wider-player review pass shared by MonEll on 2026-05-
 - A failed run does not reset a player's progression to level 1; it simply does not unlock the next level.
 - Group completion unlocks the next level for eligible players who were present for the competitive requirements. This is intentional for group play, but should remain under review for anti-carry tuning.
 - Loot is still prototype/boss-table based and not final. Cube shard inconsistency and underwhelming drops are expected until the reward layer becomes externally tunable.
-- Random enemy replacement is not implemented for normal terminal maps yet. Terminals still use their native population while Rift map and boss source are randomized; fixed-test StoryRevamp rooms are the first controlled exception and use server-spawned Rift mobs.
+- Random enemy replacement is not implemented for normal terminal maps yet. Terminals still use their native population while Rift map and boss source are randomized; the custom-spawn experiment remains useful for future content but is no longer the default direction for tiny treasure rooms.
 
 ## Needs More Test Logs
 
@@ -30,5 +30,5 @@ This file tracks the first wider-player review pass shared by MonEll on 2026-05-
 - Optional gauntlet / every-5th-room boss challenge model.
 - Optional infinite-wave mode, likely as a separate Rift variant rather than replacing the current GRift-style flow.
 - Treasure rooms, patrol-wave rooms, and `SHOWDOWN`-style content investigation in Open Calligraphy.
-- Promote validated custom-population StoryRevamp maps into the normal random pool once TAHITI confirms multiplayer stability and acceptable pacing.
+- Tune checkpoint boss health/rewards after TAHITI validates the every-10-level pacing.
 - Extend the custom population system to Bugle-style low-population maps if they remain underfilled after focused tests.

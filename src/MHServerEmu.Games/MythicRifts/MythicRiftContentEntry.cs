@@ -12,6 +12,7 @@ namespace MHServerEmu.Games.MythicRifts
         public bool IsSpecialRandomMap { get; init; }
         public bool UseOwnBossSourceWhenSelected { get; init; }
         public bool UseCustomPopulation { get; init; }
+        public bool BossOnlyCheckpointEligible { get; init; }
         public PrototypeId RegionProtoRef { get; init; }
         public PrototypeId StartTargetProtoRef { get; init; }
         public PrototypeId MissionProtoRef { get; init; }

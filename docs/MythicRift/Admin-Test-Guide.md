@@ -306,7 +306,7 @@ Special low-chance map id:
 
 - `cosmic-doop-sector`
 
-Fixed-test-only StoryRevamp / treasure-room ids with server-side Rift population:
+Checkpoint boss-room ids:
 
 - `sabretooth-showdown`
 - `supervillain-rec-center`
@@ -319,7 +319,7 @@ Fixed-test-only StoryRevamp / treasure-room ids with server-side Rift population
 - `tr-norway-tomb`
 - `tr-sacred-dojo`
 
-These entries are intentionally not random-selected yet. They now use a controlled server-side Rift population overlay, because several of these StoryRevamp / showdown rooms do not spawn enough native enemies for normal quota gameplay. Use them for focused tester passes first, then promote only stable maps into the normal random pool.
+These entries are now treated as boss-only checkpoint rooms. They are automatically selected on every 10th Rift level (`10`, `20`, `30`, etc.) and can also be tested directly with `rift armbeaconfixed`. They do not use kill quota gameplay; the boss spawns immediately and receives an extra checkpoint health multiplier on top of normal Rift scaling.
 
 Example flow:
 
@@ -348,11 +348,21 @@ Expected result:
 - the run should report `content=taskmaster`
 - terminal fixed-content runs should report the selected terminal as the boss source
 - non-terminal fixed-content runs should report the selected map as `content`, with a separate terminal `bossSource`
-- StoryRevamp / treasure-room fixed-test runs should behave like map-only Rifts: selected room as `content`, random validated terminal boss as `bossSource`, `customPopulation=True`, quota before boss spawn, and cleanup after exit
+- StoryRevamp / treasure-room fixed-test runs should behave as checkpoint boss rooms: selected room as `content`, random validated terminal boss as `bossSource`, `checkpointBoss=True`, boss spawns immediately, and cleanup after exit
+- random levels `10`, `20`, `30`, etc. should select one of these checkpoint rooms instead of the normal classic Rift map pool
 - for party tests, the Rift should no longer auto-close immediately just because another party member is still zoning
 - only a player who has actually been seen inside the Rift can be marked as an early exit, and that early exit should not stop other players from continuing
 - teleport should target the `entryTarget` resolved for the selected terminal
 - normal unarmed Danger Room behavior should remain unchanged globally
+
+Checkpoint smoke test:
+
+```text
+rift setaccess 10
+rift level 10
+```
+
+Then buy/use one Rift launcher item normally. Expected result: the random Rift should choose one of the checkpoint boss-room ids, `checkpointBoss=True` should appear in `rift status`, and the boss should already be present without a kill quota phase.
 
 ## Legacy Intent-Based Smoke Test
 

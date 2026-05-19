@@ -36,6 +36,18 @@ namespace MHServerEmu.Games.Tests.MythicRifts
             Assert.Single(runState.ParticipantPlayerDbIds);
         }
 
+        [Fact]
+        public void UnlockBoss_MarksQuotaCompleteForCheckpointRuns()
+        {
+            MythicRiftRunState runState = new(CreateConfig());
+
+            runState.Start(TimeSpan.Zero);
+            runState.UnlockBoss();
+
+            Assert.True(runState.BossUnlocked);
+            Assert.Equal(runState.Config.KillQuota, runState.CurrentKillCount);
+        }
+
         private static MythicRiftRunConfig CreateConfig()
         {
             MythicRiftContentEntry content = new()
