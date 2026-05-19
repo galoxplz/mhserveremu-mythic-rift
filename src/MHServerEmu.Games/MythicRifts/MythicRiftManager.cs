@@ -43,6 +43,11 @@ namespace MHServerEmu.Games.MythicRifts
         private const float CustomRiftPopulationSpawnMinDistance = 450f;
         private const float CustomRiftPopulationSpawnMaxDistance = 1500f;
         private const float CustomRiftPopulationFallbackSpawnDistance = 700f;
+        private const int CheckpointRiftLevelInterval = 10;
+        private const float CheckpointBossBaseHealthMultiplier = 2.0f;
+        private const float CheckpointBossHealthMultiplierPerTier = 0.25f;
+        private const float CheckpointBossMaxHealthMultiplier = 5.0f;
+        private const float CheckpointBossSpawnDistance = 350f;
         private const int RiftPopulationRespawnDelayMS = 20000;
         private const int ChampionKillCountCredit = 3;
         private const int EliteKillCountCredit = 5;
@@ -237,7 +242,7 @@ namespace MHServerEmu.Games.MythicRifts
                 null,
                 RandomMapEligible: false,
                 RandomBossEligible: false,
-                UseCustomPopulation: true),
+                BossOnlyCheckpointEligible: true),
             new(
                 "supervillain-rec-center",
                 "Supervillain Rec Center",
@@ -248,7 +253,7 @@ namespace MHServerEmu.Games.MythicRifts
                 null,
                 RandomMapEligible: false,
                 RandomBossEligible: false,
-                UseCustomPopulation: true),
+                BossOnlyCheckpointEligible: true),
             new(
                 "sc-kill-house",
                 "Stryker Kill House",
@@ -259,7 +264,7 @@ namespace MHServerEmu.Games.MythicRifts
                 null,
                 RandomMapEligible: false,
                 RandomBossEligible: false,
-                UseCustomPopulation: true),
+                BossOnlyCheckpointEligible: true),
             new(
                 "sc-missile-silo",
                 "Stryker Missile Silo",
@@ -270,7 +275,7 @@ namespace MHServerEmu.Games.MythicRifts
                 null,
                 RandomMapEligible: false,
                 RandomBossEligible: false,
-                UseCustomPopulation: true),
+                BossOnlyCheckpointEligible: true),
             new(
                 "sc-mineshaft",
                 "Stryker Mineshaft",
@@ -281,7 +286,7 @@ namespace MHServerEmu.Games.MythicRifts
                 null,
                 RandomMapEligible: false,
                 RandomBossEligible: false,
-                UseCustomPopulation: true),
+                BossOnlyCheckpointEligible: true),
             new(
                 "sc-dino-graveyard",
                 "Dino Graveyard",
@@ -292,7 +297,7 @@ namespace MHServerEmu.Games.MythicRifts
                 null,
                 RandomMapEligible: false,
                 RandomBossEligible: false,
-                UseCustomPopulation: true),
+                BossOnlyCheckpointEligible: true),
             new(
                 "sc-fire-swamp",
                 "Fire Swamp",
@@ -303,7 +308,7 @@ namespace MHServerEmu.Games.MythicRifts
                 null,
                 RandomMapEligible: false,
                 RandomBossEligible: false,
-                UseCustomPopulation: true),
+                BossOnlyCheckpointEligible: true),
             new(
                 "tr-asgard-estate",
                 "Asgard Estate",
@@ -314,7 +319,7 @@ namespace MHServerEmu.Games.MythicRifts
                 null,
                 RandomMapEligible: false,
                 RandomBossEligible: false,
-                UseCustomPopulation: true),
+                BossOnlyCheckpointEligible: true),
             new(
                 "tr-norway-tomb",
                 "Norway Tomb",
@@ -325,7 +330,7 @@ namespace MHServerEmu.Games.MythicRifts
                 null,
                 RandomMapEligible: false,
                 RandomBossEligible: false,
-                UseCustomPopulation: true),
+                BossOnlyCheckpointEligible: true),
             new(
                 "tr-sacred-dojo",
                 "Sacred Dojo",
@@ -336,7 +341,7 @@ namespace MHServerEmu.Games.MythicRifts
                 null,
                 RandomMapEligible: false,
                 RandomBossEligible: false,
-                UseCustomPopulation: true),
+                BossOnlyCheckpointEligible: true),
         };
 
         private readonly List<MythicRiftContentEntry> _contentPool = new();
@@ -513,7 +518,7 @@ namespace MHServerEmu.Games.MythicRifts
 
         public MythicRiftRunConfig CreateRandomDebugRunConfig(int riftLevel, int requestedPlayerCount, int killQuota, TimeSpan timeLimit, IReadOnlyCollection<string> excludedMapContentIds = null)
         {
-            MythicRiftContentEntry content = SelectRandomMapContent(excludedMapContentIds);
+            MythicRiftContentEntry content = SelectRandomMapContent(riftLevel, excludedMapContentIds);
             MythicRiftContentEntry bossContent = SelectBossContentForRandomMap(content);
             if (content == null || bossContent == null)
                 return null;
@@ -617,6 +622,7 @@ namespace MHServerEmu.Games.MythicRifts
                 SuppressNativeTerminalBosses(runState, currentTime, force: true);
                 RefreshRiftObjectiveWidgets(runState, currentTime, force: true);
                 NotifyRunStarted(runState);
+                TryStartBossOnlyCheckpoint(runState, currentTime);
             }
 
             return runState.Status == MythicRiftRunStatus.Active;
@@ -984,9 +990,13 @@ namespace MHServerEmu.Games.MythicRifts
             return runState;
         }
 
-        private MythicRiftContentEntry SelectRandomMapContent(IReadOnlyCollection<string> excludedContentIds = null)
+        private MythicRiftContentEntry SelectRandomMapContent(int riftLevel, IReadOnlyCollection<string> excludedContentIds = null)
         {
-            List<MythicRiftContentEntry> eligibleContent = _contentPool.Where(entry => entry.RandomMapEligible).ToList();
+            bool isCheckpointLevel = IsCheckpointRiftLevel(riftLevel);
+            List<MythicRiftContentEntry> eligibleContent = isCheckpointLevel
+                ? _contentPool.Where(entry => entry.BossOnlyCheckpointEligible).ToList()
+                : _contentPool.Where(entry => entry.RandomMapEligible && entry.BossOnlyCheckpointEligible == false).ToList();
+
             if (eligibleContent.Count == 0)
                 return null;
 
@@ -1017,6 +1027,11 @@ namespace MHServerEmu.Games.MythicRifts
                 return mapContent;
 
             return SelectRandomBossContent(mapContent);
+        }
+
+        private static bool IsCheckpointRiftLevel(int riftLevel)
+        {
+            return riftLevel > 0 && riftLevel % CheckpointRiftLevelInterval == 0;
         }
 
         private MythicRiftContentEntry SelectBossContentForFixedMap(MythicRiftContentEntry mapContent)
@@ -2302,6 +2317,9 @@ namespace MHServerEmu.Games.MythicRifts
                 return null;
 
             MythicRiftDifficultySnapshot difficulty = GetDifficultySnapshot(riftLevel, requestedPlayerCount);
+            int resolvedKillQuota = content.BossOnlyCheckpointEligible
+                ? 1
+                : ResolveKillQuota(content, killQuota);
 
             return new MythicRiftRunConfig
             {
@@ -2311,7 +2329,7 @@ namespace MHServerEmu.Games.MythicRifts
                 BossContent = bossContent,
                 RequestedPlayerCount = Math.Max(requestedPlayerCount, 1),
                 EffectivePlayerCount = difficulty.EffectivePlayerCount,
-                KillQuota = ResolveKillQuota(content, killQuota),
+                KillQuota = resolvedKillQuota,
                 TimeLimit = timeLimit <= TimeSpan.Zero ? TimeSpan.FromMinutes(10) : timeLimit,
                 RegionProtoRef = content.RegionProtoRef,
                 StartTargetProtoRef = content.StartTargetProtoRef,
@@ -2320,6 +2338,28 @@ namespace MHServerEmu.Games.MythicRifts
                 BossLootTableProtoRef = bossContent.BossLootTableProtoRef,
                 Difficulty = difficulty
             };
+        }
+
+        private bool TryStartBossOnlyCheckpoint(MythicRiftRunState runState, TimeSpan currentTime)
+        {
+            if (runState?.Config?.Content?.BossOnlyCheckpointEligible != true)
+                return false;
+
+            if (runState.Status != MythicRiftRunStatus.Active || runState.RegionId == 0 || runState.BossEntityId != 0)
+                return false;
+
+            runState.UnlockBoss();
+            if (TrySpawnConfiguredBoss(runState, null) == false)
+            {
+                Logger.Warn($"Mythic Rift checkpoint run {runState.Config.RunId} failed to spawn boss {runState.Config.BossProtoRef.GetNameFormatted() ?? "unknown"}.");
+                return false;
+            }
+
+            CaptureBossUnlockEligibility(runState);
+            RefreshRiftHudWidgets(runState, currentTime);
+            NotifyBossUnlocked(runState);
+            Logger.Info($"Mythic Rift run {runState.Config.RunId} started boss-only checkpoint at level {runState.Config.RiftLevel} in {runState.Config.Content.Id}.");
+            return true;
         }
 
         private void MaintainCustomRiftPopulation(MythicRiftRunState runState, TimeSpan currentTime)
@@ -2551,15 +2591,8 @@ namespace MHServerEmu.Games.MythicRifts
             if (region == null)
                 return false;
 
-            Vector3 spawnPosition = anchorEntity?.RegionLocation.Position ?? Vector3.Zero;
-            Orientation spawnOrientation = anchorEntity?.RegionLocation.Orientation ?? Orientation.Zero;
-            Cell spawnCell = anchorEntity?.Cell ?? region.GetCellAtPosition(spawnPosition);
-            if (spawnCell == null)
+            if (TryResolveBossSpawnLocation(runState, region, bossProto, anchorEntity, out Vector3 spawnPosition, out Orientation spawnOrientation, out Cell spawnCell) == false)
                 return false;
-
-            spawnPosition = RegionLocation.ProjectToFloor(region, spawnPosition);
-            if (bossProto.Bounds != null)
-                spawnPosition.Z += bossProto.Bounds.GetBoundHalfHeight();
 
             using EntitySettings settings = ObjectPoolManager.Instance.Get<EntitySettings>();
             settings.EntityRef = bossProto.DataRef;
@@ -2575,7 +2608,8 @@ namespace MHServerEmu.Games.MythicRifts
             settingsProperties[PropertyEnum.CombatLevel] = level;
             settingsProperties[PropertyEnum.DifficultyTier] = region.DifficultyTierRef;
             settingsProperties[PropertyEnum.Rank] = bossProto.Rank;
-            settingsProperties[PropertyEnum.MissionPrototype] = runState.Config.MissionProtoRef;
+            if (runState.Config.MissionProtoRef != PrototypeId.Invalid)
+                settingsProperties[PropertyEnum.MissionPrototype] = runState.Config.MissionProtoRef;
             settings.Properties = settingsProperties;
 
             Agent bossAgent = Game.EntityManager.CreateEntity(settings) as Agent;
@@ -2588,9 +2622,75 @@ namespace MHServerEmu.Games.MythicRifts
                     bossAgent.Properties[PropertyEnum.EnemyBoost, boost] = true;
             }
 
+            ApplyCheckpointBossTuning(runState, bossAgent);
             runState.AttachBoss(bossAgent.Id);
             Logger.Info($"Mythic Rift run {runState.Config.RunId} spawned boss {bossAgent.PrototypeName} from boss pool entry {runState.Config.BossContent?.Id ?? "unknown"}.");
             return true;
+        }
+
+        private bool TryResolveBossSpawnLocation(MythicRiftRunState runState, Region region, AgentPrototype bossProto, WorldEntity anchorEntity, out Vector3 spawnPosition, out Orientation spawnOrientation, out Cell spawnCell)
+        {
+            spawnPosition = anchorEntity?.RegionLocation.Position ?? Vector3.Zero;
+            spawnOrientation = anchorEntity?.RegionLocation.Orientation ?? Orientation.Zero;
+            spawnCell = anchorEntity?.Cell;
+
+            if (spawnCell == null && runState?.Config?.Content?.BossOnlyCheckpointEligible == true)
+            {
+                Player anchorPlayer = PickCustomRiftPopulationAnchorPlayer(runState, region);
+                Avatar anchorAvatar = anchorPlayer?.CurrentAvatar;
+                if (anchorAvatar != null)
+                {
+                    spawnPosition = anchorAvatar.RegionLocation.Position + (anchorAvatar.Forward * CheckpointBossSpawnDistance);
+                    spawnOrientation = anchorAvatar.RegionLocation.Orientation;
+
+                    if (bossProto.Bounds != null)
+                    {
+                        Bounds spawnBounds = new(bossProto.Bounds, spawnPosition);
+                        if (region.ChoosePositionAtOrNearPoint(
+                            ref spawnBounds,
+                            Region.GetPathFlagsForEntity(bossProto),
+                            PositionCheckFlags.CanBeBlockedEntity | PositionCheckFlags.PreferNoEntity,
+                            BlockingCheckFlags.None,
+                            CheckpointBossSpawnDistance,
+                            out Vector3 resolvedPosition,
+                            maxPositionTests: 48))
+                        {
+                            spawnPosition = resolvedPosition;
+                        }
+                    }
+                }
+            }
+
+            spawnCell ??= region.GetCellAtPosition(spawnPosition);
+            if (spawnCell == null)
+                return false;
+
+            spawnPosition = RegionLocation.ProjectToFloor(region, spawnPosition);
+            if (bossProto.Bounds != null)
+                spawnPosition.Z += bossProto.Bounds.GetBoundHalfHeight();
+
+            return true;
+        }
+
+        private static void ApplyCheckpointBossTuning(MythicRiftRunState runState, Agent bossAgent)
+        {
+            if (runState?.Config?.Content?.BossOnlyCheckpointEligible != true || bossAgent == null)
+                return;
+
+            float healthMultiplier = GetCheckpointBossHealthMultiplier(runState.Config.RiftLevel);
+            if (healthMultiplier <= 1f)
+                return;
+
+            float existingHealthBonus = bossAgent.Properties[PropertyEnum.HealthPctBonus];
+            bossAgent.Properties[PropertyEnum.HealthPctBonus] = existingHealthBonus + healthMultiplier - 1f;
+            bossAgent.Properties[PropertyEnum.Health] = bossAgent.Properties[PropertyEnum.HealthMax];
+        }
+
+        private static float GetCheckpointBossHealthMultiplier(int riftLevel)
+        {
+            int checkpointTier = Math.Max(riftLevel / CheckpointRiftLevelInterval, 1);
+            float multiplier = CheckpointBossBaseHealthMultiplier + ((checkpointTier - 1) * CheckpointBossHealthMultiplierPerTier);
+            return Math.Clamp(multiplier, CheckpointBossBaseHealthMultiplier, CheckpointBossMaxHealthMultiplier);
         }
 
         private void TryAutoGrantCompletionRewards(MythicRiftRunState runState)
@@ -3015,7 +3115,9 @@ namespace MHServerEmu.Games.MythicRifts
             if (runState == null)
                 return;
 
-            string message = $"[Cosmic Rift] Rift started: {runState.Config.Content.DisplayName} | Level {runState.Config.RiftLevel} | Timer: {FormatDuration(runState.Config.TimeLimit)}. Defeat {runState.Config.KillQuota} enemies to summon the Rift boss.";
+            string message = runState.Config.Content.BossOnlyCheckpointEligible
+                ? $"[Cosmic Rift] Checkpoint Rift started: {runState.Config.Content.DisplayName} | Level {runState.Config.RiftLevel} | Timer: {FormatDuration(runState.Config.TimeLimit)}. Defeat the empowered boss to unlock the next tier."
+                : $"[Cosmic Rift] Rift started: {runState.Config.Content.DisplayName} | Level {runState.Config.RiftLevel} | Timer: {FormatDuration(runState.Config.TimeLimit)}. Defeat {runState.Config.KillQuota} enemies to summon the Rift boss.";
             NotifyRunPlayers(runState, message);
         }
 
@@ -3024,7 +3126,9 @@ namespace MHServerEmu.Games.MythicRifts
             if (runState == null)
                 return;
 
-            string message = $"[Cosmic Rift] Enemy quota complete. Final boss summoned: {ResolveBossDisplayName(runState.Config)}. Defeat the boss before the timer expires.";
+            string message = runState.Config.Content.BossOnlyCheckpointEligible
+                ? $"[Cosmic Rift] Checkpoint boss summoned: {ResolveBossDisplayName(runState.Config)}. Defeat it before the timer expires."
+                : $"[Cosmic Rift] Enemy quota complete. Final boss summoned: {ResolveBossDisplayName(runState.Config)}. Defeat the boss before the timer expires.";
             NotifyRunPlayers(runState, message);
         }
 
@@ -3108,6 +3212,9 @@ namespace MHServerEmu.Games.MythicRifts
                 return "[Cosmic Rift] You joined an active Rift.";
 
             string remaining = FormatDuration(runState.GetTimeRemaining(currentTime));
+            if (runState.Config.Content.BossOnlyCheckpointEligible)
+                return $"[Cosmic Rift] You joined a checkpoint Rift. Final boss: {ResolveBossDisplayName(runState.Config)}. Time remaining: {remaining}.";
+
             if (runState.BossUnlocked)
                 return $"[Cosmic Rift] You joined an active Rift. Final boss: {ResolveBossDisplayName(runState.Config)}. Time remaining: {remaining}.";
 
@@ -3299,7 +3406,8 @@ namespace MHServerEmu.Games.MythicRifts
                 RandomBossEligible = definition.RandomBossEligible,
                 IsSpecialRandomMap = definition.IsSpecialRandomMap,
                 UseOwnBossSourceWhenSelected = definition.UseOwnBossSourceWhenSelected,
-                UseCustomPopulation = definition.UseCustomPopulation
+                UseCustomPopulation = definition.UseCustomPopulation,
+                BossOnlyCheckpointEligible = definition.BossOnlyCheckpointEligible
             };
 
             if (content.IsValid == false)
@@ -3393,6 +3501,7 @@ namespace MHServerEmu.Games.MythicRifts
             bool RandomBossEligible = true,
             bool IsSpecialRandomMap = false,
             bool UseOwnBossSourceWhenSelected = false,
-            bool UseCustomPopulation = false);
+            bool UseCustomPopulation = false,
+            bool BossOnlyCheckpointEligible = false);
     }
 }

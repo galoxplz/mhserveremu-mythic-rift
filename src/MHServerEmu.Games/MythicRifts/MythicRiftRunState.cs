@@ -117,6 +117,15 @@ namespace MHServerEmu.Games.MythicRifts
                 BossUnlocked = true;
         }
 
+        public void UnlockBoss()
+        {
+            if (Status != MythicRiftRunStatus.Active)
+                return;
+
+            CurrentKillCount = Math.Max(CurrentKillCount, Config.KillQuota);
+            BossUnlocked = true;
+        }
+
         public void ApplyTimePenalty(TimeSpan penalty)
         {
             if (Status != MythicRiftRunStatus.Active || ExpiresAt.HasValue == false || penalty <= TimeSpan.Zero)

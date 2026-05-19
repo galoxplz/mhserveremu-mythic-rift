@@ -14,6 +14,7 @@
 - A final boss is randomly selected from an approved pool.
 - The run is limited by a timer.
 - Level progression is supported.
+- Every 10th level is a boss-only checkpoint room instead of a classic quota map.
 - End rewards reuse existing systems as much as possible.
 - V1 must not depend on a manually distributed client patch.
 
@@ -29,16 +30,17 @@
 2. The system determines the requested Rift level.
 3. The server verifies that the level is unlocked for the player or leader.
 4. The server creates a Rift instance.
-5. The server selects a random map from the V1 pool.
+5. The server selects a random map from the V1 pool, or a checkpoint boss room on levels 10/20/30/etc.
 6. The server selects a random boss from the V1 pool.
 7. Players enter the instance.
 8. The timer starts.
-9. Players kill the required enemy quota.
-10. The server spawns the randomized Rift boss only after the quota is completed.
-11. If the final boss dies before the timer ends, the run succeeds.
-12. If the timer expires first, the run fails.
-13. On success, players receive end-of-run loot.
-14. On success, the next level is unlocked.
+9. In classic Rift levels, players kill the required enemy quota.
+10. In classic Rift levels, the server spawns the randomized Rift boss only after the quota is completed.
+11. In checkpoint Rift levels, the server spawns the empowered randomized boss immediately.
+12. If the final boss dies before the timer ends, the run succeeds.
+13. If the timer expires first, the run fails.
+14. On success, players receive end-of-run loot.
+15. On success, the next level is unlocked.
 
 ## V1 Group Rules
 
@@ -70,6 +72,7 @@
 - Success at level N unlocks N+1.
 - Beacon launches default to the player's highest unlocked level.
 - Players may choose a lower unlocked launch level for farming through a server-side command until a cleaner no-client-patch UI is available.
+- Levels divisible by 10 are mandatory checkpoint levels: clearing level 9 unlocks level 10, but clearing the level 10 boss-only checkpoint is required to unlock level 11.
 
 ## Loot and Rewards
 
