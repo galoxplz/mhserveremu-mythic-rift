@@ -81,6 +81,7 @@
   - existing random world drops
   - the selected final boss's normal drops
 - In addition, V1 applies a significant SIF / RIF bonus.
+- Boss-only checkpoint levels can apply a small extra timed-success bonus to make the mandatory tier gate feel more rewarding than a normal level.
 - The bonus must be configurable and easy for TAHITI to tune.
 
 ## V1 UI / UX
@@ -90,6 +91,7 @@
 - Suppress misleading native terminal objective text during active Rift runs, because the Rift boss can differ from the terminal's normal boss; current implementation may temporarily suspend the native terminal mission inside the Rift instance to achieve this without a client patch.
 - Suppress native `Region Events` objective tracker entries during active Rift runs; the current approach temporarily suspends those region-event missions only inside the active Rift instance and restores them when the run is cleaned up.
 - Prefer a simple kill-count objective first, then reveal the boss name only when the quota is complete.
+- In boss-only checkpoint rooms, hide the kill-count widget and show only the Rift level, timer, boss spawn message, and completion/failure feedback.
 - Intercept native mission/objective updates for controlled terminal objectives while a Rift is active, otherwise the client may rebuild terminal bounty counters after server-side widget suppression.
 - If the client keeps a native generic fraction tracker visible, the server may reuse it as a best-effort Rift kill quota counter.
 - If native terminal objective tracker text cannot be safely replaced without a client patch, hide it during the Rift instead and rely on chat feedback plus `rift status`.

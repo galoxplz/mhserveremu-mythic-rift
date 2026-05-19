@@ -8,6 +8,10 @@ This file tracks the first wider-player review pass shared by MonEll on 2026-05-
 - The dedicated launcher item should not reuse the generic Danger Room scenario name. The vendor path now tries to sell the existing presentation shell `DangerRoomScenarioCrateUniqueCableFight`, localized as `Mythic Rift Scenario`, while the technical launcher/fallback remains `PortalToRandomMaxAffixDungeon`.
 - Admin reset already exists through `rift resetprogress`; this is intended for test cleanup, not automatic reset on relog.
 - Compact StoryRevamp / showdown / treasure-room maps are now checkpoint boss rooms instead of classic quota maps. Every 10th Rift level routes to one of these rooms, summons a random validated boss immediately, and uses extra boss health tuning on top of normal Rift scaling.
+- Checkpoint rooms now hide the kill-count bar, because players would otherwise see a misleading `1/1` style objective in a boss-only room.
+- Checkpoint clears now get a small extra timed-success reward bonus so the mandatory tier gate feels more special than a normal Rift level.
+- Checkpoint group progression now uses boss-death presence for eligibility, so slower-loading players should not be punished by the instant boss spawn as long as they are present when the boss dies.
+- Checkpoint completion chat now says `Checkpoint cleared` instead of the generic Rift-complete wording, making the every-10-level tier gate easier for players to understand.
 
 ## Expected / Current Design
 
@@ -31,4 +35,5 @@ This file tracks the first wider-player review pass shared by MonEll on 2026-05-
 - Optional infinite-wave mode, likely as a separate Rift variant rather than replacing the current GRift-style flow.
 - Treasure rooms, patrol-wave rooms, and `SHOWDOWN`-style content investigation in Open Calligraphy.
 - Tune checkpoint boss health/rewards after TAHITI validates the every-10-level pacing.
+- Watch player feedback on whether every-10-level checkpoints feel exciting or disruptive. The V1 direction is mandatory checkpoints, but the interval and reward bump are both easy tuning knobs.
 - Extend the custom population system to Bugle-style low-population maps if they remain underfilled after focused tests.

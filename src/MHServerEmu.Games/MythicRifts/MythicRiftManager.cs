@@ -23,6 +23,8 @@ namespace MHServerEmu.Games.MythicRifts
         private static readonly Logger Logger = LogManager.CreateLogger();
         private const float TimedSuccessBonusRarityPct = 0.10f;
         private const float TimedSuccessBonusSpecialPct = 0.15f;
+        private const float CheckpointSuccessBonusRarityPct = 0.05f;
+        private const float CheckpointSuccessBonusSpecialPct = 0.10f;
         private static readonly bool SuspendNativeTerminalMissionsDuringRifts = true;
         private static readonly bool SuspendNativeRegionEventMissionsDuringRifts = true;
         private static readonly int[] TimeWarningThresholdSeconds = { 540, 480, 420, 360, 300, 240, 180, 120, 60, 30 };
@@ -1417,18 +1419,25 @@ namespace MHServerEmu.Games.MythicRifts
 
             RefreshDangerRoomRiftLevelWidget(uiDataProvider, runState, contextRef);
 
-            int requiredCount = Math.Max(runState.Config.KillQuota, 1);
-            int currentCount = Math.Clamp(runState.CurrentKillCount, 0, requiredCount);
-
-            UIWidgetGenericFraction quotaWidget = GetRiftGenericFractionWidget(
-                uiDataProvider,
-                GetRiftDangerRoomQuotaWidgetPrototypeRef(),
-                contextRef);
-
-            if (quotaWidget != null)
+            if (runState.Config.Content.BossOnlyCheckpointEligible)
             {
-                quotaWidget.SetAreaContext(contextRef);
-                quotaWidget.SetCount(currentCount, requiredCount);
+                uiDataProvider.DeleteWidget(GetRiftDangerRoomQuotaWidgetPrototypeRef(), contextRef);
+            }
+            else
+            {
+                int requiredCount = Math.Max(runState.Config.KillQuota, 1);
+                int currentCount = Math.Clamp(runState.CurrentKillCount, 0, requiredCount);
+
+                UIWidgetGenericFraction quotaWidget = GetRiftGenericFractionWidget(
+                    uiDataProvider,
+                    GetRiftDangerRoomQuotaWidgetPrototypeRef(),
+                    contextRef);
+
+                if (quotaWidget != null)
+                {
+                    quotaWidget.SetAreaContext(contextRef);
+                    quotaWidget.SetCount(currentCount, requiredCount);
+                }
             }
 
             TimeSpan remaining = runState.GetTimeRemaining(currentTime);
@@ -2061,13 +2070,18 @@ namespace MHServerEmu.Games.MythicRifts
                 return null;
 
             bool timedSuccess = runState.Status == MythicRiftRunStatus.Success;
+            bool checkpointSuccess = timedSuccess && runState.Config.Content.BossOnlyCheckpointEligible;
 
             MythicRiftRewardOutcome rewardOutcome = new()
             {
                 BossLootTableProtoRef = runState.Config.BossLootTableProtoRef,
                 TimedSuccessBonusApplied = timedSuccess,
-                BonusRarityPct = timedSuccess ? TimedSuccessBonusRarityPct : 0f,
-                BonusSpecialPct = timedSuccess ? TimedSuccessBonusSpecialPct : 0f
+                BonusRarityPct = timedSuccess
+                    ? TimedSuccessBonusRarityPct + (checkpointSuccess ? CheckpointSuccessBonusRarityPct : 0f)
+                    : 0f,
+                BonusSpecialPct = timedSuccess
+                    ? TimedSuccessBonusSpecialPct + (checkpointSuccess ? CheckpointSuccessBonusSpecialPct : 0f)
+                    : 0f
             };
 
             runState.SetRewardOutcome(rewardOutcome);
@@ -2245,7 +2259,11 @@ namespace MHServerEmu.Games.MythicRifts
             if (runState == null)
                 return;
 
-            runState.SnapshotProgressionEligiblePlayers(GetCurrentRunRegionPlayerDbIds(runState));
+            HashSet<ulong> currentRunRegionPlayerDbIds = GetCurrentRunRegionPlayerDbIds(runState);
+            if (runState.Config.Content.BossOnlyCheckpointEligible)
+                runState.SnapshotBossUnlockEligiblePlayers(currentRunRegionPlayerDbIds);
+
+            runState.SnapshotProgressionEligiblePlayers(currentRunRegionPlayerDbIds);
         }
 
         private HashSet<ulong> GetCurrentRunRegionPlayerDbIds(MythicRiftRunState runState)
@@ -2351,7 +2369,9 @@ namespace MHServerEmu.Games.MythicRifts
             runState.UnlockBoss();
             if (TrySpawnConfiguredBoss(runState, null) == false)
             {
+                string reason = "Checkpoint boss could not be spawned. The Rift has closed; please try again with a new Beacon.";
                 Logger.Warn($"Mythic Rift checkpoint run {runState.Config.RunId} failed to spawn boss {runState.Config.BossProtoRef.GetNameFormatted() ?? "unknown"}.");
+                AbortRun(runState, currentTime, reason);
                 return false;
             }
 
@@ -3157,8 +3177,12 @@ namespace MHServerEmu.Games.MythicRifts
             if (runState == null)
                 return;
 
+            string successPrefix = runState.Config.Content.BossOnlyCheckpointEligible
+                ? "Checkpoint cleared"
+                : "Rift complete";
+
             string message = success
-                ? $"[Cosmic Rift] Rift complete! {ResolveBossDisplayName(runState.Config)} defeated in {runState.Config.Content.DisplayName}. Level {runState.Config.RiftLevel} cleared. {statusMessage}"
+                ? $"[Cosmic Rift] {successPrefix}! {ResolveBossDisplayName(runState.Config)} defeated in {runState.Config.Content.DisplayName}. Level {runState.Config.RiftLevel} cleared. {statusMessage}"
                 : $"[Cosmic Rift] Rift closed: {runState.Config.Content.DisplayName} | Level {runState.Config.RiftLevel}. {statusMessage}";
             NotifyRunPlayers(runState, message);
         }

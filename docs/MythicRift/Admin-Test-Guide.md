@@ -350,7 +350,11 @@ Expected result:
 - non-terminal fixed-content runs should report the selected map as `content`, with a separate terminal `bossSource`
 - StoryRevamp / treasure-room fixed-test runs should behave as checkpoint boss rooms: selected room as `content`, random validated terminal boss as `bossSource`, `checkpointBoss=True`, boss spawns immediately, and cleanup after exit
 - random levels `10`, `20`, `30`, etc. should select one of these checkpoint rooms instead of the normal classic Rift map pool
+- checkpoint rooms should show Rift level and timer UI only; they should not show a kill-count quota bar
+- checkpoint clears should award the normal timed success bonus plus a small extra checkpoint success bonus
+- if the checkpoint boss cannot spawn, the run should close with a clear failure/abort message rather than staying active forever
 - for party tests, the Rift should no longer auto-close immediately just because another party member is still zoning
+- for party checkpoint tests, a player who finishes zoning before the boss dies should be eligible for progression even though the boss spawned immediately at room start
 - only a player who has actually been seen inside the Rift can be marked as an early exit, and that early exit should not stop other players from continuing
 - teleport should target the `entryTarget` resolved for the selected terminal
 - normal unarmed Danger Room behavior should remain unchanged globally
