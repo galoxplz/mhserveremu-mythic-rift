@@ -100,6 +100,42 @@ rift armbeaconfixed cosmic-doop-sector 10
 
 Use one beacon after arming. Expected result: the run enters the Cosmic Doop space region, counts native Doop population kills, spawns `CosmicDoopOverlord` after quota completion, and completes only when that boss dies.
 
+## StoryRevamp Fixed-Test Shortlist
+
+These entries were added for focused Test Center validation only. They resolve server-side as concrete `PrivateStory` regions, have valid `StartTarget` refs that point back to their own region, are approved/non-abstract, and have `ObjectiveGraph=Off`. They are not random-selected yet; promote only the maps that pass live multiplayer tests.
+
+| Map id | Region | Start target | Kill quota | Notes |
+|---|---|---|---:|---|
+| `sabretooth-showdown` | `CH0705SabretoothShowdownRegion` | `CH07SabretoothShowdownTarget` | 45 | Best concrete Showdown candidate found under StoryRevamp. |
+| `supervillain-rec-center` | `CH0503SupervillainRecCenterRegion` | `CH05RecCenterIntTarget` | 45 | Showdown-like compact supervillain room. |
+| `sc-kill-house` | `SCKillHouseRegion` | `SCKillHouseTargetStart` | 50 | Fort Stryker combat room candidate. |
+| `sc-missile-silo` | `SCMissileSiloRegion` | `SCMissileSiloTargetStart` | 50 | Fort Stryker combat room candidate. |
+| `sc-mineshaft` | `SCMineshaftRegion` | `SCMineshaftTargetStart` | 45 | Fort Stryker cave/mineshaft variety. |
+| `sc-dino-graveyard` | `SCDinoGraveyardRegion` | `SCDinoGraveyardTargetStart` | 55 | Savage Land visual variety. |
+| `sc-fire-swamp` | `SCFireSwampRegion` | `SCFireSwampTargetStart` | 55 | Savage Land swamp variety. |
+| `tr-asgard-estate` | `TREstateRegion` | `TREstateTargetStart` | 45 | Asgard visual variety. |
+| `tr-norway-tomb` | `TRTombRegion` | `TRTombTargetStart` | 45 | Norway/Asgard tomb room. |
+| `tr-sacred-dojo` | `TRSacredDojoRegion` | `SacredDojoTarget` | 40 | Madripoor dojo visual variety. |
+
+Recommended fixed-test commands:
+
+```text
+rift validatecontent
+rift prepbeacon 1 10
+rift armbeaconfixed sabretooth-showdown 10
+rift armbeaconfixed supervillain-rec-center 10
+rift armbeaconfixed sc-kill-house 10
+rift armbeaconfixed sc-missile-silo 10
+rift armbeaconfixed sc-mineshaft 10
+rift armbeaconfixed sc-dino-graveyard 10
+rift armbeaconfixed sc-fire-swamp 10
+rift armbeaconfixed tr-asgard-estate 10
+rift armbeaconfixed tr-norway-tomb 10
+rift armbeaconfixed tr-sacred-dojo 10
+```
+
+Use one beacon after each `armbeaconfixed` command. Expected result: selected map loads, Rift HUD appears, kill quota progresses, random validated terminal boss spawns only after quota, completion portal returns players to Danger Room, and the instance cleans up after exit/abandon/timeout.
+
 ## Detailed Recheck Notes
 
 The following terminals were rechecked specifically because they have transition nodes but may not have special progression gates:
