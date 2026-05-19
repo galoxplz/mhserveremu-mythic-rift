@@ -306,6 +306,21 @@ Special low-chance map id:
 
 - `cosmic-doop-sector`
 
+Fixed-test-only StoryRevamp / treasure-room ids:
+
+- `sabretooth-showdown`
+- `supervillain-rec-center`
+- `sc-kill-house`
+- `sc-missile-silo`
+- `sc-mineshaft`
+- `sc-dino-graveyard`
+- `sc-fire-swamp`
+- `tr-asgard-estate`
+- `tr-norway-tomb`
+- `tr-sacred-dojo`
+
+These entries are intentionally not random-selected yet. Use them for focused tester passes first, then promote only stable maps into the normal random pool.
+
 Example flow:
 
 ```text
@@ -333,6 +348,7 @@ Expected result:
 - the run should report `content=taskmaster`
 - terminal fixed-content runs should report the selected terminal as the boss source
 - non-terminal fixed-content runs should report the selected map as `content`, with a separate terminal `bossSource`
+- StoryRevamp / treasure-room fixed-test runs should behave like map-only Rifts: selected room as `content`, random validated terminal boss as `bossSource`, quota before boss spawn, and cleanup after exit
 - for party tests, the Rift should no longer auto-close immediately just because another party member is still zoning
 - only a player who has actually been seen inside the Rift can be marked as an early exit, and that early exit should not stop other players from continuing
 - teleport should target the `entryTarget` resolved for the selected terminal
