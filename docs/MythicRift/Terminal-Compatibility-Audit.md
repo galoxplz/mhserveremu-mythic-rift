@@ -104,7 +104,7 @@ Use one beacon after arming. Expected result: the run enters the Cosmic Doop spa
 
 These entries were added for focused Test Center validation. They resolve server-side as concrete `PrivateStory` regions, have valid `StartTarget` refs that point back to their own region, are approved/non-abstract, and have `ObjectiveGraph=Off`.
 
-Because these rooms are very small, they now run as boss-only checkpoint rooms instead of classic kill-quota maps. Every 10th random Rift level (`10`, `20`, `30`, etc.) selects one of these rooms, summons a random validated Rift boss immediately, and requires that boss kill to unlock the next tier. The checkpoint boss receives an extra health multiplier on top of normal Rift level scaling.
+Because these rooms are very small, they now run as boss-only checkpoint rooms instead of classic kill-quota maps. Every 10th random Rift level (`10`, `20`, `30`, etc.) selects one of these rooms, summons a random validated Rift boss immediately, and requires that boss kill to unlock the next tier. The checkpoint boss receives an extra health multiplier on top of normal Rift level scaling, the kill-count HUD is hidden, and a small extra timed-success reward bonus is applied on clear.
 
 | Map id | Region | Start target | Mode | Notes |
 |---|---|---|---|---|
