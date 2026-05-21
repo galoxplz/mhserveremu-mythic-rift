@@ -109,13 +109,13 @@ Because these rooms are very small, they now run as boss-only checkpoint rooms i
 | Map id | Region | Start target | Mode | Notes |
 |---|---|---|---|---|
 | `sabretooth-showdown` | `CH0705SabretoothShowdownRegion` | `CH07SabretoothShowdownTarget` | Boss-only checkpoint | Best concrete Showdown candidate found under StoryRevamp. |
-| `supervillain-rec-center` | `CH0503SupervillainRecCenterRegion` | `CH05RecCenterIntTarget` | Boss-only checkpoint | Showdown-like compact supervillain room. |
-| `sc-kill-house` | `SCKillHouseRegion` | `SCKillHouseTargetStart` | Boss-only checkpoint | Fort Stryker combat room candidate. |
+| `supervillain-rec-center` | `CH0503SupervillainRecCenterRegion` | `CH05RecCenterIntTarget` | Boss-only checkpoint | Showdown-like compact supervillain room. Reported boss-outside-map before the safer current-cell spawn pass; needs retest. |
+| `sc-kill-house` | `SCKillHouseRegion` | `SCKillHouseTargetStart` | Boss-only checkpoint | Fort Stryker combat room candidate. Reported boss-outside-map before the safer current-cell spawn pass; needs retest. |
 | `sc-missile-silo` | `SCMissileSiloRegion` | `SCMissileSiloTargetStart` | Boss-only checkpoint | Fort Stryker combat room candidate. |
 | `sc-mineshaft` | `SCMineshaftRegion` | `SCMineshaftTargetStart` | Boss-only checkpoint | Fort Stryker cave/mineshaft variety. |
 | `sc-dino-graveyard` | `SCDinoGraveyardRegion` | `SCDinoGraveyardTargetStart` | Boss-only checkpoint | Savage Land visual variety. |
 | `sc-fire-swamp` | `SCFireSwampRegion` | `SCFireSwampTargetStart` | Boss-only checkpoint | Savage Land swamp variety. |
-| `tr-asgard-estate` | `TREstateRegion` | `TREstateTargetStart` | Boss-only checkpoint | Asgard visual variety. |
+| `tr-asgard-estate` | `TREstateRegion` | `TREstateTargetStart` | Boss-only checkpoint | Asgard visual variety. Reported boss-outside-map before the safer current-cell spawn pass; needs retest. |
 | `tr-norway-tomb` | `TRTombRegion` | `TRTombTargetStart` | Boss-only checkpoint | Norway/Asgard tomb room. |
 | `tr-sacred-dojo` | `TRSacredDojoRegion` | `SacredDojoTarget` | Boss-only checkpoint | Madripoor dojo visual variety. |
 

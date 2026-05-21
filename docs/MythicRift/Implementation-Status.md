@@ -344,6 +344,12 @@ Current practical launcher stage
 - Checkpoint rooms hide the kill-quota HUD widget and keep only the level/timer widgets, because showing a fake `1/1` quota confused the intended boss-only flow.
 - Checkpoint progression eligibility is captured from players present at boss death, rather than from an instant boss-unlock snapshot at room start, so slower-loading group members are not excluded just because the boss spawned before their client finished zoning.
 - If a checkpoint boss cannot spawn, the run now aborts immediately with a clear message instead of leaving players in a bricked active Rift.
+- The selected launch level now follows push progression when appropriate: clearing the currently selected max level advances that selection to the newly unlocked level, while intentionally selected lower farm levels remain sticky.
+- Player-selected launch level is now explicitly separated from progression: `rift level [number]` only changes the next launch level and cannot lower `highestUnlockedRiftLevel`.
+- Test helper commands that unlock access now protect existing higher progress; `rift resetprogress` is the explicit way to wipe a tester back to level 1.
+- Checkpoint boss spawning now prefers positions in the player's current cell/room to reduce small-room cases where a boss appeared outside the playable map.
+- Rift launcher use is now gated to the Danger Room hub. If a player tries to use the item in Story Mode or another region, the server intercepts the item use and blocks the native scenario/story teleport fallback.
+- Death release inside an active Rift is now handled by the Rift manager, keeping the player in the same Rift instance start target instead of letting StoryRevamp maps respawn into their native story-mode version.
 - A basic no-client-patch player-facing level selector now exists through chat commands. A cleaner item/NPC UI for showing progression and selecting levels remains future UX polish because dynamic per-player item tooltip changes are not realistic without client-side UI/data support.
 
 ## Build / SDK Note

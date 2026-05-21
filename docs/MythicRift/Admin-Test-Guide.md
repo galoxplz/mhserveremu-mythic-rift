@@ -130,7 +130,12 @@ Expected result:
 - `rift level` shows the current selected launch level and the highest unlocked level
 - `rift level [number]` sets the next beacon launch level only if that level is already unlocked
 - `rift level max` returns the next beacon launch level to the player's highest unlocked level
+- if the selected launch level is also the player's current push level, clearing it advances the selected launch level to the newly unlocked level
+- if the selected launch level is below the player's already unlocked max, clearing it keeps the lower farm selection
+- `rift level [number]` never lowers the player's highest unlocked progression; it only changes the next launch level
+- `rift setaccess` and `rift prepbeacon` now protect existing higher progression and will not lower a player's max level by accident; use `rift resetprogress` first when an intentional test reset is needed
 - the next purchased or granted beacon uses the selected launch level, not always the highest unlocked level
+- Rift launcher items are intentionally usable only from the Danger Room hub. Using one in Story Mode or inside another region should be intercepted with a chat error and should not fall through into native scenario/story teleport behavior.
 
 Admin progress reset test:
 
@@ -353,6 +358,8 @@ Expected result:
 - checkpoint rooms should show Rift level and timer UI only; they should not show a kill-count quota bar
 - checkpoint clears should award the normal timed success bonus plus a small extra checkpoint success bonus
 - if the checkpoint boss cannot spawn, the run should close with a clear failure/abort message rather than staying active forever
+- checkpoint boss spawn now prefers valid positions in the player's current room/cell instead of blindly spawning forward from the player; this specifically needs retesting on `tr-asgard-estate`, `supervillain-rec-center`, and `sc-kill-house`
+- death release inside an active Rift is intercepted and sent back to the same Rift instance start target, so StoryRevamp checkpoint rooms like `sc-fire-swamp` and `sc-mineshaft` should no longer refresh into the story-mode version after death
 - for party tests, the Rift should no longer auto-close immediately just because another party member is still zoning
 - for party checkpoint tests, a player who finishes zoning before the boss dies should be eligible for progression even though the boss spawned immediately at room start
 - only a player who has actually been seen inside the Rift can be marked as an early exit, and that early exit should not stop other players from continuing

@@ -49,7 +49,8 @@ namespace MHServerEmu.Games.MythicRifts
         private const float CheckpointBossBaseHealthMultiplier = 2.0f;
         private const float CheckpointBossHealthMultiplierPerTier = 0.25f;
         private const float CheckpointBossMaxHealthMultiplier = 5.0f;
-        private const float CheckpointBossSpawnDistance = 350f;
+        private const float CheckpointBossSpawnDistance = 320f;
+        private const float CheckpointBossSpawnSearchDistance = 180f;
         private const int RiftPopulationRespawnDelayMS = 20000;
         private const int ChampionKillCountCredit = 3;
         private const int EliteKillCountCredit = 5;
@@ -459,12 +460,15 @@ namespace MHServerEmu.Games.MythicRifts
             return GetHighestUnlockedRiftLevel(playerDbId);
         }
 
-        public int SetHighestUnlockedRiftLevel(ulong playerDbId, int unlockedLevel)
+        public int SetHighestUnlockedRiftLevel(ulong playerDbId, int unlockedLevel, bool allowDecrease = false)
         {
             if (playerDbId == 0)
                 return 1;
 
             int normalizedLevel = Math.Max(unlockedLevel, 1);
+            if (allowDecrease == false)
+                normalizedLevel = Math.Max(normalizedLevel, GetHighestUnlockedRiftLevel(playerDbId));
+
             _highestUnlockedRiftLevelByPlayer[playerDbId] = normalizedLevel;
             SyncOnlinePlayerRiftLevel(playerDbId, normalizedLevel);
             return normalizedLevel;
@@ -476,7 +480,7 @@ namespace MHServerEmu.Games.MythicRifts
                 return 1;
 
             _preferredLaunchRiftLevelByPlayer.Remove(playerDbId);
-            return SetHighestUnlockedRiftLevel(playerDbId, 1);
+            return SetHighestUnlockedRiftLevel(playerDbId, 1, allowDecrease: true);
         }
 
         public int GrantNextRiftLevel(ulong playerDbId, int completedLevel)
@@ -487,11 +491,30 @@ namespace MHServerEmu.Games.MythicRifts
             int nextUnlockedLevel = Math.Max(completedLevel + 1, 1);
             int currentUnlockedLevel = GetHighestUnlockedRiftLevel(playerDbId);
             if (nextUnlockedLevel <= currentUnlockedLevel)
+            {
+                AdvancePreferredLaunchLevelAfterUnlock(playerDbId, completedLevel, nextUnlockedLevel, currentUnlockedLevel);
                 return currentUnlockedLevel;
+            }
 
             _highestUnlockedRiftLevelByPlayer[playerDbId] = nextUnlockedLevel;
             SyncOnlinePlayerRiftLevel(playerDbId, nextUnlockedLevel);
+            AdvancePreferredLaunchLevelAfterUnlock(playerDbId, completedLevel, nextUnlockedLevel, currentUnlockedLevel);
             return nextUnlockedLevel;
+        }
+
+        private void AdvancePreferredLaunchLevelAfterUnlock(ulong playerDbId, int completedLevel, int nextUnlockedLevel, int currentUnlockedLevelBeforeGrant)
+        {
+            if (playerDbId == 0 || nextUnlockedLevel <= completedLevel)
+                return;
+
+            if (_preferredLaunchRiftLevelByPlayer.TryGetValue(playerDbId, out int preferredLevel) == false)
+                return;
+
+            if (preferredLevel != completedLevel)
+                return;
+
+            if (nextUnlockedLevel > currentUnlockedLevelBeforeGrant)
+                _preferredLaunchRiftLevelByPlayer[playerDbId] = nextUnlockedLevel;
         }
 
         public MythicRiftRunConfig CreateDebugRunConfig(string contentId, int riftLevel, int requestedPlayerCount, int killQuota, TimeSpan timeLimit)
@@ -819,6 +842,46 @@ namespace MHServerEmu.Games.MythicRifts
                 return false;
 
             return CompleteRunFailure(runState, currentTime, "Time expired. Base boss rewards only.", returnParticipantsToHub: true);
+        }
+
+        public bool TryHandleRiftDeathRelease(Avatar avatar, DeathReleaseRequestType requestType)
+        {
+            if (avatar == null || requestType != DeathReleaseRequestType.Checkpoint)
+                return false;
+
+            Player player = avatar.GetOwnerOfType<Player>();
+            if (player == null)
+                return false;
+
+            MythicRiftRunState runState = GetInProgressRunForPlayer(player.DatabaseUniqueId);
+            if (runState == null || runState.Status != MythicRiftRunStatus.Active || runState.RegionId == 0)
+                return false;
+
+            Region region = avatar.Region;
+            if (region == null || region.Id != runState.RegionId)
+                return false;
+
+            RegionConnectionTargetPrototype startTargetProto = runState.Config.StartTargetProtoRef.As<RegionConnectionTargetPrototype>();
+            if (startTargetProto == null)
+                return false;
+
+            Vector3 position = Vector3.Zero;
+            Orientation orientation = Orientation.Zero;
+            PrototypeId cellRef = GameDatabase.GetDataRefByAsset(startTargetProto.Cell);
+            if (region.FindTargetLocation(ref position, ref orientation, startTargetProto.Area, cellRef, startTargetProto.Entity) == false)
+                return false;
+
+            position = RegionLocation.ProjectToFloor(region, position);
+
+            using Teleporter teleporter = ObjectPoolManager.Instance.Get<Teleporter>();
+            teleporter.Initialize(player, TeleportContextEnum.TeleportContext_Resurrect);
+            teleporter.DifficultyTierRef = region.DifficultyTierRef;
+
+            bool teleported = teleporter.TeleportToRegionLocation(region.Id, position);
+            if (teleported)
+                Logger.Info($"Mythic Rift run {runState.Config.RunId} handled death release inside Rift region for playerDbId=0x{player.DatabaseUniqueId:X} target={runState.Config.StartTargetProtoRef.GetNameFormatted()}.");
+
+            return teleported;
         }
 
         public bool AttachRunToRegion(ulong runId, Region region)
@@ -2656,39 +2719,102 @@ namespace MHServerEmu.Games.MythicRifts
 
             if (spawnCell == null && runState?.Config?.Content?.BossOnlyCheckpointEligible == true)
             {
-                Player anchorPlayer = PickCustomRiftPopulationAnchorPlayer(runState, region);
-                Avatar anchorAvatar = anchorPlayer?.CurrentAvatar;
-                if (anchorAvatar != null)
-                {
-                    spawnPosition = anchorAvatar.RegionLocation.Position + (anchorAvatar.Forward * CheckpointBossSpawnDistance);
-                    spawnOrientation = anchorAvatar.RegionLocation.Orientation;
-
-                    if (bossProto.Bounds != null)
-                    {
-                        Bounds spawnBounds = new(bossProto.Bounds, spawnPosition);
-                        if (region.ChoosePositionAtOrNearPoint(
-                            ref spawnBounds,
-                            Region.GetPathFlagsForEntity(bossProto),
-                            PositionCheckFlags.CanBeBlockedEntity | PositionCheckFlags.PreferNoEntity,
-                            BlockingCheckFlags.None,
-                            CheckpointBossSpawnDistance,
-                            out Vector3 resolvedPosition,
-                            maxPositionTests: 48))
-                        {
-                            spawnPosition = resolvedPosition;
-                        }
-                    }
-                }
+                if (TryResolveCheckpointBossSpawnLocation(runState, region, bossProto, out spawnPosition, out spawnOrientation, out spawnCell) == false)
+                    return false;
             }
 
             spawnCell ??= region.GetCellAtPosition(spawnPosition);
             if (spawnCell == null)
                 return false;
 
-            spawnPosition = RegionLocation.ProjectToFloor(region, spawnPosition);
+            spawnPosition = RegionLocation.ProjectToFloor(region, spawnCell, spawnPosition);
             if (bossProto.Bounds != null)
                 spawnPosition.Z += bossProto.Bounds.GetBoundHalfHeight();
 
+            return true;
+        }
+
+        private bool TryResolveCheckpointBossSpawnLocation(MythicRiftRunState runState, Region region, AgentPrototype bossProto, out Vector3 spawnPosition, out Orientation spawnOrientation, out Cell spawnCell)
+        {
+            spawnPosition = Vector3.Zero;
+            spawnOrientation = Orientation.Zero;
+            spawnCell = null;
+
+            Player anchorPlayer = PickCustomRiftPopulationAnchorPlayer(runState, region);
+            Avatar anchorAvatar = anchorPlayer?.CurrentAvatar;
+            if (anchorAvatar == null || anchorAvatar.IsAliveInWorld == false || anchorAvatar.Region != region)
+                return false;
+
+            Vector3 anchorPosition = anchorAvatar.RegionLocation.Position;
+            Cell anchorCell = anchorAvatar.Cell ?? region.GetCellAtPosition(anchorPosition);
+            if (anchorCell == null)
+                return false;
+
+            spawnOrientation = anchorAvatar.RegionLocation.Orientation;
+            if (bossProto.Bounds == null)
+            {
+                spawnPosition = anchorPosition;
+                spawnCell = anchorCell;
+                return true;
+            }
+
+            PathFlags pathFlags = Region.GetPathFlagsForEntity(bossProto);
+            Vector3 forward = Vector3.SafeNormalize2D(anchorAvatar.Forward, Vector3.XAxis);
+            Vector3 right = Vector3.Perp2D(forward);
+            Vector3[] directions =
+            {
+                forward,
+                -forward,
+                right,
+                -right,
+                Vector3.SafeNormalize2D(forward + right, forward),
+                Vector3.SafeNormalize2D(forward - right, forward),
+                Vector3.SafeNormalize2D(-forward + right, -forward),
+                Vector3.SafeNormalize2D(-forward - right, -forward)
+            };
+
+            foreach (Vector3 direction in directions)
+            {
+                Vector3 preferredPosition = anchorPosition + (direction * CheckpointBossSpawnDistance);
+                if (TryChooseCheckpointBossSpawnPosition(region, bossProto, preferredPosition, anchorCell, pathFlags, out spawnPosition, out spawnCell))
+                    return true;
+            }
+
+            if (TryChooseCheckpointBossSpawnPosition(region, bossProto, anchorPosition, anchorCell, pathFlags, out spawnPosition, out spawnCell))
+                return true;
+
+            spawnPosition = anchorPosition;
+            spawnCell = anchorCell;
+            return true;
+        }
+
+        private static bool TryChooseCheckpointBossSpawnPosition(Region region, AgentPrototype bossProto, Vector3 preferredPosition, Cell preferredCell, PathFlags pathFlags, out Vector3 spawnPosition, out Cell spawnCell)
+        {
+            spawnPosition = Vector3.Zero;
+            spawnCell = null;
+
+            if (region == null || bossProto?.Bounds == null || preferredCell == null)
+                return false;
+
+            Bounds spawnBounds = new(bossProto.Bounds, preferredPosition);
+            if (region.ChoosePositionAtOrNearPoint(
+                ref spawnBounds,
+                pathFlags,
+                PositionCheckFlags.CanBeBlockedEntity | PositionCheckFlags.PreferNoEntity,
+                BlockingCheckFlags.None,
+                CheckpointBossSpawnSearchDistance,
+                out Vector3 resolvedPosition,
+                maxPositionTests: 64) == false)
+            {
+                return false;
+            }
+
+            Cell resolvedCell = region.GetCellAtPosition(resolvedPosition);
+            if (resolvedCell == null || resolvedCell != preferredCell)
+                return false;
+
+            spawnPosition = resolvedPosition;
+            spawnCell = resolvedCell;
             return true;
         }
 

@@ -506,6 +506,9 @@ namespace MHServerEmu.Games.Entities.Avatars
             Player owner = GetOwnerOfType<Player>();
             if (owner == null) return Logger.WarnReturn(false, "DoDeathRelease(): owner == null");
 
+            if (Game.MythicRiftManager?.TryHandleRiftDeathRelease(this, requestType) == true)
+                return true;
+
             if (region.MetaGames.Count > 0) 
             {
                 var player = GetOwnerOfType<Player>();
