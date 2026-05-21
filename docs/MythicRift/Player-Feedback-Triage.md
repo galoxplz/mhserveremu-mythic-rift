@@ -2,6 +2,20 @@
 
 This file tracks the first wider-player review pass shared by MonEll on 2026-05-18.
 
+## Feedback Pass: 2026-05-21
+
+- `rift status` works both inside and outside a Rift.
+- `rift abandon` works.
+- `rift level [X]` works, but testers found the selected level too sticky after clearing. The current follow-up makes push clears advance the selected level when the selected level was the newly cleared max level, while preserving intentional lower-level farming selections.
+- MonEll flagged a possible `rift level` progression-destruction issue. Code review showed `rift level` does not write the highest-unlocked value, but the UX could look like progress was lost because the next launch level stayed lower. The command text now states when a lower farming level is selected, and access-prep helpers no longer lower existing progression by accident.
+- Boss-only checkpoint rooms add good variety, and most tested rooms worked.
+- `tr-asgard-estate`, `supervillain-rec-center`, and `sc-kill-house` reported boss spawns outside the playable room. The checkpoint boss spawn resolver now prefers valid positions in the player's current cell/room and falls back to the player's position rather than a forward offset that can cross walls.
+- `sc-missile-silo`, `sc-mineshaft`, `sc-dino-graveyard`, `sc-fire-swamp`, `tr-norway-tomb`, and `tr-sacred-dojo` were reported as working.
+- `sabretooth-showdown` works, but likely has a native Sabretooth encounter plus the Rift boss, so it may feel like a duo-boss room rather than a clean randomized boss room. Keep under review before treating it as final V1 pool content.
+- A tester asked for raid bosses at milestone levels such as 50 or 100. This fits the checkpoint-tier idea well, but should be treated as a later curated milestone-boss extension rather than added blindly to the normal V1 boss pool.
+- Follow-up feedback reported that dying in `sc-fire-swamp` / `sc-mineshaft` could refresh into the story-mode version. Rift death release is now intercepted so respawn stays inside the same active Rift instance.
+- Follow-up feedback reported that Mythic Rift items could be used in Story Mode and teleport to a story-mode version. Launcher use is now gated to the Danger Room hub and rejected elsewhere before native item behavior can run.
+
 ## Fixed / Improved In This Pass
 
 - Map rotation felt too repetitive. The server now keeps a short recent-map history per requester and party member and excludes those recent picks when the random pool has alternatives.

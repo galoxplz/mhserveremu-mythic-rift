@@ -478,6 +478,22 @@ namespace MHServerEmu.Games.MythicRifts
         {
             interceptedItemUse = false;
 
+            if (CanHandleItem(item) && CanUseLauncherFromCurrentRegion(player) == false)
+            {
+                MythicRiftLauncherUseResult rejectedResult = BuildRejectedLauncherUseResult(
+                    player,
+                    item,
+                    "Cosmic Rift launchers can only be used from the Danger Room hub.");
+
+                interceptedItemUse = true;
+                if (player != null)
+                    _lastArmedLaunchResultsByPlayerDbId[player.DatabaseUniqueId] = rejectedResult;
+
+                NotifyLauncherUse(player, rejectedResult);
+                Logger.Info($"[MythicRiftLauncher] Rejected beacon use outside Danger Room hub playerDbId=0x{player?.DatabaseUniqueId ?? 0UL:X} itemId={item?.Id ?? 0UL} prototype={item?.PrototypeDataRef.GetNameFormatted() ?? "unknown"} currentRegion={player?.GetRegion()?.PrototypeDataRef.GetNameFormatted() ?? "none"}");
+                return rejectedResult;
+            }
+
             MythicRiftLauncherUseResult trackedBeaconResult = TryHandleTrackedBeaconUse(player, item);
             if (trackedBeaconResult?.InterceptedItemUse == true)
             {
@@ -493,6 +509,28 @@ namespace MHServerEmu.Games.MythicRifts
             }
 
             return null;
+        }
+
+        private static bool CanUseLauncherFromCurrentRegion(Player player)
+        {
+            Region region = player?.GetRegion();
+            return region?.PrototypeDataRef == (PrototypeId)RegionPrototypeId.DangerRoomHubRegion;
+        }
+
+        private MythicRiftLauncherUseResult BuildRejectedLauncherUseResult(Player player, Item item, string errorMessage)
+        {
+            MythicRiftLauncherItemCandidate candidate = item != null ? ResolveCandidate(item) : null;
+            return new MythicRiftLauncherUseResult
+            {
+                Candidate = candidate,
+                ItemPrototypeName = candidate?.PrototypeName ?? item?.PrototypeDataRef.GetNameFormatted(),
+                ItemEntityId = item?.Id ?? 0UL,
+                PortalTargetRegionProtoRef = item?.ItemPrototype?.GetPortalTarget() ?? PrototypeId.Invalid,
+                ResolvedRiftLevel = player != null ? NormalizeRiftLevel(player, 0) : 1,
+                ResolvedTimeLimit = DefaultLauncherTimeLimit,
+                InterceptedItemUse = true,
+                ErrorMessage = errorMessage
+            };
         }
 
         public MythicRiftLauncherUseResult TryHandlePowerActivation(Player player, PrototypeId powerProtoRef, out Item item, out bool interceptedItemUse)
