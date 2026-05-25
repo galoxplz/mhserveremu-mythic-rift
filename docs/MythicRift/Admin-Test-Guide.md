@@ -153,6 +153,7 @@ Player-facing stop test:
 
 ```text
 rift abandon
+rift recover
 ```
 
 Expected result:
@@ -161,6 +162,7 @@ Expected result:
 - any participant can intentionally abandon the active Rift; this cancels the Rift for the run because leaving costs the key/run attempt
 - online run participants are returned to the Danger Room hub
 - the run is aborted and removed immediately so the player or party can start another fresh Rift
+- `rift recover` also clears the player's one-shot launch level, disarms any scoped beacon override, and safely abandons/removes an active stuck run; this is meant as a test-center escape hatch when a session gets wedged
 
 Natural leave / town teleport test:
 
@@ -617,6 +619,11 @@ Expected behavior:
 
 These notes are important when reviewing test-center feedback.
 
+- Reward tuning is now externalized in `Data/Game/MythicRift/CosmicRiftRewards.json`.
+- Use `rift rewardconfig` to inspect the active reward profile.
+- Use `rift rewardconfig reload` after editing the JSON to apply reward changes without rebuilding or restarting the server.
+- The default JSON matches the previous reward behavior: boss loot on success/failure, +10% RIF and +15% SIF on timed success, plus +5% RIF and +10% SIF on checkpoint success.
+- Extra loot tables can be enabled in the JSON with `chancePercent`, `rolls`, min/max Rift level gates, checkpoint/classic filters, and optional content/boss-source filters.
 - the current updated build is intended to keep successful beacon clicks inside the Mythic Rift flow instead of falling back into a normal Danger Room result
 - the current updated build excludes the requester's current terminal region and recent selected/completed maps from the next random pick when alternatives exist
 - if a tester reports "sometimes it turned back into a regular Danger Room" or "I got the same dead terminal again with no mobs", first confirm they were on the newest build

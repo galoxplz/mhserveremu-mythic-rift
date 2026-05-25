@@ -44,7 +44,7 @@ This file tracks the first wider-player review pass shared by MonEll on 2026-05-
 
 ## Design Backlog
 
-- External reward tuning file with live reload or admin reload command.
+- External reward tuning file with live reload/admin reload command is now started through `Data/Game/MythicRift/CosmicRiftRewards.json` and `rift rewardconfig reload`; next step is real TAHITI reward values.
 - Better anti-carry / level unlock policy if high-level friends can push low-level players too far too quickly.
 - Optional gauntlet / every-5th-room boss challenge model.
 - Optional infinite-wave mode, likely as a separate Rift variant rather than replacing the current GRift-style flow.

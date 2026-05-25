@@ -1773,6 +1773,37 @@ namespace MHServerEmu.Commands.Implementations
             return $"Cosmic Rift abandoned: runId={runId} | map={contentName} | level={riftLevel} | returnedPlayers={teleportedPlayerCount}. You can start another Rift.";
         }
 
+        [Command("recover")]
+        [CommandDescription("Clears the invoking player's temporary Rift launch state and safely abandons their active run if one is stuck.")]
+        [CommandUsage("rift recover")]
+        [CommandUserLevel(AccountUserLevel.User)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        public string Recover(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            Player player = playerConnection?.Player;
+            if (game == null || player == null)
+                return "Game or player not found.";
+
+            bool disarmed = game.MythicRiftLauncherService.DisarmChosenLauncher(player.DatabaseUniqueId);
+            int nextLaunchLevel = game.MythicRiftManager.UseHighestUnlockedLaunchRiftLevel(player.DatabaseUniqueId);
+            MythicRiftRunState runState = game.MythicRiftManager.GetInProgressRunForPlayer(player.DatabaseUniqueId);
+            if (runState == null)
+                return $"Cosmic Rift recovery complete: no active run found. clearedBeaconOverride={disarmed} | nextLaunchLevel={nextLaunchLevel}.";
+
+            ulong runId = runState.Config.RunId;
+            string contentName = runState.Config.Content.DisplayName;
+            int riftLevel = runState.Config.RiftLevel;
+
+            if (game.MythicRiftManager.MarkRunAborted(runId, game.CurrentTime) == false)
+                return $"Cosmic Rift recovery partially complete: clearedBeaconOverride={disarmed} | nextLaunchLevel={nextLaunchLevel}, but failed to abort run {runId}.";
+
+            int teleportedPlayerCount = game.MythicRiftManager.ReturnRunParticipantsToDangerRoomHub(runState, player);
+            game.MythicRiftManager.RemoveRun(runId);
+            return $"Cosmic Rift recovery complete: abandoned runId={runId} | map={contentName} | level={riftLevel} | returnedPlayers={teleportedPlayerCount} | clearedBeaconOverride={disarmed} | nextLaunchLevel={nextLaunchLevel}.";
+        }
+
         [Command("run")]
         [CommandDescription("Displays details for one registered Mythic Rift run.")]
         [CommandUsage("rift run [runId]")]
@@ -1964,6 +1995,37 @@ namespace MHServerEmu.Commands.Implementations
             return game.MythicRiftManager.RemoveRun(runId)
                 ? $"Run removed: {runId}"
                 : $"Run not found: {runId}";
+        }
+
+        [Command("rewardconfig")]
+        [CommandDescription("Displays or reloads the server-side Cosmic Rift reward tuning file.")]
+        [CommandUsage("rift rewardconfig [reload]")]
+        [CommandUserLevel(AccountUserLevel.Admin)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        public string RewardConfig(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            if (game == null)
+                return "Game not found.";
+
+            if (@params.Length > 0)
+            {
+                string action = @params[0];
+                if (string.Equals(action, "reload", StringComparison.OrdinalIgnoreCase))
+                {
+                    bool loaded = game.MythicRiftManager.TryReloadRewardTuning(out string reloadMessage);
+                    List<string> reloadLines = game.MythicRiftManager.BuildRewardTuningDiagnostics();
+                    reloadLines.Insert(0, loaded ? $"Reward tuning reload OK: {reloadMessage}" : $"Reward tuning reload FAILED: {reloadMessage}");
+                    CommandHelper.SendMessages(client, reloadLines);
+                    return string.Empty;
+                }
+
+                return "Unknown rewardconfig action. Use `rift rewardconfig` or `rift rewardconfig reload`.";
+            }
+
+            CommandHelper.SendMessages(client, game.MythicRiftManager.BuildRewardTuningDiagnostics());
+            return string.Empty;
         }
 
         [Command("reward")]
@@ -2234,7 +2296,12 @@ namespace MHServerEmu.Commands.Implementations
             if (rewardOutcome != null)
             {
                 lines.Add(
-                    $"rewardBossLoot={rewardOutcome.BossLootTableProtoRef.GetNameFormatted()} | timedBonus={rewardOutcome.TimedSuccessBonusApplied} | bonusRIF={rewardOutcome.BonusRarityPct:P0} | bonusSIF={rewardOutcome.BonusSpecialPct:P0}");
+                    $"rewardProfile={rewardOutcome.RewardProfileName ?? "default"} | rewardBossLoot={rewardOutcome.BossLootTableProtoRef.GetNameFormatted()} | timedBonus={rewardOutcome.TimedSuccessBonusApplied} | bonusRIF={rewardOutcome.BonusRarityPct:P0} | bonusSIF={rewardOutcome.BonusSpecialPct:P0} | extraLootTables={rewardOutcome.ExtraLootTables.Count}");
+
+                foreach (MythicRiftRewardExtraLootTable extraLootTable in rewardOutcome.ExtraLootTables.Take(10))
+                {
+                    lines.Add($"rewardExtraLoot id={extraLootTable.Id} | lootTable={extraLootTable.LootTableProtoRef.GetNameFormatted()} | rolls={extraLootTable.Rolls} | chance={extraLootTable.ChancePercent:0.##}%");
+                }
             }
 
             if (runState.ExpiresAt.HasValue)

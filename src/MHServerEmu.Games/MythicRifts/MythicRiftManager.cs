@@ -1,4 +1,5 @@
 using Gazillion;
+using MHServerEmu.Core.Helpers;
 using MHServerEmu.Core.Logging;
 using MHServerEmu.Core.Memory;
 using MHServerEmu.Core.VectorMath;
@@ -21,10 +22,6 @@ namespace MHServerEmu.Games.MythicRifts
     public sealed class MythicRiftManager
     {
         private static readonly Logger Logger = LogManager.CreateLogger();
-        private const float TimedSuccessBonusRarityPct = 0.10f;
-        private const float TimedSuccessBonusSpecialPct = 0.15f;
-        private const float CheckpointSuccessBonusRarityPct = 0.05f;
-        private const float CheckpointSuccessBonusSpecialPct = 0.10f;
         private static readonly bool SuspendNativeTerminalMissionsDuringRifts = true;
         private static readonly bool SuspendNativeRegionEventMissionsDuringRifts = true;
         private static readonly int[] TimeWarningThresholdSeconds = { 540, 480, 420, 360, 300, 240, 180, 120, 60, 30 };
@@ -367,6 +364,8 @@ namespace MHServerEmu.Games.MythicRifts
         private static PrototypeId _cachedRiftDangerRoomQuotaWidgetPrototypeRef = PrototypeId.Invalid;
         private static PrototypeId _cachedRiftDangerRoomTimerWidgetPrototypeRef = PrototypeId.Invalid;
         private static PrototypeId[] _cachedCustomRiftPopulationMobPrototypeRefs;
+        private MythicRiftRewardTuning _rewardTuning = MythicRiftRewardTuning.CreateDefault();
+        private string _rewardTuningLastLoadMessage = "Using built-in default Cosmic Rift reward tuning.";
         private ulong _nextRunId = 1;
 
         public Game Game { get; }
@@ -375,6 +374,8 @@ namespace MHServerEmu.Games.MythicRifts
         {
             Game = game;
             RegisterDefaultContent();
+            TryReloadRewardTuning(out _rewardTuningLastLoadMessage);
+            Logger.Info($"Mythic Rift reward tuning: {_rewardTuningLastLoadMessage}");
         }
 
         public IReadOnlyList<MythicRiftContentEntry> ContentPool => _contentPool;
@@ -382,6 +383,8 @@ namespace MHServerEmu.Games.MythicRifts
         public IReadOnlyList<MythicRiftContentEntry> RandomMapEligibleContentPool => _contentPool.Where(entry => entry.RandomMapEligible).ToList();
         public IReadOnlyList<MythicRiftContentEntry> RandomBossEligibleContentPool => _contentPool.Where(entry => entry.RandomBossEligible && entry.HasValidBossSource).ToList();
         public IReadOnlyCollection<MythicRiftRunState> ActiveRuns => _activeRuns.Values;
+        public MythicRiftRewardTuning RewardTuning => _rewardTuning;
+        public string RewardTuningLastLoadMessage => _rewardTuningLastLoadMessage;
 
         public MythicRiftDifficultySnapshot GetDifficultySnapshot(int riftLevel, int requestedPlayerCount)
         {
@@ -752,7 +755,7 @@ namespace MHServerEmu.Games.MythicRifts
                 return false;
 
             MythicRiftRewardOutcome rewardOutcome = runState.RewardOutcome ?? ResolveRewardOutcome(runState);
-            if (rewardOutcome == null || rewardOutcome.HasBossLootTable == false)
+            if (rewardOutcome == null || rewardOutcome.HasAnyLoot == false)
                 return false;
 
             Avatar avatar = player.CurrentAvatar;
@@ -777,10 +780,18 @@ namespace MHServerEmu.Games.MythicRifts
 
                 using LootInputSettings inputSettings = MHServerEmu.Core.Memory.ObjectPoolManager.Instance.Get<LootInputSettings>();
                 inputSettings.Initialize(LootContext.Drop, player, avatar);
-                Game.LootManager.GiveLootFromTable(rewardOutcome.BossLootTableProtoRef, inputSettings);
+
+                if (rewardOutcome.HasBossLootTable)
+                    Game.LootManager.GiveLootFromTable(rewardOutcome.BossLootTableProtoRef, inputSettings);
+
+                foreach (MythicRiftRewardExtraLootTable extraLootTable in rewardOutcome.ExtraLootTables)
+                {
+                    for (int i = 0; i < extraLootTable.Rolls; i++)
+                        Game.LootManager.GiveLootFromTable(extraLootTable.LootTableProtoRef, inputSettings);
+                }
 
                 runState.MarkRewardGrantedToPlayer(player.DatabaseUniqueId);
-                Logger.Info($"Mythic Rift run {runState.Config.RunId} granted rewards to player {player}.");
+                Logger.Info($"Mythic Rift run {runState.Config.RunId} granted rewards to player {player}. profile={rewardOutcome.RewardProfileName ?? "default"} extraTables={rewardOutcome.ExtraLootTables.Count}");
                 return true;
             }
             finally
@@ -829,6 +840,65 @@ namespace MHServerEmu.Games.MythicRifts
             }
 
             return grantedCount;
+        }
+
+        public bool TryReloadRewardTuning(out string message)
+        {
+            string configPath = MythicRiftRewardTuning.ConfigPath;
+            MythicRiftRewardTuning previousTuning = _rewardTuning ?? MythicRiftRewardTuning.CreateDefault();
+
+            if (File.Exists(configPath) == false)
+            {
+                _rewardTuning = MythicRiftRewardTuning.CreateDefault();
+                message = $"Reward tuning file not found at {FileHelper.GetRelativePath(configPath)}; using built-in defaults.";
+                _rewardTuningLastLoadMessage = message;
+                return true;
+            }
+
+            MythicRiftRewardTuning loadedTuning = FileHelper.DeserializeJson<MythicRiftRewardTuning>(configPath, MythicRiftRewardTuning.JsonOptions);
+            if (loadedTuning == null)
+            {
+                _rewardTuning = previousTuning;
+                message = $"Failed to load reward tuning from {FileHelper.GetRelativePath(configPath)}; keeping previous profile '{previousTuning.ProfileName}'.";
+                _rewardTuningLastLoadMessage = message;
+                return false;
+            }
+
+            loadedTuning.Normalize();
+            _rewardTuning = loadedTuning.Enabled ? loadedTuning : MythicRiftRewardTuning.CreateDefault();
+            message = loadedTuning.Enabled
+                ? $"Loaded reward tuning profile '{_rewardTuning.ProfileName}' from {FileHelper.GetRelativePath(configPath)}. extraLootTables={_rewardTuning.ExtraLootTables.Count}"
+                : $"Reward tuning file loaded but disabled; using built-in defaults. path={FileHelper.GetRelativePath(configPath)}";
+            _rewardTuningLastLoadMessage = message;
+            return true;
+        }
+
+        public List<string> BuildRewardTuningDiagnostics()
+        {
+            MythicRiftRewardTuning tuning = _rewardTuning ?? MythicRiftRewardTuning.CreateDefault();
+            List<string> lines = new()
+            {
+                $"rewardTuningPath={FileHelper.GetRelativePath(MythicRiftRewardTuning.ConfigPath)}",
+                $"lastLoad={_rewardTuningLastLoadMessage}",
+                $"profile={tuning.ProfileName} | enabled={tuning.Enabled}",
+                $"bossLootOnSuccess={tuning.GrantBossLootOnSuccess} | bossLootOnFailure={tuning.GrantBossLootOnFailure}",
+                $"timedSuccessBonusRIF={tuning.TimedSuccessBonusRarityPct:P0} | timedSuccessBonusSIF={tuning.TimedSuccessBonusSpecialPct:P0}",
+                $"checkpointBonusRIF={tuning.CheckpointSuccessBonusRarityPct:P0} | checkpointBonusSIF={tuning.CheckpointSuccessBonusSpecialPct:P0}",
+                $"failureBonusRIF={tuning.FailureBonusRarityPct:P0} | failureBonusSIF={tuning.FailureBonusSpecialPct:P0}",
+                $"extraLootTables={tuning.ExtraLootTables.Count}"
+            };
+
+            foreach (MythicRiftExtraLootTableTuning entry in tuning.ExtraLootTables.Take(20))
+            {
+                string maxLevelText = entry.MaxRiftLevel > 0 ? entry.MaxRiftLevel.ToString() : "none";
+                lines.Add(
+                    $"extraLoot id={entry.Id} | enabled={entry.Enabled} | chance={entry.ChancePercent:0.##}% | rolls={entry.Rolls} | min={entry.MinRiftLevel} | max={maxLevelText} | successOnly={entry.SuccessOnly} | checkpointOnly={entry.CheckpointOnly} | classicOnly={entry.ClassicOnly} | lootTable={entry.LootTablePrototype}");
+            }
+
+            if (tuning.ExtraLootTables.Count > 20)
+                lines.Add($"... {tuning.ExtraLootTables.Count - 20} more extra loot table entries omitted.");
+
+            return lines;
         }
 
         public bool EvaluateRunTimer(ulong runId, TimeSpan currentTime)
@@ -2127,28 +2197,68 @@ namespace MHServerEmu.Games.MythicRifts
                 runState.RegisterParticipant(kvp.Value.PlayerDbId);
         }
 
-        private static MythicRiftRewardOutcome ResolveRewardOutcome(MythicRiftRunState runState)
+        private MythicRiftRewardOutcome ResolveRewardOutcome(MythicRiftRunState runState)
         {
             if (runState == null)
                 return null;
 
             bool timedSuccess = runState.Status == MythicRiftRunStatus.Success;
             bool checkpointSuccess = timedSuccess && runState.Config.Content.BossOnlyCheckpointEligible;
+            MythicRiftRewardTuning tuning = _rewardTuning ?? MythicRiftRewardTuning.CreateDefault();
+            bool grantBossLoot = timedSuccess ? tuning.GrantBossLootOnSuccess : tuning.GrantBossLootOnFailure;
 
             MythicRiftRewardOutcome rewardOutcome = new()
             {
-                BossLootTableProtoRef = runState.Config.BossLootTableProtoRef,
+                BossLootTableProtoRef = grantBossLoot ? runState.Config.BossLootTableProtoRef : PrototypeId.Invalid,
+                RewardProfileName = tuning.ProfileName,
                 TimedSuccessBonusApplied = timedSuccess,
                 BonusRarityPct = timedSuccess
-                    ? TimedSuccessBonusRarityPct + (checkpointSuccess ? CheckpointSuccessBonusRarityPct : 0f)
-                    : 0f,
+                    ? tuning.TimedSuccessBonusRarityPct + (checkpointSuccess ? tuning.CheckpointSuccessBonusRarityPct : 0f)
+                    : tuning.FailureBonusRarityPct,
                 BonusSpecialPct = timedSuccess
-                    ? TimedSuccessBonusSpecialPct + (checkpointSuccess ? CheckpointSuccessBonusSpecialPct : 0f)
-                    : 0f
+                    ? tuning.TimedSuccessBonusSpecialPct + (checkpointSuccess ? tuning.CheckpointSuccessBonusSpecialPct : 0f)
+                    : tuning.FailureBonusSpecialPct,
+                ExtraLootTables = ResolveExtraRewardLootTables(runState, tuning, timedSuccess, checkpointSuccess)
             };
 
             runState.SetRewardOutcome(rewardOutcome);
             return rewardOutcome;
+        }
+
+        private List<MythicRiftRewardExtraLootTable> ResolveExtraRewardLootTables(MythicRiftRunState runState, MythicRiftRewardTuning tuning, bool timedSuccess, bool checkpointSuccess)
+        {
+            List<MythicRiftRewardExtraLootTable> resolvedTables = new();
+            if (runState?.Config == null || tuning?.ExtraLootTables == null)
+                return resolvedTables;
+
+            foreach (MythicRiftExtraLootTableTuning entry in tuning.ExtraLootTables)
+            {
+                if (entry == null || entry.AppliesTo(runState, timedSuccess, checkpointSuccess) == false)
+                    continue;
+
+                if (entry.ChancePercent <= 0f)
+                    continue;
+
+                if (entry.ChancePercent < 100f && Game.Random.NextFloat() * 100f >= entry.ChancePercent)
+                    continue;
+
+                PrototypeId lootTableProtoRef = ResolvePrototype(entry.LootTablePrototype);
+                if (lootTableProtoRef == PrototypeId.Invalid || lootTableProtoRef.As<LootTablePrototype>() == null)
+                {
+                    Logger.Warn($"Mythic Rift reward tuning skipped invalid extra loot table id={entry.Id} lootTable={entry.LootTablePrototype}");
+                    continue;
+                }
+
+                resolvedTables.Add(new()
+                {
+                    Id = entry.Id,
+                    LootTableProtoRef = lootTableProtoRef,
+                    Rolls = Math.Max(entry.Rolls, 1),
+                    ChancePercent = entry.ChancePercent
+                });
+            }
+
+            return resolvedTables;
         }
 
         private void GrantProgressionForSuccessfulRun(MythicRiftRunState runState)

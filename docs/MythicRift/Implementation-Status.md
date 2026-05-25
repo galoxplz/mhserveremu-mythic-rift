@@ -104,6 +104,7 @@ These entries are special Rift variants. They can be selected randomly only thro
 - remove completed or abandoned runs automatically after retention or after the completed Rift region becomes empty
 - mark a tracked online participant as an early exit if they leave the bound Rift region before completion, removing that player from rewards/unlocks while allowing remaining players inside to continue
 - abort an active Rift after all eligible participants have left the Rift region before completion
+- provide a player-facing `rift recover` escape hatch that clears temporary launch state and safely abandons/removes the player's active run if a test session gets stuck
 - auto-bind a pending run to the real target terminal region when a participant enters it
 - auto-start the timer once that region binding is established
 - bind a run to an existing region
@@ -192,10 +193,15 @@ These entries are special Rift variants. They can be selected randomly only thro
 
 ## Current Reward Logic
 
+- Reward tuning can now be adjusted server-side through:
+  - `Data/Game/MythicRift/CosmicRiftRewards.json`
+  - `rift rewardconfig`
+  - `rift rewardconfig reload`
+- The default file intentionally matches the previous hard-coded behavior, so the feature does not change unless admins edit the JSON.
 - timed success:
   - selected boss loot
   - temporary bonus applied only during the loot roll
-  - current bonus values:
+  - default bonus values:
     - RIF +10%
     - SIF +15%
 - checkpoint timed success:
@@ -206,6 +212,13 @@ These entries are special Rift variants. They can be selected randomly only thro
     - SIF +10%
 - failure:
   - selected boss loot without bonus
+- optional extra reward tables can be added in the JSON with:
+  - `lootTablePrototype`
+  - `chancePercent`
+  - `rolls`
+  - min/max Rift level gates
+  - classic/checkpoint filters
+  - content id / boss source filters
 - the reward flow is no longer purely manual: a completed run can now attempt to auto-distribute rewards to tracked participants
 
 ## Current Progression Logic
@@ -269,6 +282,7 @@ These entries are special Rift variants. They can be selected randomly only thro
   - `rift status`
   - `rift level [level|max]`
   - `rift abandon`
+  - `rift recover`
 - `rift list`
 - `rift entrypoints`
 - `rift validatecontent`
@@ -326,6 +340,7 @@ Current practical launcher stage
 - `rift success [runId]`
 - `rift fail [runId]`
 - `rift abort [runId]`
+- `rift rewardconfig [reload]`
 - `rift reward [runId]`
 - `rift rewardall [runId]`
 - `rift remove [runId]`
