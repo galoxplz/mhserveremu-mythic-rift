@@ -108,7 +108,7 @@ Because these rooms are very small, they now run as boss-only checkpoint rooms i
 
 | Map id | Region | Start target | Mode | Notes |
 |---|---|---|---|---|
-| `sabretooth-showdown` | `CH0705SabretoothShowdownRegion` | `CH07SabretoothShowdownTarget` | Boss-only checkpoint | Best concrete Showdown candidate found under StoryRevamp. |
+| `sabretooth-showdown` | `CH0705SabretoothShowdownRegion` | `CH07SabretoothShowdownTarget` | Fixed diagnostic only | Good Showdown candidate visually, but current feedback reported missing HUD/teleporter/rewards and likely native Sabretooth encounter interference. Excluded from automatic random checkpoint pool until cleaned up. |
 | `supervillain-rec-center` | `CH0503SupervillainRecCenterRegion` | `CH05RecCenterIntTarget` | Boss-only checkpoint | Showdown-like compact supervillain room. Reported boss-outside-map before the safer current-cell spawn pass; needs retest. |
 | `sc-kill-house` | `SCKillHouseRegion` | `SCKillHouseTargetStart` | Boss-only checkpoint | Fort Stryker combat room candidate. Reported boss-outside-map before the safer current-cell spawn pass; needs retest. |
 | `sc-missile-silo` | `SCMissileSiloRegion` | `SCMissileSiloTargetStart` | Boss-only checkpoint | Fort Stryker combat room candidate. |
@@ -137,6 +137,8 @@ rift armbeaconfixed tr-sacred-dojo 10
 ```
 
 Use one beacon after each `armbeaconfixed` command. Expected result: selected map loads, Rift HUD appears, `checkpointBoss=True` appears in `rift status` / `rift run [runId]`, the random validated terminal boss spawns immediately, completion portal returns players to Danger Room, and the instance cleans up after exit/abandon/timeout.
+
+Note: `sabretooth-showdown` is intentionally still listed for isolated fixed-command investigation, but it should not appear from normal random level `10`, `20`, `30`, etc. checkpoint selection in the current V1 pool.
 
 ## Detailed Recheck Notes
 

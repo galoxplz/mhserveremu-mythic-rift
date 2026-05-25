@@ -36,6 +36,7 @@ namespace MHServerEmu.Games.MythicRifts
         private static readonly TimeSpan RiftObjectiveWidgetRefreshInterval = TimeSpan.FromSeconds(5);
         private static readonly TimeSpan PlayerDeathTimePenalty = TimeSpan.FromSeconds(15);
         private static readonly TimeSpan CustomRiftPopulationSpawnInterval = TimeSpan.FromSeconds(4);
+        private static readonly TimeSpan CheckpointBossSpawnRetryInterval = TimeSpan.FromSeconds(1);
         private const int CustomRiftPopulationBaseTargetAlive = 18;
         private const int CustomRiftPopulationTargetAlivePerExtraPlayer = 4;
         private const int CustomRiftPopulationBaseMaxAlive = 30;
@@ -72,6 +73,10 @@ namespace MHServerEmu.Games.MythicRifts
         private static readonly PrototypeId RiftDangerRoomTimerWidgetPrototypeRef = (PrototypeId)15369535438503023451UL;
         private const string RiftExitPortalPrototypeName = "Entity/Transitions/ReturnToLastBaseDR.prototype";
         private const float SpecialRandomMapChance = 0.05f;
+        private static readonly HashSet<string> RandomCheckpointContentExclusions = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "sabretooth-showdown"
+        };
         private static readonly string[] CustomRiftPopulationMobPrototypeNames =
         {
             "Entity/Characters/Mobs/EndGameRandoms01/ThugEG06.prototype",
@@ -356,6 +361,7 @@ namespace MHServerEmu.Games.MythicRifts
         private readonly Dictionary<ulong, List<string>> _recentRandomMapContentIdsByPlayer = new();
         private readonly Dictionary<ulong, TimeSpan> _nextNativeBossSuppressionScanAt = new();
         private readonly Dictionary<ulong, TimeSpan> _nextRiftObjectiveWidgetRefreshAt = new();
+        private readonly Dictionary<ulong, TimeSpan> _nextCheckpointBossSpawnRetryAt = new();
         private readonly Dictionary<ulong, HashSet<Mission>> _serverSuspendedNativeObjectiveMissionsByRun = new();
         private static PrototypeId _cachedRiftDangerRoomLevelWidgetPrototypeRef = PrototypeId.Invalid;
         private static PrototypeId _cachedRiftDangerRoomQuotaWidgetPrototypeRef = PrototypeId.Invalid;
@@ -460,6 +466,14 @@ namespace MHServerEmu.Games.MythicRifts
             return GetHighestUnlockedRiftLevel(playerDbId);
         }
 
+        public bool ConsumePreferredLaunchRiftLevel(ulong playerDbId)
+        {
+            if (playerDbId == 0)
+                return false;
+
+            return _preferredLaunchRiftLevelByPlayer.Remove(playerDbId);
+        }
+
         public int SetHighestUnlockedRiftLevel(ulong playerDbId, int unlockedLevel, bool allowDecrease = false)
         {
             if (playerDbId == 0)
@@ -491,30 +505,11 @@ namespace MHServerEmu.Games.MythicRifts
             int nextUnlockedLevel = Math.Max(completedLevel + 1, 1);
             int currentUnlockedLevel = GetHighestUnlockedRiftLevel(playerDbId);
             if (nextUnlockedLevel <= currentUnlockedLevel)
-            {
-                AdvancePreferredLaunchLevelAfterUnlock(playerDbId, completedLevel, nextUnlockedLevel, currentUnlockedLevel);
                 return currentUnlockedLevel;
-            }
 
             _highestUnlockedRiftLevelByPlayer[playerDbId] = nextUnlockedLevel;
             SyncOnlinePlayerRiftLevel(playerDbId, nextUnlockedLevel);
-            AdvancePreferredLaunchLevelAfterUnlock(playerDbId, completedLevel, nextUnlockedLevel, currentUnlockedLevel);
             return nextUnlockedLevel;
-        }
-
-        private void AdvancePreferredLaunchLevelAfterUnlock(ulong playerDbId, int completedLevel, int nextUnlockedLevel, int currentUnlockedLevelBeforeGrant)
-        {
-            if (playerDbId == 0 || nextUnlockedLevel <= completedLevel)
-                return;
-
-            if (_preferredLaunchRiftLevelByPlayer.TryGetValue(playerDbId, out int preferredLevel) == false)
-                return;
-
-            if (preferredLevel != completedLevel)
-                return;
-
-            if (nextUnlockedLevel > currentUnlockedLevelBeforeGrant)
-                _preferredLaunchRiftLevelByPlayer[playerDbId] = nextUnlockedLevel;
         }
 
         public MythicRiftRunConfig CreateDebugRunConfig(string contentId, int riftLevel, int requestedPlayerCount, int killQuota, TimeSpan timeLimit)
@@ -628,6 +623,7 @@ namespace MHServerEmu.Games.MythicRifts
             {
                 _nextNativeBossSuppressionScanAt.Remove(runId);
                 _nextRiftObjectiveWidgetRefreshAt.Remove(runId);
+                _nextCheckpointBossSpawnRetryAt.Remove(runId);
                 _serverSuspendedNativeObjectiveMissionsByRun.Remove(runId);
             }
 
@@ -908,6 +904,7 @@ namespace MHServerEmu.Games.MythicRifts
                 UpdateParticipantPresence(runState, currentTime);
                 TryAutoBindAndStartPendingRun(runState, currentTime);
                 MaintainCustomRiftPopulation(runState, currentTime);
+                TryStartBossOnlyCheckpoint(runState, currentTime);
                 SuppressNativeTerminalBosses(runState, currentTime);
                 RefreshRiftObjectiveWidgets(runState, currentTime);
 
@@ -1059,7 +1056,10 @@ namespace MHServerEmu.Games.MythicRifts
         {
             bool isCheckpointLevel = IsCheckpointRiftLevel(riftLevel);
             List<MythicRiftContentEntry> eligibleContent = isCheckpointLevel
-                ? _contentPool.Where(entry => entry.BossOnlyCheckpointEligible).ToList()
+                ? _contentPool
+                    .Where(entry => entry.BossOnlyCheckpointEligible &&
+                                    RandomCheckpointContentExclusions.Contains(entry.Id) == false)
+                    .ToList()
                 : _contentPool.Where(entry => entry.RandomMapEligible && entry.BossOnlyCheckpointEligible == false).ToList();
 
             if (eligibleContent.Count == 0)
@@ -2429,15 +2429,18 @@ namespace MHServerEmu.Games.MythicRifts
             if (runState.Status != MythicRiftRunStatus.Active || runState.RegionId == 0 || runState.BossEntityId != 0)
                 return false;
 
+            if (_nextCheckpointBossSpawnRetryAt.TryGetValue(runState.Config.RunId, out TimeSpan nextRetryAt) && currentTime < nextRetryAt)
+                return false;
+
+            _nextCheckpointBossSpawnRetryAt[runState.Config.RunId] = currentTime + CheckpointBossSpawnRetryInterval;
             runState.UnlockBoss();
             if (TrySpawnConfiguredBoss(runState, null) == false)
             {
-                string reason = "Checkpoint boss could not be spawned. The Rift has closed; please try again with a new Beacon.";
-                Logger.Warn($"Mythic Rift checkpoint run {runState.Config.RunId} failed to spawn boss {runState.Config.BossProtoRef.GetNameFormatted() ?? "unknown"}.");
-                AbortRun(runState, currentTime, reason);
+                Logger.Debug($"Mythic Rift checkpoint run {runState.Config.RunId} could not spawn boss {runState.Config.BossProtoRef.GetNameFormatted() ?? "unknown"} yet; retrying.");
                 return false;
             }
 
+            _nextCheckpointBossSpawnRetryAt.Remove(runState.Config.RunId);
             CaptureBossUnlockEligibility(runState);
             RefreshRiftHudWidgets(runState, currentTime);
             NotifyBossUnlocked(runState);
