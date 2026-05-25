@@ -96,8 +96,8 @@ These entries are special Rift variants. They can be selected randomly only thro
 - track and mirror the highest unlocked Rift level per player during the session
 - persist the highest unlocked Rift level inside the Player's persistent data
 - verify whether a player can access a given Rift level
-- let a player choose a lower unlocked launch level through `rift level [level]`, while `rift level max` returns to the highest unlocked level
-- let admins reset an individual tester's Rift progression and selected launch level back to level 1 through `rift resetprogress`
+- let a player arm a one-shot lower unlocked launch level through `rift level [level]`, while `rift level max` clears that one-shot selection
+- let admins reset an individual tester's Rift progression and clear any one-shot launch level through `rift resetprogress`
 - manage a server-side timer
 - fail a run automatically on expiration
 - abort a run automatically if all tracked participants stay offline too long
@@ -301,7 +301,7 @@ Current practical launcher stage
 - For random runs, the direct beacon path now creates a random map plus a separately selected random boss source from the current playable pool.
 - The active Rift region now suppresses the terminal's native linked boss while the run is active, so the player cannot complete or loot the normal terminal boss before the Cosmic Rift quota is finished.
 - Boss completion is now strictly quota-gated: even a matching boss entity cannot complete the run until the kill quota has unlocked the boss phase.
-- Player-selected launch level now exists server-side: `rift level` shows the next beacon launch level, `rift level 50` lets an unlocked player farm level 50, and `rift level max` returns to their highest unlocked level.
+- Player-selected launch level now exists server-side: `rift level` shows the next beacon launch level, `rift level 50` lets an unlocked player arm one level-50 farming launch, and `rift level max` clears that one-shot selection.
 - `rift access [level]`
 - `rift progression`
 - `rift setaccess [level]`
@@ -343,9 +343,9 @@ Current practical launcher stage
 - Every 10th Rift level now acts as a checkpoint tier: random level `10`, `20`, `30`, etc. selects a boss-only checkpoint room, summons a random validated Rift boss immediately, and requires that boss kill to unlock the next tier.
 - Checkpoint rooms hide the kill-quota HUD widget and keep only the level/timer widgets, because showing a fake `1/1` quota confused the intended boss-only flow.
 - Checkpoint progression eligibility is captured from players present at boss death, rather than from an instant boss-unlock snapshot at room start, so slower-loading group members are not excluded just because the boss spawned before their client finished zoning.
-- If a checkpoint boss cannot spawn, the run now aborts immediately with a clear message instead of leaving players in a bricked active Rift.
-- The selected launch level now follows push progression when appropriate: clearing the currently selected max level advances that selection to the newly unlocked level, while intentionally selected lower farm levels remain sticky.
-- Player-selected launch level is now explicitly separated from progression: `rift level [number]` only changes the next launch level and cannot lower `highestUnlockedRiftLevel`.
+- If a checkpoint boss cannot spawn immediately, the run now stays active and retries the spawn instead of aborting the Rift during region/player anchor timing windows.
+- `sabretooth-showdown` is kept as a fixed diagnostic target but excluded from the automatic checkpoint random pool until its native encounter behavior is validated.
+- Player-selected launch level is now explicitly separated from progression: `rift level [number]` only changes the next successful beacon launch and cannot lower `highestUnlockedRiftLevel`; after that launch, later beacons default back to highest unlocked level.
 - Test helper commands that unlock access now protect existing higher progress; `rift resetprogress` is the explicit way to wipe a tester back to level 1.
 - Checkpoint boss spawning now prefers positions in the player's current cell/room to reduce small-room cases where a boss appeared outside the playable map.
 - Rift launcher use is now gated to the Danger Room hub. If a player tries to use the item in Story Mode or another region, the server intercepts the item use and blocks the native scenario/story teleport fallback.

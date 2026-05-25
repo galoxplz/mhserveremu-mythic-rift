@@ -296,7 +296,7 @@ namespace MHServerEmu.Commands.Implementations
 
             List<string> lines = new()
             {
-                $"playerDbId=0x{player.DatabaseUniqueId:X} | highestUnlockedRiftLevel={unlockedLevel} | selectedLaunchRiftLevel={selectedLevel} | persistedPlayerValue={player.MythicRiftHighestUnlockedLevel}"
+                $"playerDbId=0x{player.DatabaseUniqueId:X} | highestUnlockedRiftLevel={unlockedLevel} | nextLaunchRiftLevel={selectedLevel} | persistedPlayerValue={player.MythicRiftHighestUnlockedLevel}"
             };
 
             if (inProgressRun == null)
@@ -351,7 +351,7 @@ namespace MHServerEmu.Commands.Implementations
                 return "Game or player not found.";
 
             int appliedLevel = game.MythicRiftManager.ResetRiftProgress(player.DatabaseUniqueId);
-            return $"Player Cosmic Rift progression reset. Highest unlocked Rift level={appliedLevel} | selected launch level={game.MythicRiftManager.GetPreferredLaunchRiftLevel(player.DatabaseUniqueId)}.";
+            return $"Player Cosmic Rift progression reset. Highest unlocked Rift level={appliedLevel} | next launch level={game.MythicRiftManager.GetPreferredLaunchRiftLevel(player.DatabaseUniqueId)}.";
         }
 
         [Command("debug")]
@@ -1690,7 +1690,7 @@ namespace MHServerEmu.Commands.Implementations
                 int unlockedLevel = game.MythicRiftManager.GetHighestUnlockedRiftLevel(player.DatabaseUniqueId);
                 int selectedLevel = game.MythicRiftManager.GetPreferredLaunchRiftLevel(player.DatabaseUniqueId);
                 string selectionNote = selectedLevel < unlockedLevel
-                    ? " Lower farming level selected; use `rift level max` to resume pushing."
+                    ? " Lower farming level selected for the next successful Beacon launch only; use `rift level max` to clear it."
                     : string.Empty;
                 return $"No active Cosmic Rift run. Highest unlocked Rift level: {unlockedLevel}. Next beacon launch level: {selectedLevel}.{selectionNote}";
             }
@@ -1718,9 +1718,9 @@ namespace MHServerEmu.Commands.Implementations
             if (@params.Length == 0)
             {
                 string selectionNote = selectedLevel < unlockedLevel
-                    ? " You are currently set to farm a lower level; this does not reduce your unlocked progression."
-                    : " You are currently set to push your highest unlocked level.";
-                return $"Cosmic Rift launch level: {selectedLevel}. Highest unlocked: {unlockedLevel}.{selectionNote} Use `rift level [1-{unlockedLevel}]` to farm a lower level, or `rift level max` to launch your highest unlocked level.";
+                    ? " A lower farming level is armed for one successful Beacon launch; this does not reduce your unlocked progression."
+                    : " Beacons will launch your highest unlocked level unless you arm a one-shot lower level.";
+                return $"Next Cosmic Rift launch level: {selectedLevel}. Highest unlocked: {unlockedLevel}.{selectionNote} Use `rift level [1-{unlockedLevel}]` to arm one lower farming run, or `rift level max` to clear the one-shot selection.";
             }
 
             string requestedLevelText = @params[0];
@@ -1729,7 +1729,7 @@ namespace MHServerEmu.Commands.Implementations
                 string.Equals(requestedLevelText, "auto", StringComparison.OrdinalIgnoreCase))
             {
                 int appliedLevel = game.MythicRiftManager.UseHighestUnlockedLaunchRiftLevel(player.DatabaseUniqueId);
-                return $"Cosmic Rift launch level set to your highest unlocked level: {appliedLevel}. Lower-level farming selection cleared.";
+                return $"Cosmic Rift one-shot launch selection cleared. Next Beacon will use your highest unlocked level: {appliedLevel}.";
             }
 
             if (TryParsePositiveInt(requestedLevelText, out int requestedLevel) == false)
@@ -1740,8 +1740,8 @@ namespace MHServerEmu.Commands.Implementations
 
             string appliedNote = appliedLaunchLevel < unlockedLevel
                 ? " This is a lower farming level and does not reduce your unlocked progression."
-                : " This is your current push level; clearing it will move the next launch level forward.";
-            return $"Cosmic Rift launch level set to {appliedLaunchLevel}. Highest unlocked: {unlockedLevel}.{appliedNote}";
+                : " This is your current push level.";
+            return $"Next Cosmic Rift Beacon launch set to level {appliedLaunchLevel}. Highest unlocked: {unlockedLevel}.{appliedNote} This one-shot selection is consumed after the next successful Beacon launch.";
         }
 
         [Command("abandon")]

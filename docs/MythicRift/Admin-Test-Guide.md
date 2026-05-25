@@ -127,14 +127,12 @@ rift level max
 Expected result:
 
 - `rift status` shows the highest unlocked level and the next beacon launch level when no Rift is active
-- `rift level` shows the current selected launch level and the highest unlocked level
-- `rift level [number]` sets the next beacon launch level only if that level is already unlocked
-- `rift level max` returns the next beacon launch level to the player's highest unlocked level
-- if the selected launch level is also the player's current push level, clearing it advances the selected launch level to the newly unlocked level
-- if the selected launch level is below the player's already unlocked max, clearing it keeps the lower farm selection
+- `rift level` shows the next beacon launch level and the highest unlocked level
+- `rift level [number]` arms that level for the next successful beacon launch only, and only if that level is already unlocked
+- `rift level max` clears the one-shot launch selection so the next beacon uses the player's highest unlocked level
 - `rift level [number]` never lowers the player's highest unlocked progression; it only changes the next launch level
 - `rift setaccess` and `rift prepbeacon` now protect existing higher progression and will not lower a player's max level by accident; use `rift resetprogress` first when an intentional test reset is needed
-- the next purchased or granted beacon uses the selected launch level, not always the highest unlocked level
+- the next purchased or granted beacon uses the one-shot launch level when armed, then the selection is consumed and later beacons go back to the highest unlocked level by default
 - Rift launcher items are intentionally usable only from the Danger Room hub. Using one in Story Mode or inside another region should be intercepted with a chat error and should not fall through into native scenario/story teleport behavior.
 
 Admin progress reset test:
@@ -148,7 +146,7 @@ rift progression
 Expected result:
 
 - `rift resetprogress` resets the invoking player's highest unlocked Rift level to `1`
-- the selected launch level is also reset back to level `1`
+- any one-shot launch level selection is cleared, so the next launch returns to level `1`
 - this is intentionally admin-only for controlled Test Center resets
 
 Player-facing stop test:
@@ -357,7 +355,8 @@ Expected result:
 - random levels `10`, `20`, `30`, etc. should select one of these checkpoint rooms instead of the normal classic Rift map pool
 - checkpoint rooms should show Rift level and timer UI only; they should not show a kill-count quota bar
 - checkpoint clears should award the normal timed success bonus plus a small extra checkpoint success bonus
-- if the checkpoint boss cannot spawn, the run should close with a clear failure/abort message rather than staying active forever
+- if the checkpoint boss cannot spawn immediately, the run should stay active and retry the spawn instead of closing the Rift and poisoning later tests
+- `sabretooth-showdown` remains available as a fixed diagnostic command target, but is excluded from the automatic every-10-level random checkpoint pool until its native Sabretooth encounter behavior is fully clean
 - checkpoint boss spawn now prefers valid positions in the player's current room/cell instead of blindly spawning forward from the player; this specifically needs retesting on `tr-asgard-estate`, `supervillain-rec-center`, and `sc-kill-house`
 - death release inside an active Rift is intercepted and sent back to the same Rift instance start target, so StoryRevamp checkpoint rooms like `sc-fire-swamp` and `sc-mineshaft` should no longer refresh into the story-mode version after death
 - for party tests, the Rift should no longer auto-close immediately just because another party member is still zoning

@@ -468,6 +468,7 @@ namespace MHServerEmu.Games.MythicRifts
             if (IsCommittedLauncherUse(result))
             {
                 ConsumeLauncherItemStack(item);
+                Game.MythicRiftManager.ConsumePreferredLaunchRiftLevel(player.DatabaseUniqueId);
                 _armedLaunchesByPlayerDbId.Remove(player.DatabaseUniqueId);
             }
 
@@ -593,6 +594,7 @@ namespace MHServerEmu.Games.MythicRifts
             if (IsCommittedLauncherUse(result))
             {
                 ConsumeLauncherItemStack(item);
+                Game.MythicRiftManager.ConsumePreferredLaunchRiftLevel(player.DatabaseUniqueId);
 
                 if (usingGenericTrackedChargeFallback)
                     ConsumeAnyTrackedBeaconCharge(player.DatabaseUniqueId);
