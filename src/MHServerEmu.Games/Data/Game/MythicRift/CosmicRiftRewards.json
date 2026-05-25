@@ -1,0 +1,28 @@
+{
+  "profileName": "default",
+  "enabled": true,
+  "grantBossLootOnSuccess": true,
+  "grantBossLootOnFailure": true,
+  "timedSuccessBonusRarityPct": 0.10,
+  "timedSuccessBonusSpecialPct": 0.15,
+  "checkpointSuccessBonusRarityPct": 0.05,
+  "checkpointSuccessBonusSpecialPct": 0.10,
+  "failureBonusRarityPct": 0.0,
+  "failureBonusSpecialPct": 0.0,
+  "extraLootTables": [
+    {
+      "id": "example-disabled-extra-success-roll",
+      "enabled": false,
+      "lootTablePrototype": "Loot/Tables/Mob/Bosses/EndgameDailies/Terminals/AbandonedSubway/ShockerTerminalLoot.prototype",
+      "chancePercent": 25.0,
+      "rolls": 1,
+      "minRiftLevel": 1,
+      "maxRiftLevel": 0,
+      "successOnly": true,
+      "checkpointOnly": false,
+      "classicOnly": false,
+      "contentIds": [],
+      "bossSourceIds": []
+    }
+  ]
+}
