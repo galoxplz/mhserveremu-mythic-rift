@@ -25,6 +25,8 @@ namespace MHServerEmu.Games.MythicRifts
         public float CheckpointSuccessBonusSpecialPct { get; set; } = 0.10f;
         public float FailureBonusRarityPct { get; set; } = 0f;
         public float FailureBonusSpecialPct { get; set; } = 0f;
+        public string DefaultDelivery { get; set; } = "inventory";
+        public List<MythicRiftPrimaryLootTableTuning> PrimaryLootTableOverrides { get; set; } = new();
         public List<MythicRiftExtraLootTableTuning> ExtraLootTables { get; set; } = new();
 
         public static string ConfigPath => Path.Combine(FileHelper.DataDirectory, RelativeConfigPath);
@@ -47,47 +49,60 @@ namespace MHServerEmu.Games.MythicRifts
             CheckpointSuccessBonusSpecialPct = Math.Max(CheckpointSuccessBonusSpecialPct, 0f);
             FailureBonusRarityPct = Math.Max(FailureBonusRarityPct, 0f);
             FailureBonusSpecialPct = Math.Max(FailureBonusSpecialPct, 0f);
+            DefaultDelivery = NormalizeDelivery(DefaultDelivery);
+            PrimaryLootTableOverrides ??= new();
             ExtraLootTables ??= new();
 
+            foreach (MythicRiftPrimaryLootTableTuning entry in PrimaryLootTableOverrides)
+                entry?.Normalize(DefaultDelivery);
+
             foreach (MythicRiftExtraLootTableTuning entry in ExtraLootTables)
-                entry?.Normalize();
+                entry?.Normalize(DefaultDelivery);
+        }
+
+        public static string NormalizeDelivery(string delivery)
+        {
+            return string.Equals(delivery, "ground", StringComparison.OrdinalIgnoreCase)
+                ? "ground"
+                : "inventory";
+        }
+
+        public static bool IsGroundDelivery(string delivery)
+        {
+            return string.Equals(NormalizeDelivery(delivery), "ground", StringComparison.OrdinalIgnoreCase);
         }
     }
 
-    public sealed class MythicRiftExtraLootTableTuning
+    public abstract class MythicRiftLootTableTuningBase
     {
         public string Id { get; set; }
         public bool Enabled { get; set; } = true;
         public string LootTablePrototype { get; set; }
-        public float ChancePercent { get; set; } = 100f;
-        public int Rolls { get; set; } = 1;
         public int MinRiftLevel { get; set; } = 1;
         public int MaxRiftLevel { get; set; } = 0;
-        public bool SuccessOnly { get; set; } = true;
         public bool CheckpointOnly { get; set; } = false;
         public bool ClassicOnly { get; set; } = false;
         public List<string> ContentIds { get; set; } = new();
         public List<string> BossSourceIds { get; set; } = new();
+        public string Delivery { get; set; }
 
-        public void Normalize()
+        public virtual void Normalize(string defaultDelivery)
         {
             if (string.IsNullOrWhiteSpace(Id))
-                Id = string.IsNullOrWhiteSpace(LootTablePrototype) ? "unnamed-extra-loot" : LootTablePrototype;
+                Id = string.IsNullOrWhiteSpace(LootTablePrototype) ? "unnamed-loot-table" : LootTablePrototype;
 
-            ChancePercent = Math.Clamp(ChancePercent, 0f, 100f);
-            Rolls = Math.Max(Rolls, 1);
             MinRiftLevel = Math.Max(MinRiftLevel, 1);
             MaxRiftLevel = Math.Max(MaxRiftLevel, 0);
             ContentIds ??= new();
             BossSourceIds ??= new();
+            Delivery = string.IsNullOrWhiteSpace(Delivery)
+                ? MythicRiftRewardTuning.NormalizeDelivery(defaultDelivery)
+                : MythicRiftRewardTuning.NormalizeDelivery(Delivery);
         }
 
-        public bool AppliesTo(MythicRiftRunState runState, bool timedSuccess, bool checkpointSuccess)
+        public bool AppliesTo(MythicRiftRunState runState, bool checkpointSuccess)
         {
             if (Enabled == false || runState?.Config == null)
-                return false;
-
-            if (SuccessOnly && timedSuccess == false)
                 return false;
 
             if (CheckpointOnly && checkpointSuccess == false)
@@ -110,6 +125,32 @@ namespace MHServerEmu.Games.MythicRifts
                 return false;
 
             return true;
+        }
+    }
+
+    public sealed class MythicRiftPrimaryLootTableTuning : MythicRiftLootTableTuningBase
+    {
+    }
+
+    public sealed class MythicRiftExtraLootTableTuning : MythicRiftLootTableTuningBase
+    {
+        public float ChancePercent { get; set; } = 100f;
+        public int Rolls { get; set; } = 1;
+        public bool SuccessOnly { get; set; } = true;
+
+        public override void Normalize(string defaultDelivery)
+        {
+            base.Normalize(defaultDelivery);
+            ChancePercent = Math.Clamp(ChancePercent, 0f, 100f);
+            Rolls = Math.Max(Rolls, 1);
+        }
+
+        public bool AppliesTo(MythicRiftRunState runState, bool timedSuccess, bool checkpointSuccess)
+        {
+            if (SuccessOnly && timedSuccess == false)
+                return false;
+
+            return base.AppliesTo(runState, checkpointSuccess);
         }
     }
 }

@@ -85,6 +85,7 @@ Special low-chance pool:
 
 - Cosmic Doop Sector
   - 5% random map chance
+  - random pool starts at Rift level `25+`
   - fixed boss source: Cosmic Doop Overlord
   - kill quota: `100`
   - direct test id: `cosmic-doop-sector`
@@ -99,7 +100,7 @@ Registered / known but excluded from random selection for now:
 - 1 to 5 players
 - 4 and 5 players share the same group scaling bucket
 - group health scaling is now locked to `1x / 2x / 3x / 4x` for `1 / 2 / 3 / 4-5` players
-- one Mythic Rift level now maps to `0.40` D3 Greater Rift levels in the frozen test tuning, so Marvel terminal balance stays more realistic during multiplayer validation
+- Rift scaling now uses a softer piecewise D3-equivalent curve: early levels stay close to the previous pacing, while mid/high levels ramp more slowly for longer progression testing
 - if the leader disconnects, the Rift remains valid
 - if the group changes mid-run, the Rift still remains valid
 - success is determined by killing enough enemies to unlock the boss, then killing the boss

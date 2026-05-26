@@ -484,14 +484,14 @@ namespace MHServerEmu.Games.MythicRifts
                 MythicRiftLauncherUseResult rejectedResult = BuildRejectedLauncherUseResult(
                     player,
                     item,
-                    "Cosmic Rift launchers can only be used from the Danger Room hub.");
+                    "Cosmic Rift launchers can only be used from the Danger Room hub or from a completed Cosmic Rift.");
 
                 interceptedItemUse = true;
                 if (player != null)
                     _lastArmedLaunchResultsByPlayerDbId[player.DatabaseUniqueId] = rejectedResult;
 
                 NotifyLauncherUse(player, rejectedResult);
-                Logger.Info($"[MythicRiftLauncher] Rejected beacon use outside Danger Room hub playerDbId=0x{player?.DatabaseUniqueId ?? 0UL:X} itemId={item?.Id ?? 0UL} prototype={item?.PrototypeDataRef.GetNameFormatted() ?? "unknown"} currentRegion={player?.GetRegion()?.PrototypeDataRef.GetNameFormatted() ?? "none"}");
+                Logger.Info($"[MythicRiftLauncher] Rejected beacon use outside allowed Cosmic Rift launch regions playerDbId=0x{player?.DatabaseUniqueId ?? 0UL:X} itemId={item?.Id ?? 0UL} prototype={item?.PrototypeDataRef.GetNameFormatted() ?? "unknown"} currentRegion={player?.GetRegion()?.PrototypeDataRef.GetNameFormatted() ?? "none"}");
                 return rejectedResult;
             }
 
@@ -512,10 +512,13 @@ namespace MHServerEmu.Games.MythicRifts
             return null;
         }
 
-        private static bool CanUseLauncherFromCurrentRegion(Player player)
+        private bool CanUseLauncherFromCurrentRegion(Player player)
         {
             Region region = player?.GetRegion();
-            return region?.PrototypeDataRef == (PrototypeId)RegionPrototypeId.DangerRoomHubRegion;
+            if (region?.PrototypeDataRef == (PrototypeId)RegionPrototypeId.DangerRoomHubRegion)
+                return true;
+
+            return Game.MythicRiftManager.CanLaunchFromCompletedRiftRegion(player);
         }
 
         private MythicRiftLauncherUseResult BuildRejectedLauncherUseResult(Player player, Item item, string errorMessage)

@@ -9,6 +9,21 @@
   "checkpointSuccessBonusSpecialPct": 0.10,
   "failureBonusRarityPct": 0.0,
   "failureBonusSpecialPct": 0.0,
+  "defaultDelivery": "inventory",
+  "primaryLootTableOverrides": [
+    {
+      "id": "example-disabled-level-50-plus-primary-override",
+      "enabled": false,
+      "lootTablePrototype": "Loot/Tables/Mob/Bosses/EndgameDailies/Terminals/AbandonedSubway/ShockerTerminalLoot.prototype",
+      "minRiftLevel": 50,
+      "maxRiftLevel": 0,
+      "checkpointOnly": false,
+      "classicOnly": false,
+      "contentIds": [],
+      "bossSourceIds": [],
+      "delivery": "ground"
+    }
+  ],
   "extraLootTables": [
     {
       "id": "example-disabled-extra-success-roll",
@@ -22,7 +37,8 @@
       "checkpointOnly": false,
       "classicOnly": false,
       "contentIds": [],
-      "bossSourceIds": []
+      "bossSourceIds": [],
+      "delivery": "inventory"
     }
   ]
 }

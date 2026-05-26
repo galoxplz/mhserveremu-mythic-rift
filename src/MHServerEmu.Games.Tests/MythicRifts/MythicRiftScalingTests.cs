@@ -34,10 +34,10 @@ namespace MHServerEmu.Games.Tests.MythicRifts
 
             Assert.Equal(25, snapshot.RiftLevel);
             Assert.Equal(1, snapshot.EffectivePlayerCount);
-            Assert.InRange(snapshot.EquivalentD3RiftLevel, 10.599f, 10.601f);
+            Assert.InRange(snapshot.EquivalentD3RiftLevel, 9.999f, 10.001f);
             Assert.InRange(snapshot.GroupHealthMultiplier, 0.999f, 1.001f);
-            Assert.InRange(snapshot.HealthMultiplier, 4.513f, 4.515f);
-            Assert.InRange(snapshot.DamageMultiplier, 3.232f, 3.234f);
+            Assert.InRange(snapshot.HealthMultiplier, 4.107f, 4.109f);
+            Assert.InRange(snapshot.DamageMultiplier, 3.003f, 3.005f);
         }
 
         [Fact]
@@ -47,7 +47,7 @@ namespace MHServerEmu.Games.Tests.MythicRifts
             MythicRiftDifficultySnapshot groupSnapshot = MythicRiftScaling.BuildSnapshot(25, 4);
 
             Assert.Equal(4, groupSnapshot.EffectivePlayerCount);
-            Assert.InRange(groupSnapshot.EquivalentD3RiftLevel, 10.599f, 10.601f);
+            Assert.InRange(groupSnapshot.EquivalentD3RiftLevel, 9.999f, 10.001f);
             Assert.InRange(groupSnapshot.GroupHealthMultiplier, 3.999f, 4.001f);
             Assert.InRange(groupSnapshot.HealthMultiplier, (soloSnapshot.HealthMultiplier * 4f) - 0.001f, (soloSnapshot.HealthMultiplier * 4f) + 0.001f);
             Assert.InRange(groupSnapshot.DamageMultiplier, soloSnapshot.DamageMultiplier - 0.001f, soloSnapshot.DamageMultiplier + 0.001f);

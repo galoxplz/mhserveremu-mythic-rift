@@ -13,6 +13,8 @@ namespace MHServerEmu.Games.MythicRifts
         public bool UseOwnBossSourceWhenSelected { get; init; }
         public bool UseCustomPopulation { get; init; }
         public bool BossOnlyCheckpointEligible { get; init; }
+        public int MinRandomRiftLevel { get; init; } = 1;
+        public int MaxRandomRiftLevel { get; init; }
         public PrototypeId RegionProtoRef { get; init; }
         public PrototypeId StartTargetProtoRef { get; init; }
         public PrototypeId MissionProtoRef { get; init; }
@@ -32,5 +34,14 @@ namespace MHServerEmu.Games.MythicRifts
         public bool IsValid =>
             HasValidMap &&
             (RandomBossEligible == false || HasValidBossSource);
+
+        public bool CanAppearAtRandomRiftLevel(int riftLevel)
+        {
+            int normalizedLevel = Math.Max(riftLevel, 1);
+            if (normalizedLevel < Math.Max(MinRandomRiftLevel, 1))
+                return false;
+
+            return MaxRandomRiftLevel <= 0 || normalizedLevel <= MaxRandomRiftLevel;
+        }
     }
 }

@@ -107,12 +107,14 @@ Current implemented prototype behavior:
 - forced Rift-region teleport resolution using the configured content region instead of trusting native terminal `StartTarget.Region`, preventing accidental `RegionBand` drift on affected terminals
 - current terminal content now uses the L60 terminal region variants where available, following MonEll's local finding that these resolve the intended terminal regions more reliably
 - successful Rift clears spawn a return portal back to the Danger Room hub
+- successful Rift clears also allow direct chaining if the player has another launcher item and uses it before taking the return portal
 - best-effort party-member teleports when the leader launches the Rift beacon
 - automatic abort if all tracked participants stay offline too long
 - automatic cleanup of stale completed or abandoned runs
 - automatic Rift closure when a tracked participant leaves the active Rift region before completion
 - automatic Rift failure and return-to-hub when the timer expires
 - automatic shutdown request for completed/aborted Rift terminal regions once they become vacant, so the next run gets a fresh instance
+- hot-reloadable reward tuning through `Data/Game/MythicRift/CosmicRiftRewards.json`, including primary loot overrides, extra loot tables, level filters, and inventory/ground delivery
 - user-level `rift status` and `rift abandon` commands for player-like testing without admin run management
 - user-level `rift level [level|max]` command so unlocked players can choose a lower farming level before using the next beacon
 - player-facing chat feedback at launch, boss unlock, completion, failure, and early Rift closure
@@ -157,6 +159,7 @@ Special low-chance pool:
 
 - Cosmic Doop Sector
   - 5% random map chance
+  - random pool starts at Rift level `25+`
   - fixed boss source: Cosmic Doop Overlord
   - kill quota: `100`
   - direct test id: `cosmic-doop-sector`

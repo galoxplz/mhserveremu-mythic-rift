@@ -86,7 +86,7 @@ The data also contains the remembered space Doop zone:
 
 | Map id | Region | Start target | Population | Boss | Random behavior |
 |---|---|---|---|---|---|
-| `cosmic-doop-sector` | `CosmicDoopSectorSpaceRegion` | `CosmicDoopSectorSpaceStartTarget` | `EGDoopZonePop` | `CosmicDoopOverlord` | Special 5% chance, fixed own boss, kill quota 100 |
+| `cosmic-doop-sector` | `CosmicDoopSectorSpaceRegion` | `CosmicDoopSectorSpaceStartTarget` | `EGDoopZonePop` | `CosmicDoopOverlord` | Special 5% chance from Rift level 25+, fixed own boss, kill quota 100 |
 
 This entry is intentionally not treated as a normal map-only entry. It has its own fixed boss and loot table, and it is not added to the normal random boss-source pool.
 
@@ -104,18 +104,18 @@ Use one beacon after arming. Expected result: the run enters the Cosmic Doop spa
 
 These entries were added for focused Test Center validation. They resolve server-side as concrete `PrivateStory` regions, have valid `StartTarget` refs that point back to their own region, are approved/non-abstract, and have `ObjectiveGraph=Off`.
 
-Because these rooms are very small, they now run as boss-only checkpoint rooms instead of classic kill-quota maps. Every 10th random Rift level (`10`, `20`, `30`, etc.) selects one of these rooms, summons a random validated Rift boss immediately, and requires that boss kill to unlock the next tier. The checkpoint boss receives an extra health multiplier on top of normal Rift level scaling, the kill-count HUD is hidden, and a small extra timed-success reward bonus is applied on clear.
+Because these rooms are very small, they now run as boss-only checkpoint rooms instead of classic kill-quota maps. Every 5th random Rift level (`5`, `10`, `15`, etc.) selects one of the validated rooms, summons a random validated Rift boss immediately, and requires that boss kill to unlock the next tier. The checkpoint boss receives an extra health multiplier on top of normal Rift level scaling, the kill-count HUD is hidden, and a small extra timed-success reward bonus is applied on clear.
 
 | Map id | Region | Start target | Mode | Notes |
 |---|---|---|---|---|
 | `sabretooth-showdown` | `CH0705SabretoothShowdownRegion` | `CH07SabretoothShowdownTarget` | Fixed diagnostic only | Good Showdown candidate visually, but current feedback reported missing HUD/teleporter/rewards and likely native Sabretooth encounter interference. Excluded from automatic random checkpoint pool until cleaned up. |
-| `supervillain-rec-center` | `CH0503SupervillainRecCenterRegion` | `CH05RecCenterIntTarget` | Boss-only checkpoint | Showdown-like compact supervillain room. Reported boss-outside-map before the safer current-cell spawn pass; needs retest. |
-| `sc-kill-house` | `SCKillHouseRegion` | `SCKillHouseTargetStart` | Boss-only checkpoint | Fort Stryker combat room candidate. Reported boss-outside-map before the safer current-cell spawn pass; needs retest. |
+| `supervillain-rec-center` | `CH0503SupervillainRecCenterRegion` | `CH05RecCenterIntTarget` | Fixed diagnostic only | Showdown-like compact supervillain room. Reported boss-outside-map; excluded from automatic checkpoint pool until retested cleanly. |
+| `sc-kill-house` | `SCKillHouseRegion` | `SCKillHouseTargetStart` | Fixed diagnostic only | Fort Stryker combat room candidate. Reported boss-outside-map; excluded from automatic checkpoint pool until retested cleanly. |
 | `sc-missile-silo` | `SCMissileSiloRegion` | `SCMissileSiloTargetStart` | Boss-only checkpoint | Fort Stryker combat room candidate. |
 | `sc-mineshaft` | `SCMineshaftRegion` | `SCMineshaftTargetStart` | Boss-only checkpoint | Fort Stryker cave/mineshaft variety. |
 | `sc-dino-graveyard` | `SCDinoGraveyardRegion` | `SCDinoGraveyardTargetStart` | Boss-only checkpoint | Savage Land visual variety. |
 | `sc-fire-swamp` | `SCFireSwampRegion` | `SCFireSwampTargetStart` | Boss-only checkpoint | Savage Land swamp variety. |
-| `tr-asgard-estate` | `TREstateRegion` | `TREstateTargetStart` | Boss-only checkpoint | Asgard visual variety. Reported boss-outside-map before the safer current-cell spawn pass; needs retest. |
+| `tr-asgard-estate` | `TREstateRegion` | `TREstateTargetStart` | Fixed diagnostic only | Asgard visual variety. Reported boss-outside-map / native portal risk; excluded from automatic checkpoint pool until retested cleanly. |
 | `tr-norway-tomb` | `TRTombRegion` | `TRTombTargetStart` | Boss-only checkpoint | Norway/Asgard tomb room. |
 | `tr-sacred-dojo` | `TRSacredDojoRegion` | `SacredDojoTarget` | Boss-only checkpoint | Madripoor dojo visual variety. |
 
@@ -138,7 +138,7 @@ rift armbeaconfixed tr-sacred-dojo 10
 
 Use one beacon after each `armbeaconfixed` command. Expected result: selected map loads, Rift HUD appears, `checkpointBoss=True` appears in `rift status` / `rift run [runId]`, the random validated terminal boss spawns immediately, completion portal returns players to Danger Room, and the instance cleans up after exit/abandon/timeout.
 
-Note: `sabretooth-showdown` is intentionally still listed for isolated fixed-command investigation, but it should not appear from normal random level `10`, `20`, `30`, etc. checkpoint selection in the current V1 pool.
+Note: `sabretooth-showdown`, `supervillain-rec-center`, `sc-kill-house`, and `tr-asgard-estate` are intentionally still listed for isolated fixed-command investigation, but they should not appear from normal random level `5`, `10`, `15`, etc. checkpoint selection in the current V1 pool.
 
 ## Detailed Recheck Notes
 
