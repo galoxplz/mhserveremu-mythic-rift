@@ -2,7 +2,11 @@ namespace MHServerEmu.Games.MythicRifts
 {
     public static class MythicRiftScaling
     {
-        private const double MythicRiftLevelToD3EquivalentFactor = 0.40d;
+        private const double EarlyRiftLevelToD3EquivalentFactor = 0.40d;
+        private const double MidRiftLevelToD3EquivalentFactor = 0.28d;
+        private const double LateRiftLevelToD3EquivalentFactor = 0.18d;
+        private const int MidScalingStartLevel = 21;
+        private const int LateScalingStartLevel = 51;
         private const float D3SoloGreaterRiftHealthModifier = 0.625f;
         private static readonly float[] D3GreaterRiftHealthModifiersByBucket =
         {
@@ -26,7 +30,16 @@ namespace MHServerEmu.Games.MythicRifts
         public static float GetEquivalentD3RiftLevel(int riftLevel)
         {
             int normalizedLevel = Math.Max(riftLevel, 1);
-            return (float)(1d + ((normalizedLevel - 1d) * MythicRiftLevelToD3EquivalentFactor));
+            int earlyLevels = Math.Min(normalizedLevel - 1, MidScalingStartLevel - 2);
+            int midLevels = Math.Min(Math.Max(normalizedLevel - MidScalingStartLevel + 1, 0), LateScalingStartLevel - MidScalingStartLevel);
+            int lateLevels = Math.Max(normalizedLevel - LateScalingStartLevel + 1, 0);
+
+            double equivalentLevel = 1d
+                + (earlyLevels * EarlyRiftLevelToD3EquivalentFactor)
+                + (midLevels * MidRiftLevelToD3EquivalentFactor)
+                + (lateLevels * LateRiftLevelToD3EquivalentFactor);
+
+            return (float)equivalentLevel;
         }
 
         public static float GetGroupHealthMultiplier(int requestedPlayerCount)

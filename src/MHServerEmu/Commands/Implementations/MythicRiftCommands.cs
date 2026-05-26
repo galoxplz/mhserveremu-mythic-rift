@@ -351,7 +351,8 @@ namespace MHServerEmu.Commands.Implementations
                 return "Game or player not found.";
 
             int appliedLevel = game.MythicRiftManager.ResetRiftProgress(player.DatabaseUniqueId);
-            return $"Player Cosmic Rift progression reset. Highest unlocked Rift level={appliedLevel} | next launch level={game.MythicRiftManager.GetPreferredLaunchRiftLevel(player.DatabaseUniqueId)}.";
+            bool disarmed = game.MythicRiftLauncherService.DisarmChosenLauncher(player.DatabaseUniqueId);
+            return $"Player Cosmic Rift progression reset. Highest unlocked Rift level={appliedLevel} | next launch level={game.MythicRiftManager.GetPreferredLaunchRiftLevel(player.DatabaseUniqueId)} | clearedBeaconOverride={disarmed}.";
         }
 
         [Command("debug")]
@@ -2296,11 +2297,11 @@ namespace MHServerEmu.Commands.Implementations
             if (rewardOutcome != null)
             {
                 lines.Add(
-                    $"rewardProfile={rewardOutcome.RewardProfileName ?? "default"} | rewardBossLoot={rewardOutcome.BossLootTableProtoRef.GetNameFormatted()} | timedBonus={rewardOutcome.TimedSuccessBonusApplied} | bonusRIF={rewardOutcome.BonusRarityPct:P0} | bonusSIF={rewardOutcome.BonusSpecialPct:P0} | extraLootTables={rewardOutcome.ExtraLootTables.Count}");
+                    $"rewardProfile={rewardOutcome.RewardProfileName ?? "default"} | rewardBossLoot={rewardOutcome.BossLootTableProtoRef.GetNameFormatted()} | bossLootSource={rewardOutcome.BossLootTableSourceId ?? "native-boss"} | bossDelivery={rewardOutcome.BossLootDelivery ?? "inventory"} | timedBonus={rewardOutcome.TimedSuccessBonusApplied} | bonusRIF={rewardOutcome.BonusRarityPct:P0} | bonusSIF={rewardOutcome.BonusSpecialPct:P0} | extraLootTables={rewardOutcome.ExtraLootTables.Count}");
 
                 foreach (MythicRiftRewardExtraLootTable extraLootTable in rewardOutcome.ExtraLootTables.Take(10))
                 {
-                    lines.Add($"rewardExtraLoot id={extraLootTable.Id} | lootTable={extraLootTable.LootTableProtoRef.GetNameFormatted()} | rolls={extraLootTable.Rolls} | chance={extraLootTable.ChancePercent:0.##}%");
+                    lines.Add($"rewardExtraLoot id={extraLootTable.Id} | lootTable={extraLootTable.LootTableProtoRef.GetNameFormatted()} | delivery={extraLootTable.Delivery ?? "inventory"} | rolls={extraLootTable.Rolls} | chance={extraLootTable.ChancePercent:0.##}%");
                 }
             }
 

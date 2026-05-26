@@ -18,6 +18,7 @@
 - Random Rift runs now decouple the selected map from the selected boss source, so the current prototype can produce a random dungeon or curated non-terminal map with a different random terminal boss.
 - Terminal Rift entries now prefer the `AltRegions/*RegionL60` variants instead of the older base terminal region refs, matching MonEll's local finding that native start targets can otherwise resolve into `RegionBand` variants.
 - Successful Rift clears now spawn a return portal back to the Danger Room hub; cleanup is requested after the completed Rift region becomes empty.
+- Successfully cleared Rift regions are valid launcher locations, so players can carry extra launcher items and chain into the next run without returning to the vendor after every clear.
 
 ## Main Files
 
@@ -60,6 +61,7 @@ These entries are special Rift variants. They can be selected randomly only thro
   - boss: `CosmicDoopOverlord`
   - loot: `CosmicDoopOverlordTable`
   - kill quota: `100`
+  - random level gate: level `25+`
   - direct test id: `cosmic-doop-sector`
 
 ## Registered But Random-Excluded Terminal Content
@@ -91,13 +93,13 @@ These entries are special Rift variants. They can be selected randomly only thro
 - avoid re-rolling the terminal content that the requester or party is currently standing in when chaining the next random Rift from a still-open terminal region
 - use a default kill quota specific to the selected terminal content
 - calculate D3-like Rift level scaling
-- compress Mythic Rift levels onto a slower D3-equivalent curve for Marvel Heroes terminal balance
+- compress Mythic Rift levels onto a softer D3-equivalent curve for Marvel Heroes terminal balance, preserving early-level pacing while reducing mid/high-level spikes
 - normalize D3 Greater Rift group health buckets to solo, so group health scaling becomes `1x / 2x / 3x / 4x` for `1 / 2 / 3 / 4-5` players
 - track and mirror the highest unlocked Rift level per player during the session
 - persist the highest unlocked Rift level inside the Player's persistent data
 - verify whether a player can access a given Rift level
 - let a player arm a one-shot lower unlocked launch level through `rift level [level]`, while `rift level max` clears that one-shot selection
-- let admins reset an individual tester's Rift progression and clear any one-shot launch level through `rift resetprogress`
+- let admins reset an individual tester's Rift progression, clear any one-shot launch level, and disarm scoped beacon overrides through `rift resetprogress`
 - manage a server-side timer
 - fail a run automatically on expiration
 - abort a run automatically if all tracked participants stay offline too long
@@ -219,6 +221,8 @@ These entries are special Rift variants. They can be selected randomly only thro
   - min/max Rift level gates
   - classic/checkpoint filters
   - content id / boss source filters
+- primary boss loot can be replaced in the JSON with `primaryLootTableOverrides`, including min/max Rift level gates, classic/checkpoint filters, and content id / boss source filters
+- primary and extra reward tables support `delivery: inventory` or `delivery: ground`, so TAHITI can decide whether rewards go straight to inventory or drop in-world
 - the reward flow is no longer purely manual: a completed run can now attempt to auto-distribute rewards to tracked participants
 
 ## Current Progression Logic
@@ -355,15 +359,15 @@ Current practical launcher stage
 - The current preferred player-facing direction is now an item-driven portal flow where `PortalToRandomMaxAffixDungeon` remains the technical launcher base, but vendor stock is presented through `DangerRoomScenarioCrateUniqueCableFight` so the client can display `Mythic Rift Scenario` without a custom client patch.
 - The server still keeps explicit chat guidance when the Danger Room vendor opens and when the beacon is purchased, because this remains the safest fallback if presentation strings or prototype patches are missing on a test environment.
 - Random enemy replacement for normal terminal maps is still intentionally deferred. The current server-side-safe implementation randomizes the terminal map and boss source, keeps native terminal enemy populations for terminal content, and now reserves the compact StoryRevamp / treasure-room maps for boss-only checkpoint levels.
-- Every 10th Rift level now acts as a checkpoint tier: random level `10`, `20`, `30`, etc. selects a boss-only checkpoint room, summons a random validated Rift boss immediately, and requires that boss kill to unlock the next tier.
+- Every 5th Rift level now acts as a checkpoint tier: random level `5`, `10`, `15`, etc. selects a boss-only checkpoint room, summons a random validated Rift boss immediately, and requires that boss kill to unlock the next tier.
 - Checkpoint rooms hide the kill-quota HUD widget and keep only the level/timer widgets, because showing a fake `1/1` quota confused the intended boss-only flow.
 - Checkpoint progression eligibility is captured from players present at boss death, rather than from an instant boss-unlock snapshot at room start, so slower-loading group members are not excluded just because the boss spawned before their client finished zoning.
 - If a checkpoint boss cannot spawn immediately, the run now stays active and retries the spawn instead of aborting the Rift during region/player anchor timing windows.
-- `sabretooth-showdown` is kept as a fixed diagnostic target but excluded from the automatic checkpoint random pool until its native encounter behavior is validated.
+- `sabretooth-showdown`, `supervillain-rec-center`, `sc-kill-house`, and `tr-asgard-estate` are kept as fixed diagnostic targets but excluded from the automatic checkpoint random pool until their native encounter / spawn-location behavior is validated.
 - Player-selected launch level is now explicitly separated from progression: `rift level [number]` only changes the next successful beacon launch and cannot lower `highestUnlockedRiftLevel`; after that launch, later beacons default back to highest unlocked level.
 - Test helper commands that unlock access now protect existing higher progress; `rift resetprogress` is the explicit way to wipe a tester back to level 1.
 - Checkpoint boss spawning now prefers positions in the player's current cell/room to reduce small-room cases where a boss appeared outside the playable map.
-- Rift launcher use is now gated to the Danger Room hub. If a player tries to use the item in Story Mode or another region, the server intercepts the item use and blocks the native scenario/story teleport fallback.
+- Rift launcher use is now gated to the Danger Room hub or a successfully cleared Cosmic Rift. If a player tries to use the item in Story Mode, inside an active Rift, or another unsafe region, the server intercepts the item use and blocks the native scenario/story teleport fallback.
 - Death release inside an active Rift is now handled by the Rift manager, keeping the player in the same Rift instance start target instead of letting StoryRevamp maps respawn into their native story-mode version.
 - A basic no-client-patch player-facing level selector now exists through chat commands. A cleaner item/NPC UI for showing progression and selecting levels remains future UX polish because dynamic per-player item tooltip changes are not realistic without client-side UI/data support.
 

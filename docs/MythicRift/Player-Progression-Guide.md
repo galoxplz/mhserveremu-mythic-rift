@@ -9,7 +9,7 @@ Use this as the short playtest instruction sheet when Test Center starts from a 
 - Completing Rift level `N` unlocks Rift level `N+1`.
 - Failing, abandoning, leaving early, or timing out does not unlock the next level.
 - One launcher item is consumed per Rift attempt.
-- Players can only launch from the Danger Room hub.
+- Players can launch from the Danger Room hub, or from inside a Cosmic Rift that has already been successfully cleared.
 
 ## Normal Player Flow
 
@@ -19,7 +19,7 @@ Use this as the short playtest instruction sheet when Test Center starts from a 
 4. Use the launcher item from the Danger Room hub.
 5. Clear the Rift objective before the timer expires.
 6. Kill the Rift boss when it appears.
-7. Use the exit portal after completion to return to the Danger Room hub.
+7. After completion, either use the exit portal to return to the Danger Room hub, or use another launcher item from the cleared Rift to chain directly into the next run.
 8. Buy/use another launcher item to continue to the next Rift level.
 
 ## Classic Rift Levels
@@ -34,13 +34,13 @@ Most Rift levels use the classic flow:
 
 ## Checkpoint Rift Levels
 
-Every 10th level is a boss-only checkpoint:
+Every 5th level is a boss-only checkpoint:
 
-- Rift levels `10`, `20`, `30`, etc. are mandatory checkpoint levels.
+- Rift levels `5`, `10`, `15`, etc. are mandatory checkpoint levels.
 - These use smaller rooms instead of normal terminal maps.
 - There is no kill quota phase.
 - The boss spawns immediately and is tuned to be harder.
-- Clearing level `10` unlocks level `11`, clearing level `20` unlocks level `21`, and so on.
+- Clearing level `5` unlocks level `6`, clearing level `10` unlocks level `11`, and so on.
 
 ## Group Progression Rules
 
@@ -98,7 +98,8 @@ Emergency test command. Clears temporary launcher state and safely abandons/remo
 
 ## What Players Should Avoid During Playtests
 
-- Do not use Rift launcher items outside the Danger Room hub.
+- Do not use Rift launcher items in Story Mode or uncleared maps.
+- Using another launcher from a successfully cleared Cosmic Rift is allowed for chaining.
 - Do not relog as the first solution if a Rift is stuck; try `rift recover` first.
 - Do not use admin-only commands such as `rift armbeaconfixed`, `rift setaccess`, or `rift resetprogress` during normal player-flow testing unless MonEll specifically asks for it.
 - Do not expect `rift level X` to permanently set your farm level. It is intentionally one-shot.

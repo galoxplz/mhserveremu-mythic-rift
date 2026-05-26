@@ -14,7 +14,7 @@
 - A final boss is randomly selected from an approved pool.
 - The run is limited by a timer.
 - Level progression is supported.
-- Every 10th level is a boss-only checkpoint room instead of a classic quota map.
+- Every 5th level is a boss-only checkpoint room instead of a classic quota map.
 - End rewards reuse existing systems as much as possible.
 - V1 must not depend on a manually distributed client patch.
 
@@ -30,7 +30,7 @@
 2. The system determines the requested Rift level.
 3. The server verifies that the level is unlocked for the player or leader.
 4. The server creates a Rift instance.
-5. The server selects a random map from the V1 pool, or a checkpoint boss room on levels 10/20/30/etc.
+5. The server selects a random map from the V1 pool, or a checkpoint boss room on levels 5/10/15/etc.
 6. The server selects a random boss from the V1 pool.
 7. Players enter the instance.
 8. The timer starts.
@@ -72,7 +72,7 @@
 - Success at level N unlocks N+1.
 - Beacon launches default to the player's highest unlocked level.
 - Players may choose a lower unlocked launch level for farming through a server-side command until a cleaner no-client-patch UI is available.
-- Levels divisible by 10 are mandatory checkpoint levels: clearing level 9 unlocks level 10, but clearing the level 10 boss-only checkpoint is required to unlock level 11.
+- Levels divisible by 5 are mandatory checkpoint levels: clearing level 4 unlocks level 5, but clearing the level 5 boss-only checkpoint is required to unlock level 6.
 
 ## Loot and Rewards
 
@@ -82,7 +82,7 @@
   - the selected final boss's normal drops
 - In addition, V1 applies a significant SIF / RIF bonus.
 - Boss-only checkpoint levels can apply a small extra timed-success bonus to make the mandatory tier gate feel more rewarding than a normal level.
-- The bonus must be configurable and easy for TAHITI to tune.
+- The bonus, primary loot table, extra loot tables, level ranges, and inventory-vs-ground delivery should be configurable and easy for TAHITI to tune through a server JSON file.
 
 ## V1 UI / UX
 

@@ -43,10 +43,11 @@ namespace MHServerEmu.Games.MythicRifts
         private const float CustomRiftPopulationSpawnMinDistance = 450f;
         private const float CustomRiftPopulationSpawnMaxDistance = 1500f;
         private const float CustomRiftPopulationFallbackSpawnDistance = 700f;
-        private const int CheckpointRiftLevelInterval = 10;
+        private const int CheckpointRiftLevelInterval = 5;
+        private const int CheckpointBossHealthTierInterval = 10;
         private const float CheckpointBossBaseHealthMultiplier = 2.0f;
-        private const float CheckpointBossHealthMultiplierPerTier = 0.25f;
-        private const float CheckpointBossMaxHealthMultiplier = 5.0f;
+        private const float CheckpointBossHealthMultiplierPerTier = 0.15f;
+        private const float CheckpointBossMaxHealthMultiplier = 4.0f;
         private const float CheckpointBossSpawnDistance = 320f;
         private const float CheckpointBossSpawnSearchDistance = 180f;
         private const int RiftPopulationRespawnDelayMS = 20000;
@@ -72,7 +73,10 @@ namespace MHServerEmu.Games.MythicRifts
         private const float SpecialRandomMapChance = 0.05f;
         private static readonly HashSet<string> RandomCheckpointContentExclusions = new(StringComparer.OrdinalIgnoreCase)
         {
-            "sabretooth-showdown"
+            "sabretooth-showdown",
+            "supervillain-rec-center",
+            "sc-kill-house",
+            "tr-asgard-estate"
         };
         private static readonly string[] CustomRiftPopulationMobPrototypeNames =
         {
@@ -236,7 +240,8 @@ namespace MHServerEmu.Games.MythicRifts
                 "Loot/Tables/Mob/NormalMobs/CosmicDoopOverlordTable.prototype",
                 RandomBossEligible: false,
                 IsSpecialRandomMap: true,
-                UseOwnBossSourceWhenSelected: true),
+                UseOwnBossSourceWhenSelected: true,
+                MinRandomRiftLevel: 25),
             new(
                 "sabretooth-showdown",
                 "Sabretooth Showdown",
@@ -603,6 +608,22 @@ namespace MHServerEmu.Games.MythicRifts
                 runState.ParticipantPlayerDbIds.Contains(playerDbId));
         }
 
+        public bool CanLaunchFromCompletedRiftRegion(Player player)
+        {
+            if (player == null || player.DatabaseUniqueId == 0)
+                return false;
+
+            Region region = player.GetRegion();
+            if (region == null)
+                return false;
+
+            return _activeRuns.Values.Any(runState =>
+                runState.Status == MythicRiftRunStatus.Success &&
+                runState.RegionId == region.Id &&
+                runState.HasParticipantLeftEarly(player.DatabaseUniqueId) == false &&
+                runState.ParticipantPlayerDbIds.Contains(player.DatabaseUniqueId));
+        }
+
         public bool RemoveRun(ulong runId)
         {
             if (runId == 0)
@@ -781,17 +802,18 @@ namespace MHServerEmu.Games.MythicRifts
                 using LootInputSettings inputSettings = MHServerEmu.Core.Memory.ObjectPoolManager.Instance.Get<LootInputSettings>();
                 inputSettings.Initialize(LootContext.Drop, player, avatar);
 
+                int groundRecipientId = 1;
                 if (rewardOutcome.HasBossLootTable)
-                    Game.LootManager.GiveLootFromTable(rewardOutcome.BossLootTableProtoRef, inputSettings);
+                    GrantRewardLootTable(rewardOutcome.BossLootTableProtoRef, inputSettings, rewardOutcome.BossLootDelivery, ref groundRecipientId);
 
                 foreach (MythicRiftRewardExtraLootTable extraLootTable in rewardOutcome.ExtraLootTables)
                 {
                     for (int i = 0; i < extraLootTable.Rolls; i++)
-                        Game.LootManager.GiveLootFromTable(extraLootTable.LootTableProtoRef, inputSettings);
+                        GrantRewardLootTable(extraLootTable.LootTableProtoRef, inputSettings, extraLootTable.Delivery, ref groundRecipientId);
                 }
 
                 runState.MarkRewardGrantedToPlayer(player.DatabaseUniqueId);
-                Logger.Info($"Mythic Rift run {runState.Config.RunId} granted rewards to player {player}. profile={rewardOutcome.RewardProfileName ?? "default"} extraTables={rewardOutcome.ExtraLootTables.Count}");
+                Logger.Info($"Mythic Rift run {runState.Config.RunId} granted rewards to player {player}. profile={rewardOutcome.RewardProfileName ?? "default"} bossLootSource={rewardOutcome.BossLootTableSourceId ?? "native-boss"} bossDelivery={rewardOutcome.BossLootDelivery ?? "inventory"} extraTables={rewardOutcome.ExtraLootTables.Count}");
                 return true;
             }
             finally
@@ -806,6 +828,20 @@ namespace MHServerEmu.Games.MythicRifts
                 else
                     avatar.Properties.RemoveProperty(specialPropertyId);
             }
+        }
+
+        private void GrantRewardLootTable(PrototypeId lootTableProtoRef, LootInputSettings inputSettings, string delivery, ref int groundRecipientId)
+        {
+            if (lootTableProtoRef == PrototypeId.Invalid || inputSettings == null)
+                return;
+
+            if (MythicRiftRewardTuning.IsGroundDelivery(delivery))
+            {
+                Game.LootManager.SpawnLootFromTable(lootTableProtoRef, inputSettings, groundRecipientId++);
+                return;
+            }
+
+            Game.LootManager.GiveLootFromTable(lootTableProtoRef, inputSettings);
         }
 
         public int GrantRewardsToRunPlayers(ulong runId)
@@ -867,7 +903,7 @@ namespace MHServerEmu.Games.MythicRifts
             loadedTuning.Normalize();
             _rewardTuning = loadedTuning.Enabled ? loadedTuning : MythicRiftRewardTuning.CreateDefault();
             message = loadedTuning.Enabled
-                ? $"Loaded reward tuning profile '{_rewardTuning.ProfileName}' from {FileHelper.GetRelativePath(configPath)}. extraLootTables={_rewardTuning.ExtraLootTables.Count}"
+                ? $"Loaded reward tuning profile '{_rewardTuning.ProfileName}' from {FileHelper.GetRelativePath(configPath)}. primaryOverrides={_rewardTuning.PrimaryLootTableOverrides.Count} extraLootTables={_rewardTuning.ExtraLootTables.Count}"
                 : $"Reward tuning file loaded but disabled; using built-in defaults. path={FileHelper.GetRelativePath(configPath)}";
             _rewardTuningLastLoadMessage = message;
             return true;
@@ -882,17 +918,28 @@ namespace MHServerEmu.Games.MythicRifts
                 $"lastLoad={_rewardTuningLastLoadMessage}",
                 $"profile={tuning.ProfileName} | enabled={tuning.Enabled}",
                 $"bossLootOnSuccess={tuning.GrantBossLootOnSuccess} | bossLootOnFailure={tuning.GrantBossLootOnFailure}",
+                $"defaultDelivery={tuning.DefaultDelivery} | primaryLootTableOverrides={tuning.PrimaryLootTableOverrides.Count}",
                 $"timedSuccessBonusRIF={tuning.TimedSuccessBonusRarityPct:P0} | timedSuccessBonusSIF={tuning.TimedSuccessBonusSpecialPct:P0}",
                 $"checkpointBonusRIF={tuning.CheckpointSuccessBonusRarityPct:P0} | checkpointBonusSIF={tuning.CheckpointSuccessBonusSpecialPct:P0}",
                 $"failureBonusRIF={tuning.FailureBonusRarityPct:P0} | failureBonusSIF={tuning.FailureBonusSpecialPct:P0}",
                 $"extraLootTables={tuning.ExtraLootTables.Count}"
             };
 
+            foreach (MythicRiftPrimaryLootTableTuning entry in tuning.PrimaryLootTableOverrides.Take(20))
+            {
+                string maxLevelText = entry.MaxRiftLevel > 0 ? entry.MaxRiftLevel.ToString() : "none";
+                lines.Add(
+                    $"primaryLoot id={entry.Id} | enabled={entry.Enabled} | delivery={entry.Delivery} | min={entry.MinRiftLevel} | max={maxLevelText} | checkpointOnly={entry.CheckpointOnly} | classicOnly={entry.ClassicOnly} | lootTable={entry.LootTablePrototype}");
+            }
+
+            if (tuning.PrimaryLootTableOverrides.Count > 20)
+                lines.Add($"... {tuning.PrimaryLootTableOverrides.Count - 20} more primary loot table override entries omitted.");
+
             foreach (MythicRiftExtraLootTableTuning entry in tuning.ExtraLootTables.Take(20))
             {
                 string maxLevelText = entry.MaxRiftLevel > 0 ? entry.MaxRiftLevel.ToString() : "none";
                 lines.Add(
-                    $"extraLoot id={entry.Id} | enabled={entry.Enabled} | chance={entry.ChancePercent:0.##}% | rolls={entry.Rolls} | min={entry.MinRiftLevel} | max={maxLevelText} | successOnly={entry.SuccessOnly} | checkpointOnly={entry.CheckpointOnly} | classicOnly={entry.ClassicOnly} | lootTable={entry.LootTablePrototype}");
+                    $"extraLoot id={entry.Id} | enabled={entry.Enabled} | delivery={entry.Delivery} | chance={entry.ChancePercent:0.##}% | rolls={entry.Rolls} | min={entry.MinRiftLevel} | max={maxLevelText} | successOnly={entry.SuccessOnly} | checkpointOnly={entry.CheckpointOnly} | classicOnly={entry.ClassicOnly} | lootTable={entry.LootTablePrototype}");
             }
 
             if (tuning.ExtraLootTables.Count > 20)
@@ -1128,9 +1175,14 @@ namespace MHServerEmu.Games.MythicRifts
             List<MythicRiftContentEntry> eligibleContent = isCheckpointLevel
                 ? _contentPool
                     .Where(entry => entry.BossOnlyCheckpointEligible &&
+                                    entry.CanAppearAtRandomRiftLevel(riftLevel) &&
                                     RandomCheckpointContentExclusions.Contains(entry.Id) == false)
                     .ToList()
-                : _contentPool.Where(entry => entry.RandomMapEligible && entry.BossOnlyCheckpointEligible == false).ToList();
+                : _contentPool
+                    .Where(entry => entry.RandomMapEligible &&
+                                    entry.BossOnlyCheckpointEligible == false &&
+                                    entry.CanAppearAtRandomRiftLevel(riftLevel))
+                    .ToList();
 
             if (eligibleContent.Count == 0)
                 return null;
@@ -2206,10 +2258,17 @@ namespace MHServerEmu.Games.MythicRifts
             bool checkpointSuccess = timedSuccess && runState.Config.Content.BossOnlyCheckpointEligible;
             MythicRiftRewardTuning tuning = _rewardTuning ?? MythicRiftRewardTuning.CreateDefault();
             bool grantBossLoot = timedSuccess ? tuning.GrantBossLootOnSuccess : tuning.GrantBossLootOnFailure;
+            string bossLootTableSourceId = grantBossLoot ? "native-boss" : "disabled";
+            string bossLootDelivery = MythicRiftRewardTuning.NormalizeDelivery(tuning.DefaultDelivery);
+            PrototypeId bossLootTableProtoRef = grantBossLoot
+                ? ResolvePrimaryRewardLootTable(runState, tuning, checkpointSuccess, out bossLootTableSourceId, out bossLootDelivery)
+                : PrototypeId.Invalid;
 
             MythicRiftRewardOutcome rewardOutcome = new()
             {
-                BossLootTableProtoRef = grantBossLoot ? runState.Config.BossLootTableProtoRef : PrototypeId.Invalid,
+                BossLootTableProtoRef = bossLootTableProtoRef,
+                BossLootTableSourceId = bossLootTableSourceId,
+                BossLootDelivery = bossLootDelivery,
                 RewardProfileName = tuning.ProfileName,
                 TimedSuccessBonusApplied = timedSuccess,
                 BonusRarityPct = timedSuccess
@@ -2223,6 +2282,36 @@ namespace MHServerEmu.Games.MythicRifts
 
             runState.SetRewardOutcome(rewardOutcome);
             return rewardOutcome;
+        }
+
+        private PrototypeId ResolvePrimaryRewardLootTable(MythicRiftRunState runState, MythicRiftRewardTuning tuning, bool checkpointSuccess, out string sourceId, out string delivery)
+        {
+            sourceId = "native-boss";
+            delivery = MythicRiftRewardTuning.NormalizeDelivery(tuning?.DefaultDelivery);
+            if (runState?.Config == null)
+                return PrototypeId.Invalid;
+
+            if (tuning?.PrimaryLootTableOverrides != null)
+            {
+                foreach (MythicRiftPrimaryLootTableTuning entry in tuning.PrimaryLootTableOverrides)
+                {
+                    if (entry == null || entry.AppliesTo(runState, checkpointSuccess) == false)
+                        continue;
+
+                    PrototypeId overrideLootTableProtoRef = ResolvePrototype(entry.LootTablePrototype);
+                    if (overrideLootTableProtoRef == PrototypeId.Invalid || overrideLootTableProtoRef.As<LootTablePrototype>() == null)
+                    {
+                        Logger.Warn($"Mythic Rift reward tuning skipped invalid primary loot table override id={entry.Id} lootTable={entry.LootTablePrototype}");
+                        continue;
+                    }
+
+                    sourceId = entry.Id;
+                    delivery = MythicRiftRewardTuning.NormalizeDelivery(entry.Delivery);
+                    return overrideLootTableProtoRef;
+                }
+            }
+
+            return runState.Config.BossLootTableProtoRef;
         }
 
         private List<MythicRiftRewardExtraLootTable> ResolveExtraRewardLootTables(MythicRiftRunState runState, MythicRiftRewardTuning tuning, bool timedSuccess, bool checkpointSuccess)
@@ -2254,7 +2343,8 @@ namespace MHServerEmu.Games.MythicRifts
                     Id = entry.Id,
                     LootTableProtoRef = lootTableProtoRef,
                     Rolls = Math.Max(entry.Rolls, 1),
-                    ChancePercent = entry.ChancePercent
+                    ChancePercent = entry.ChancePercent,
+                    Delivery = MythicRiftRewardTuning.NormalizeDelivery(entry.Delivery)
                 });
             }
 
@@ -2947,7 +3037,7 @@ namespace MHServerEmu.Games.MythicRifts
 
         private static float GetCheckpointBossHealthMultiplier(int riftLevel)
         {
-            int checkpointTier = Math.Max(riftLevel / CheckpointRiftLevelInterval, 1);
+            int checkpointTier = Math.Max(riftLevel / CheckpointBossHealthTierInterval, 1);
             float multiplier = CheckpointBossBaseHealthMultiplier + ((checkpointTier - 1) * CheckpointBossHealthMultiplierPerTier);
             return Math.Clamp(multiplier, CheckpointBossBaseHealthMultiplier, CheckpointBossMaxHealthMultiplier);
         }
@@ -3670,7 +3760,9 @@ namespace MHServerEmu.Games.MythicRifts
                 IsSpecialRandomMap = definition.IsSpecialRandomMap,
                 UseOwnBossSourceWhenSelected = definition.UseOwnBossSourceWhenSelected,
                 UseCustomPopulation = definition.UseCustomPopulation,
-                BossOnlyCheckpointEligible = definition.BossOnlyCheckpointEligible
+                BossOnlyCheckpointEligible = definition.BossOnlyCheckpointEligible,
+                MinRandomRiftLevel = definition.MinRandomRiftLevel,
+                MaxRandomRiftLevel = definition.MaxRandomRiftLevel
             };
 
             if (content.IsValid == false)
@@ -3765,6 +3857,8 @@ namespace MHServerEmu.Games.MythicRifts
             bool IsSpecialRandomMap = false,
             bool UseOwnBossSourceWhenSelected = false,
             bool UseCustomPopulation = false,
-            bool BossOnlyCheckpointEligible = false);
+            bool BossOnlyCheckpointEligible = false,
+            int MinRandomRiftLevel = 1,
+            int MaxRandomRiftLevel = 0);
     }
 }

@@ -133,7 +133,7 @@ Expected result:
 - `rift level [number]` never lowers the player's highest unlocked progression; it only changes the next launch level
 - `rift setaccess` and `rift prepbeacon` now protect existing higher progression and will not lower a player's max level by accident; use `rift resetprogress` first when an intentional test reset is needed
 - the next purchased or granted beacon uses the one-shot launch level when armed, then the selection is consumed and later beacons go back to the highest unlocked level by default
-- Rift launcher items are intentionally usable only from the Danger Room hub. Using one in Story Mode or inside another region should be intercepted with a chat error and should not fall through into native scenario/story teleport behavior.
+- Rift launcher items are intentionally usable only from the Danger Room hub or from a successfully cleared Cosmic Rift region. Using one in Story Mode, inside an active Rift, or inside another uncleared region should be intercepted with a chat error and should not fall through into native scenario/story teleport behavior.
 
 Admin progress reset test:
 
@@ -324,7 +324,7 @@ Checkpoint boss-room ids:
 - `tr-norway-tomb`
 - `tr-sacred-dojo`
 
-These entries are now treated as boss-only checkpoint rooms. They are automatically selected on every 10th Rift level (`10`, `20`, `30`, etc.) and can also be tested directly with `rift armbeaconfixed`. They do not use kill quota gameplay; the boss spawns immediately and receives an extra checkpoint health multiplier on top of normal Rift scaling.
+These entries are now treated as boss-only checkpoint rooms. They are automatically selected on every 5th Rift level (`5`, `10`, `15`, etc.) and can also be tested directly with `rift armbeaconfixed`. They do not use kill quota gameplay; the boss spawns immediately and receives an extra checkpoint health multiplier on top of normal Rift scaling.
 
 Example flow:
 
@@ -354,11 +354,11 @@ Expected result:
 - terminal fixed-content runs should report the selected terminal as the boss source
 - non-terminal fixed-content runs should report the selected map as `content`, with a separate terminal `bossSource`
 - StoryRevamp / treasure-room fixed-test runs should behave as checkpoint boss rooms: selected room as `content`, random validated terminal boss as `bossSource`, `checkpointBoss=True`, boss spawns immediately, and cleanup after exit
-- random levels `10`, `20`, `30`, etc. should select one of these checkpoint rooms instead of the normal classic Rift map pool
+- random levels `5`, `10`, `15`, etc. should select one of these checkpoint rooms instead of the normal classic Rift map pool
 - checkpoint rooms should show Rift level and timer UI only; they should not show a kill-count quota bar
 - checkpoint clears should award the normal timed success bonus plus a small extra checkpoint success bonus
 - if the checkpoint boss cannot spawn immediately, the run should stay active and retry the spawn instead of closing the Rift and poisoning later tests
-- `sabretooth-showdown` remains available as a fixed diagnostic command target, but is excluded from the automatic every-10-level random checkpoint pool until its native Sabretooth encounter behavior is fully clean
+- `sabretooth-showdown`, `supervillain-rec-center`, `sc-kill-house`, and `tr-asgard-estate` remain available as fixed diagnostic command targets, but are excluded from the automatic every-5-level random checkpoint pool until their native encounter / spawn-location behavior is fully clean
 - checkpoint boss spawn now prefers valid positions in the player's current room/cell instead of blindly spawning forward from the player; this specifically needs retesting on `tr-asgard-estate`, `supervillain-rec-center`, and `sc-kill-house`
 - death release inside an active Rift is intercepted and sent back to the same Rift instance start target, so StoryRevamp checkpoint rooms like `sc-fire-swamp` and `sc-mineshaft` should no longer refresh into the story-mode version after death
 - for party tests, the Rift should no longer auto-close immediately just because another party member is still zoning
@@ -370,8 +370,8 @@ Expected result:
 Checkpoint smoke test:
 
 ```text
-rift setaccess 10
-rift level 10
+rift setaccess 5
+rift level 5
 ```
 
 Then buy/use one Rift launcher item normally. Expected result: the random Rift should choose one of the checkpoint boss-room ids, `checkpointBoss=True` should appear in `rift status`, and the boss should already be present without a kill quota phase.
@@ -623,14 +623,15 @@ These notes are important when reviewing test-center feedback.
 - Use `rift rewardconfig` to inspect the active reward profile.
 - Use `rift rewardconfig reload` after editing the JSON to apply reward changes without rebuilding or restarting the server.
 - The default JSON matches the previous reward behavior: boss loot on success/failure, +10% RIF and +15% SIF on timed success, plus +5% RIF and +10% SIF on checkpoint success.
-- Extra loot tables can be enabled in the JSON with `chancePercent`, `rolls`, min/max Rift level gates, checkpoint/classic filters, and optional content/boss-source filters.
+- Primary boss loot can be overridden in the JSON with `primaryLootTableOverrides`, including min/max Rift level gates, checkpoint/classic filters, content/boss-source filters, and `delivery` set to `inventory` or `ground`.
+- Extra loot tables can be enabled in the JSON with `chancePercent`, `rolls`, min/max Rift level gates, checkpoint/classic filters, optional content/boss-source filters, and `delivery` set to `inventory` or `ground`.
 - the current updated build is intended to keep successful beacon clicks inside the Mythic Rift flow instead of falling back into a normal Danger Room result
 - the current updated build excludes the requester's current terminal region and recent selected/completed maps from the next random pick when alternatives exist
 - if a tester reports "sometimes it turned back into a regular Danger Room" or "I got the same dead terminal again with no mobs", first confirm they were on the newest build
 - boss loot is still inherited from the reused terminal boss loot tables for now, so observations such as cube shard drops are expected at this stage
 - this means the current prototype validates gameplay flow first, not final reward identity
 - random enemy replacement is not implemented yet; terminal populations are still native for now because replacing them server-side needs a separate safety pass against map scripts and mission logic
-- the current frozen test tuning now keeps the D3 percentage logic but compresses one Mythic Rift level into `0.40` D3 Greater Rift levels so Marvel terminals scale more realistically
+- the current frozen test tuning keeps the D3 percentage logic but now uses a softer piecewise curve: early levels still feel close to the previous `0.40` D3-level pace, then mid/high levels slow down so stacked players are not hard-stopped around level 29-30
 - group health scaling is now explicitly locked to `1x / 2x / 3x / 4x` for `1 / 2 / 3 / 4-5` players
 - `rift scale [level] [players]` and `rift run [runId]` now expose `d3EquivalentLevel` and `groupHealth` so admins can inspect the applied snapshot directly
 - very high Rift levels are still expected to be aspirational rather than everyday test targets
