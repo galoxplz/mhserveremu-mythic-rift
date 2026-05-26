@@ -8,9 +8,10 @@ Recommended reading order:
 2. `Spec-V1.md`
 3. `Architecture.md`
 4. `Implementation-Status.md`
-5. `Admin-Test-Guide.md`
-6. `Player-Feedback-Triage.md`
-7. `TAHITI-Review-Bundle.md`
+5. `Player-Progression-Guide.md`
+6. `Admin-Test-Guide.md`
+7. `Player-Feedback-Triage.md`
+8. `TAHITI-Review-Bundle.md`
 
 These documents are meant to help reviewers, collaborators, and server leads quickly understand:
 
