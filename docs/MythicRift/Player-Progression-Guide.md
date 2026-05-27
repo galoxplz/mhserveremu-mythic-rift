@@ -114,6 +114,40 @@ rift resetprogress
 
 This also clears any one-shot launch level selection.
 
+## Individual Area Test Commands
+
+Use these admin commands when MonEll wants testers to validate one specific map instead of the normal random pool.
+
+The final number is the Rift level. In these examples it is `10`, but it can be changed to a higher or lower number for focused scaling tests.
+
+```text
+!rift armbeaconfixed sabretooth-showdown 10
+!rift armbeaconfixed supervillain-rec-center 10
+!rift armbeaconfixed sc-kill-house 10
+!rift armbeaconfixed sc-missile-silo 10
+!rift armbeaconfixed sc-mineshaft 10
+!rift armbeaconfixed sc-dino-graveyard 10
+!rift armbeaconfixed sc-fire-swamp 10
+!rift armbeaconfixed tr-asgard-estate 10
+!rift armbeaconfixed tr-norway-tomb 10
+!rift armbeaconfixed tr-sacred-dojo 10
+!rift armbeaconfixed shocker 10
+!rift armbeaconfixed doctor-octopus 10
+!rift armbeaconfixed taskmaster 10
+!rift armbeaconfixed hood 10
+!rift armbeaconfixed magneto 10
+!rift armbeaconfixed sinister 10
+!rift armbeaconfixed modok 10
+!rift armbeaconfixed mandarin 10
+!rift armbeaconfixed kingpin 10
+!rift armbeaconfixed ultron 10
+!rift armbeaconfixed bronx-zoo 10
+!rift armbeaconfixed wakanda-jungle 10
+!rift armbeaconfixed daily-bugle 10
+!rift armbeaconfixed dr-strange-times-square 10
+!rift armbeaconfixed cosmic-doop-sector 10
+```
+
 ## Suggested Fresh-Database Playtest Script
 
 1. Confirm every tester starts with `rift status`.
