@@ -223,6 +223,7 @@ These entries are special Rift variants. They can be selected randomly only thro
   - content id / boss source filters
 - primary boss loot can be replaced in the JSON with `primaryLootTableOverrides`, including min/max Rift level gates, classic/checkpoint filters, and content id / boss source filters
 - primary and extra reward tables support `delivery: inventory` or `delivery: ground`, so TAHITI can decide whether rewards go straight to inventory or drop in-world
+- Rift-spawned bosses suppress native boss loot by default through `suppressNativeRiftBossLoot=true`, preventing native ground drops from doubling with the controlled Cosmic Rift reward grant
 - the reward flow is no longer purely manual: a completed run can now attempt to auto-distribute rewards to tracked participants
 
 ## Current Progression Logic

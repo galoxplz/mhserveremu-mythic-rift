@@ -2,6 +2,30 @@
 
 This file tracks the first wider-player review pass shared by MonEll on 2026-05-18.
 
+## Feedback Pass: 2026-06-02
+
+- Google Sheet feedback reported a player dying, timing out, being kicked out of the Rift, then remaining stuck in a dead state until relog.
+- Google Sheet feedback reported group portals bricking unless the player made one solo first, and leader swaps between runs sometimes reverting to terminal / one-shot behavior.
+- Google Sheet feedback reported bosses spawning around Rocket Raccoon turrets, minions, or a player far behind the group.
+- Google Sheet feedback reported double rewards, for example a medallion going directly to inventory and also dropping on the ground.
+- Additional feedback reported that some treasure rooms still contain a native story/campaign portal plus the Rift return portal, which is confusing.
+- A larger design suggestion proposed a seasonal / capped progression model with a rewarding endgame reset, plus boss-wave variety instead of only infinite HP scaling.
+
+## Fixed / Improved From 2026-06-02 Feedback
+
+- Rift-forced exits now try to resurrect a dead avatar before teleporting that player back to the Danger Room hub. This targets the timeout/death-stuck report directly.
+- Party member teleports now use the run's registered participant roster instead of depending on the party leader still matching at the exact teleport moment. This should make leader swaps and party-state timing less likely to fall out of the Rift path.
+- Rift boss spawning now prefers a real alive player in the Rift as the spawn anchor. It no longer uses the killed mob/turret/minion location as the primary boss spawn point.
+- Rift-spawned bosses now suppress native boss loot by default through `suppressNativeRiftBossLoot=true`, leaving the Cosmic Rift reward manager as the controlled reward source and preventing native boss loot plus Rift-granted boss loot from doubling.
+
+## Still Open From 2026-06-02 Feedback
+
+- Treasure-room native story/campaign portals still need a focused pass. Likely options are hiding/disabling non-Rift transitions in active Rift regions or excluding rooms where the native transition cannot be safely suppressed.
+- MODOK sometimes not moving/attacking still needs a focused boss-AI reproduction. If it remains frequent, temporarily removing MODOK from the random boss pool may be safer than shipping a flaky boss.
+- Axis / March to Axis UI issues should remain out of the normal random pool until the exact content id and native UI interaction are isolated.
+- Anti-carry progression policy is still a design decision: current rules intentionally unlock the next level for eligible players present in the Rift, even if they joined a higher-level friend.
+- The seasonal hard-stop / boss-wave idea is promising, but it is a V2 design discussion rather than a P0 bug fix.
+
 ## Feedback Pass: 2026-05-21
 
 - `rift status` works both inside and outside a Rift.

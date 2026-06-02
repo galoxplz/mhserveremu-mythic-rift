@@ -755,13 +755,8 @@ namespace MHServerEmu.Games.MythicRifts
             if (leader == null || runState?.Config == null)
                 return;
 
-            Party party = leader.GetParty();
-            if (party == null || party.IsLeader(leader) == false)
-                return;
-
-            foreach (var kvp in party)
+            foreach (ulong memberDbId in runState.ParticipantPlayerDbIds)
             {
-                ulong memberDbId = kvp.Value.PlayerDbId;
                 if (memberDbId == 0 || memberDbId == leader.DatabaseUniqueId)
                     continue;
 

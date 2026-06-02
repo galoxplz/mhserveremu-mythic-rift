@@ -622,13 +622,14 @@ These notes are important when reviewing test-center feedback.
 - Reward tuning is now externalized in `Data/Game/MythicRift/CosmicRiftRewards.json`.
 - Use `rift rewardconfig` to inspect the active reward profile.
 - Use `rift rewardconfig reload` after editing the JSON to apply reward changes without rebuilding or restarting the server.
-- The default JSON matches the previous reward behavior: boss loot on success/failure, +10% RIF and +15% SIF on timed success, plus +5% RIF and +10% SIF on checkpoint success.
+- The default JSON grants controlled Rift boss loot on success/failure, +10% RIF and +15% SIF on timed success, plus +5% RIF and +10% SIF on checkpoint success.
+- `suppressNativeRiftBossLoot=true` is enabled by default so a Rift-spawned boss does not also drop its native boss loot on the ground in addition to the controlled Cosmic Rift reward.
 - Primary boss loot can be overridden in the JSON with `primaryLootTableOverrides`, including min/max Rift level gates, checkpoint/classic filters, content/boss-source filters, and `delivery` set to `inventory` or `ground`.
 - Extra loot tables can be enabled in the JSON with `chancePercent`, `rolls`, min/max Rift level gates, checkpoint/classic filters, optional content/boss-source filters, and `delivery` set to `inventory` or `ground`.
 - the current updated build is intended to keep successful beacon clicks inside the Mythic Rift flow instead of falling back into a normal Danger Room result
 - the current updated build excludes the requester's current terminal region and recent selected/completed maps from the next random pick when alternatives exist
 - if a tester reports "sometimes it turned back into a regular Danger Room" or "I got the same dead terminal again with no mobs", first confirm they were on the newest build
-- boss loot is still inherited from the reused terminal boss loot tables for now, so observations such as cube shard drops are expected at this stage
+- controlled boss loot is still inherited from the reused terminal boss loot tables for now unless TAHITI overrides it in `CosmicRiftRewards.json`, so observations such as cube shard drops can still be expected at this stage
 - this means the current prototype validates gameplay flow first, not final reward identity
 - random enemy replacement is not implemented yet; terminal populations are still native for now because replacing them server-side needs a separate safety pass against map scripts and mission logic
 - the current frozen test tuning keeps the D3 percentage logic but now uses a softer piecewise curve: early levels still feel close to the previous `0.40` D3-level pace, then mid/high levels slow down so stacked players are not hard-stopped around level 29-30
