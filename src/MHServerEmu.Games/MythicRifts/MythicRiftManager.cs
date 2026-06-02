@@ -743,11 +743,29 @@ namespace MHServerEmu.Games.MythicRifts
                 if (includePlayersAlreadyOutsideRunRegion == false && IsPlayerInRunRegion(player, runState) == false)
                     continue;
 
+                EnsurePlayerAvatarAliveForRiftExit(player, runState, "return-to-hub");
                 Teleporter.DebugTeleportToTarget(player, dangerRoomHubStartTarget, GameDatabase.GlobalsPrototype.DifficultyTierDefault);
                 teleportedPlayerCount++;
             }
 
             return teleportedPlayerCount;
+        }
+
+        private static bool EnsurePlayerAvatarAliveForRiftExit(Player player, MythicRiftRunState runState, string context)
+        {
+            Avatar avatar = player?.CurrentAvatar;
+            if (avatar == null || avatar.IsDead == false)
+                return true;
+
+            bool resurrected = avatar.Resurrect();
+            if (resurrected)
+            {
+                Logger.Info($"Mythic Rift run {runState?.Config?.RunId ?? 0} resurrected dead avatar before {context} for playerDbId=0x{player.DatabaseUniqueId:X}.");
+                return true;
+            }
+
+            Logger.Warn($"Mythic Rift run {runState?.Config?.RunId ?? 0} failed to resurrect dead avatar before {context} for playerDbId=0x{player.DatabaseUniqueId:X}.");
+            return false;
         }
 
         public bool AbortRunWithReason(ulong runId, TimeSpan currentTime, string reason)
@@ -918,6 +936,7 @@ namespace MHServerEmu.Games.MythicRifts
                 $"lastLoad={_rewardTuningLastLoadMessage}",
                 $"profile={tuning.ProfileName} | enabled={tuning.Enabled}",
                 $"bossLootOnSuccess={tuning.GrantBossLootOnSuccess} | bossLootOnFailure={tuning.GrantBossLootOnFailure}",
+                $"suppressNativeRiftBossLoot={tuning.SuppressNativeRiftBossLoot}",
                 $"defaultDelivery={tuning.DefaultDelivery} | primaryLootTableOverrides={tuning.PrimaryLootTableOverrides.Count}",
                 $"timedSuccessBonusRIF={tuning.TimedSuccessBonusRarityPct:P0} | timedSuccessBonusSIF={tuning.TimedSuccessBonusSpecialPct:P0}",
                 $"checkpointBonusRIF={tuning.CheckpointSuccessBonusRarityPct:P0} | checkpointBonusSIF={tuning.CheckpointSuccessBonusSpecialPct:P0}",
@@ -2819,6 +2838,48 @@ namespace MHServerEmu.Games.MythicRifts
             return players[Game.Random.Next(0, players.Count)];
         }
 
+        private Player PickBossSpawnAnchorPlayer(MythicRiftRunState runState, Region region, WorldEntity anchorEntity)
+        {
+            if (runState == null || region == null)
+                return null;
+
+            List<Player> taggedPlayers = null;
+            if (anchorEntity?.TagPlayers != null)
+            {
+                foreach (Player taggedPlayer in anchorEntity.TagPlayers.GetPlayers())
+                {
+                    if (IsValidBossSpawnAnchorPlayer(taggedPlayer, runState, region) == false)
+                        continue;
+
+                    taggedPlayers ??= new();
+                    taggedPlayers.Add(taggedPlayer);
+                }
+            }
+
+            if (taggedPlayers?.Count > 0)
+                return taggedPlayers[0];
+
+            foreach (Player player in new PlayerIterator(region))
+            {
+                if (IsValidBossSpawnAnchorPlayer(player, runState, region))
+                    return player;
+            }
+
+            return null;
+        }
+
+        private static bool IsValidBossSpawnAnchorPlayer(Player player, MythicRiftRunState runState, Region region)
+        {
+            if (player == null || player.DatabaseUniqueId == 0 || runState == null || region == null)
+                return false;
+
+            if (runState.HasParticipantLeftEarly(player.DatabaseUniqueId))
+                return false;
+
+            Avatar avatar = player.CurrentAvatar;
+            return avatar?.IsAliveInWorld == true && avatar.Region == region;
+        }
+
         private AgentPrototype PickCustomRiftPopulationMobPrototype()
         {
             PrototypeId[] mobRefs = GetCustomRiftPopulationMobPrototypeRefs();
@@ -2894,6 +2955,9 @@ namespace MHServerEmu.Games.MythicRifts
             settingsProperties[PropertyEnum.CombatLevel] = level;
             settingsProperties[PropertyEnum.DifficultyTier] = region.DifficultyTierRef;
             settingsProperties[PropertyEnum.Rank] = bossProto.Rank;
+            if ((_rewardTuning ?? MythicRiftRewardTuning.CreateDefault()).SuppressNativeRiftBossLoot)
+                settingsProperties[PropertyEnum.NoLootDrop] = true;
+
             if (runState.Config.MissionProtoRef != PrototypeId.Invalid)
                 settingsProperties[PropertyEnum.MissionPrototype] = runState.Config.MissionProtoRef;
             settings.Properties = settingsProperties;
@@ -2916,16 +2980,12 @@ namespace MHServerEmu.Games.MythicRifts
 
         private bool TryResolveBossSpawnLocation(MythicRiftRunState runState, Region region, AgentPrototype bossProto, WorldEntity anchorEntity, out Vector3 spawnPosition, out Orientation spawnOrientation, out Cell spawnCell)
         {
+            if (TryResolvePlayerAnchoredBossSpawnLocation(runState, region, bossProto, anchorEntity, out spawnPosition, out spawnOrientation, out spawnCell))
+                return true;
+
             spawnPosition = anchorEntity?.RegionLocation.Position ?? Vector3.Zero;
             spawnOrientation = anchorEntity?.RegionLocation.Orientation ?? Orientation.Zero;
             spawnCell = anchorEntity?.Cell;
-
-            if (spawnCell == null && runState?.Config?.Content?.BossOnlyCheckpointEligible == true)
-            {
-                if (TryResolveCheckpointBossSpawnLocation(runState, region, bossProto, out spawnPosition, out spawnOrientation, out spawnCell) == false)
-                    return false;
-            }
-
             spawnCell ??= region.GetCellAtPosition(spawnPosition);
             if (spawnCell == null)
                 return false;
@@ -2937,13 +2997,13 @@ namespace MHServerEmu.Games.MythicRifts
             return true;
         }
 
-        private bool TryResolveCheckpointBossSpawnLocation(MythicRiftRunState runState, Region region, AgentPrototype bossProto, out Vector3 spawnPosition, out Orientation spawnOrientation, out Cell spawnCell)
+        private bool TryResolvePlayerAnchoredBossSpawnLocation(MythicRiftRunState runState, Region region, AgentPrototype bossProto, WorldEntity anchorEntity, out Vector3 spawnPosition, out Orientation spawnOrientation, out Cell spawnCell)
         {
             spawnPosition = Vector3.Zero;
             spawnOrientation = Orientation.Zero;
             spawnCell = null;
 
-            Player anchorPlayer = PickCustomRiftPopulationAnchorPlayer(runState, region);
+            Player anchorPlayer = PickBossSpawnAnchorPlayer(runState, region, anchorEntity);
             Avatar anchorAvatar = anchorPlayer?.CurrentAvatar;
             if (anchorAvatar == null || anchorAvatar.IsAliveInWorld == false || anchorAvatar.Region != region)
                 return false;

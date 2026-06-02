@@ -19,6 +19,7 @@ namespace MHServerEmu.Games.MythicRifts
         public bool Enabled { get; set; } = true;
         public bool GrantBossLootOnSuccess { get; set; } = true;
         public bool GrantBossLootOnFailure { get; set; } = true;
+        public bool SuppressNativeRiftBossLoot { get; set; } = true;
         public float TimedSuccessBonusRarityPct { get; set; } = 0.10f;
         public float TimedSuccessBonusSpecialPct { get; set; } = 0.15f;
         public float CheckpointSuccessBonusRarityPct { get; set; } = 0.05f;

@@ -3,6 +3,7 @@
   "enabled": true,
   "grantBossLootOnSuccess": true,
   "grantBossLootOnFailure": true,
+  "suppressNativeRiftBossLoot": true,
   "timedSuccessBonusRarityPct": 0.10,
   "timedSuccessBonusSpecialPct": 0.15,
   "checkpointSuccessBonusRarityPct": 0.05,
