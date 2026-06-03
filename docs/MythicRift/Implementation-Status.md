@@ -32,7 +32,7 @@
 - `src/MHServerEmu.Games/MythicRifts/MythicRiftRewardOutcome.cs`
 - `src/MHServerEmu/Commands/Implementations/MythicRiftCommands.cs`
 
-## Current Random-Eligible Terminal Pool
+## Current Random-Eligible Terminal Map Pool
 
 - Shocker
 - Doctor Octopus
@@ -40,6 +40,7 @@
 - Hood
 - Mister Sinister
 - MODOK
+  - map-eligible only for now; MODOK is temporarily excluded from random boss-source selection after player feedback reported flaky movement / attack behavior
 - Mandarin
 - Kingpin
 
@@ -117,6 +118,7 @@ These entries are special Rift variants. They can be selected randomly only thro
 - recognize the death of the expected boss
 - mark the run successful when the expected boss dies after the quota
 - spawn a Rift return portal after successful boss completion so players have a clear in-world exit back to the Danger Room hub
+- block native story/campaign transitions inside active or cleared boss-only checkpoint Rift rooms, while still allowing the official Cosmic Rift return portal
 - apply the Rift difficulty snapshot to the bound region by reducing player-to-mob damage and increasing mob-to-player damage for the duration of the run
 - restore the region damage state automatically when the run ends or is removed
 - prevent pre-quota kills of prototype-matching enemies from hijacking boss tracking before the Rift boss phase is unlocked

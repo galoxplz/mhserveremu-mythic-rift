@@ -81,6 +81,7 @@ Expected result:
 - `Doctor Strange Times Square / Dimensions Collide` is temporarily excluded from random selection like Ultron because Test Center saw a `region has not finished downloading` error in that Times Square map family
 - `Daily Bugle Operation` is temporarily excluded from random selection because its native population is too low for the current kill-quota loop without a dedicated respawner
 - `Cosmic Doop Sector` is registered as a special Rift map with a dedicated fixed boss and a 5% random selection chance; it does not use the normal random boss pool
+- `MODOK Terminal` can still appear as a Rift map, but MODOK is temporarily excluded from the random boss-source pool after player feedback reported that the boss can sometimes fail to move or attack
 - active Rifts now try to show a center-screen localized entry banner, a Danger Room-style kill quota widget, a Danger Room timer widget, and a small Rift level widget before the quota bar
 - local validation on 2026-05-09 confirmed that the client renders the server-driven Danger Room UI frame without a client patch: `Level N`, `Complete Simulation` kill progress bar, and red `Time` countdown
 - successful boss kills now send a short localized top-left completion banner: `COSMIC RIFT CLEARED`
@@ -351,7 +352,7 @@ Expected result:
 - `rift beaconmode` should show `fixedContent=taskmaster` while armed
 - after item use, `rift beaconmode` should show the created `runId`
 - the run should report `content=taskmaster`
-- terminal fixed-content runs should report the selected terminal as the boss source
+- terminal fixed-content runs should usually report the selected terminal as the boss source; `modok` is the current exception because its boss source is temporarily disabled and should resolve to a separate random validated boss
 - non-terminal fixed-content runs should report the selected map as `content`, with a separate terminal `bossSource`
 - StoryRevamp / treasure-room fixed-test runs should behave as checkpoint boss rooms: selected room as `content`, random validated terminal boss as `bossSource`, `checkpointBoss=True`, boss spawns immediately, and cleanup after exit
 - random levels `5`, `10`, `15`, etc. should select one of these checkpoint rooms instead of the normal classic Rift map pool
@@ -360,6 +361,7 @@ Expected result:
 - if the checkpoint boss cannot spawn immediately, the run should stay active and retry the spawn instead of closing the Rift and poisoning later tests
 - `sabretooth-showdown`, `supervillain-rec-center`, `sc-kill-house`, and `tr-asgard-estate` remain available as fixed diagnostic command targets, but are excluded from the automatic every-5-level random checkpoint pool until their native encounter / spawn-location behavior is fully clean
 - checkpoint boss spawn now prefers valid positions in the player's current room/cell instead of blindly spawning forward from the player; this specifically needs retesting on `tr-asgard-estate`, `supervillain-rec-center`, and `sc-kill-house`
+- native story/campaign room exits are blocked while a boss-only checkpoint Rift is active or cleared; testers should use the Cosmic Rift return portal after completion, not any native story portal that still appears in the room
 - death release inside an active Rift is intercepted and sent back to the same Rift instance start target, so StoryRevamp checkpoint rooms like `sc-fire-swamp` and `sc-mineshaft` should no longer refresh into the story-mode version after death
 - for party tests, the Rift should no longer auto-close immediately just because another party member is still zoning
 - for party checkpoint tests, a player who finishes zoning before the boss dies should be eligible for progression even though the boss spawned immediately at room start

@@ -136,7 +136,7 @@ These parts are still not final:
 
 ## Current Random-Eligible V1 Content Pool
 
-Terminal map + boss-source pool:
+Terminal map pool:
 
 - Shocker
 - Doctor Octopus
@@ -146,6 +146,18 @@ Terminal map + boss-source pool:
 - MODOK
 - Mandarin
 - Kingpin
+
+Random boss-source pool:
+
+- Shocker
+- Doctor Octopus
+- Taskmaster
+- Hood
+- Mister Sinister
+- Mandarin
+- Kingpin
+
+`MODOK` remains map-eligible but is temporarily excluded as a random boss source until its movement/attack behavior is validated.
 
 Curated non-terminal map-only pool:
 

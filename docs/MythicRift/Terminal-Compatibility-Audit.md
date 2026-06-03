@@ -153,3 +153,5 @@ The following terminals were rechecked specifically because they have transition
 | Kingpin / Fisk Tower | Transition is `ElevatorPortal1` -> `OfficeDoorwayPortalFlat1`; mission has only boss death objective and native region shutdown. |
 
 No `Kismet`, `SpawnerTrigger`, `EntitySetState`, `EntityCreate`, `HotspotEnter`, or miniboss-gated action was found for these five terminal flows.
+
+Follow-up from wider player testing: the MODOK map can remain in the map pool, but the MODOK boss source is temporarily excluded from random boss selection because testers reported that the boss can sometimes fail to move or attack.
