@@ -190,6 +190,9 @@ namespace MHServerEmu.Games.Entities
             if (Game.MythicRiftManager.TryUseReturnPortal(player, this))
                 return true;
 
+            if (Game.MythicRiftManager.TryBlockUnsafeRiftTransition(player, this))
+                return true;
+
             switch (TransitionPrototype.Type)
             {
                 case RegionTransitionType.Transition:

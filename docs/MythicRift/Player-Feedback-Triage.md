@@ -20,11 +20,14 @@ This file tracks the first wider-player review pass shared by MonEll on 2026-05-
 
 ## Still Open From 2026-06-02 Feedback
 
-- Treasure-room native story/campaign portals still need a focused pass. Likely options are hiding/disabling non-Rift transitions in active Rift regions or excluding rooms where the native transition cannot be safely suppressed.
-- MODOK sometimes not moving/attacking still needs a focused boss-AI reproduction. If it remains frequent, temporarily removing MODOK from the random boss pool may be safer than shipping a flaky boss.
 - Axis / March to Axis UI issues should remain out of the normal random pool until the exact content id and native UI interaction are isolated.
 - Anti-carry progression policy is still a design decision: current rules intentionally unlock the next level for eligible players present in the Rift, even if they joined a higher-level friend.
 - The seasonal hard-stop / boss-wave idea is promising, but it is a V2 design discussion rather than a P0 bug fix.
+
+## P1 Started From 2026-06-02 Feedback
+
+- Treasure-room / StoryRevamp native exits are now intercepted during boss-only checkpoint Rifts. The official Cosmic Rift return portal still works, but native story/campaign exits in the same Rift room are blocked with a chat explanation so players are not sent to campaign/story flow by mistake.
+- MODOK remains available as a fixed map test target, but the MODOK boss source is temporarily removed from the random boss pool until the "does not move / does not attack" report is reproduced or fixed. This keeps AIM Facility map variety while avoiding a flaky random final boss.
 
 ## Feedback Pass: 2026-05-21
 

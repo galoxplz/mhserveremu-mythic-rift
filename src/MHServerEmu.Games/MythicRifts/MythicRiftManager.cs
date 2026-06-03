@@ -156,7 +156,8 @@ namespace MHServerEmu.Games.MythicRifts
                 "Regions/EndGame/Terminals/Green/AIMFacility/AltRegions/DailyGAIMFacilityRegionL60.prototype",
                 "Missions/Prototypes/PVEEndgame/Dailies/Green/G07MODOKDailyEndgame.prototype",
                 "Entity/Characters/Bosses/PVEDailies/Green/EGD07GMODOK.prototype",
-                "Loot/Tables/Mob/Bosses/EndgameDailies/Terminals/AIMWeaponFacility/ModokTerminalLoot.prototype"),
+                "Loot/Tables/Mob/Bosses/EndgameDailies/Terminals/AIMWeaponFacility/ModokTerminalLoot.prototype",
+                RandomBossEligible: false),
             new(
                 "mandarin",
                 "Mandarin Terminal",
@@ -3429,6 +3430,50 @@ namespace MHServerEmu.Games.MythicRifts
                 Logger.Warn($"Mythic Rift run {runState.Config.RunId} failed to use return portal 0x{transition.Id:X} for playerDbId=0x{player.DatabaseUniqueId:X}.");
 
             return teleported;
+        }
+
+        public bool TryBlockUnsafeRiftTransition(Player player, Transition transition)
+        {
+            if (player == null || transition == null)
+                return false;
+
+            MythicRiftRunState runState = FindCheckpointRunForTransition(player, transition);
+            if (runState == null)
+                return false;
+
+            string message = runState.Status == MythicRiftRunStatus.Success
+                ? "[Cosmic Rift] Use the Cosmic Rift exit portal to return to the Danger Room hub."
+                : "[Cosmic Rift] This room exit is disabled during checkpoint Rifts. Defeat the boss, then use the Cosmic Rift exit portal.";
+            Game.ChatManager.SendChatFromCustomSystem(player, message, showSender: false);
+            Logger.Info($"Mythic Rift run {runState.Config.RunId} blocked native checkpoint transition 0x{transition.Id:X} ({transition.PrototypeName}) for playerDbId=0x{player.DatabaseUniqueId:X}.");
+            return true;
+        }
+
+        private MythicRiftRunState FindCheckpointRunForTransition(Player player, Transition transition)
+        {
+            Region playerRegion = player?.GetRegion();
+            Region transitionRegion = transition?.Region;
+            if (playerRegion == null || transitionRegion == null || playerRegion.Id != transitionRegion.Id)
+                return null;
+
+            foreach (MythicRiftRunState runState in _activeRuns.Values)
+            {
+                if (runState.RegionId != transitionRegion.Id)
+                    continue;
+
+                if (runState.Config.Content.BossOnlyCheckpointEligible == false)
+                    continue;
+
+                if (runState.Status != MythicRiftRunStatus.Active && runState.Status != MythicRiftRunStatus.Success)
+                    continue;
+
+                if (runState.ExitPortalEntityId != 0 && transition.Id == runState.ExitPortalEntityId)
+                    continue;
+
+                return runState;
+            }
+
+            return null;
         }
 
         private static ulong GetFirstRunAvatarId(Region region)
