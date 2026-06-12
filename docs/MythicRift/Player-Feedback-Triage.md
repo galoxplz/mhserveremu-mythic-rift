@@ -28,6 +28,9 @@ This file tracks the first wider-player review pass shared by MonEll on 2026-05-
 
 - Treasure-room / StoryRevamp native exits are now intercepted during boss-only checkpoint Rifts. The official Cosmic Rift return portal still works, but native story/campaign exits in the same Rift room are blocked with a chat explanation so players are not sent to campaign/story flow by mistake.
 - MODOK remains available as a fixed map test target, but the MODOK boss source is temporarily removed from the random boss pool until the "does not move / does not attack" report is reproduced or fixed. This keeps AIM Facility map variety while avoiding a flaky random final boss.
+- Boss-only checkpoint rooms now suppress their native hostile population before the Rift boss is spawned, and native population respawns are not enabled for checkpoint rooms. This is intended to clean up native encounters such as Sabretooth and make the rooms behave like controlled Rift boss arenas.
+- `sabretooth-showdown`, `supervillain-rec-center`, `sc-kill-house`, and `tr-asgard-estate` are no longer excluded from automatic every-5-level checkpoint selection. They still need focused Test Center validation, but the known native-boss/native-portal/spawn-location issues now have server-side mitigations.
+- `daily-bugle` is now eligible as a normal random Rift map again, backed by Rift custom population spawns so the low native population should no longer brick kill-quota progression.
 
 ## Feedback Pass: 2026-05-21
 
@@ -36,9 +39,9 @@ This file tracks the first wider-player review pass shared by MonEll on 2026-05-
 - `rift level [X]` works, but testers found the selected level too sticky after clearing. The current follow-up makes it a true one-shot launch override: the next successful beacon uses that level, then later beacons default back to the highest unlocked level.
 - MonEll flagged a possible `rift level` progression-destruction issue. Code review showed `rift level` does not write the highest-unlocked value, but the UX could look like progress was lost because the next launch level stayed lower. The command text now states that lower-level farming is one-shot, and access-prep helpers no longer lower existing progression by accident.
 - Boss-only checkpoint rooms add good variety, and most tested rooms worked.
-- `tr-asgard-estate`, `supervillain-rec-center`, and `sc-kill-house` reported boss spawns outside the playable room. They remain available for fixed diagnostics but are excluded from automatic checkpoint selection until they are retested cleanly.
+- `tr-asgard-estate`, `supervillain-rec-center`, and `sc-kill-house` reported boss spawns outside the playable room. Boss spawning now prefers valid positions in the player's current room/cell, and these maps have been re-enabled for automatic checkpoint selection for retesting.
 - `sc-missile-silo`, `sc-mineshaft`, `sc-dino-graveyard`, `sc-fire-swamp`, `tr-norway-tomb`, and `tr-sacred-dojo` were reported as working.
-- `sabretooth-showdown` is unstable as a clean checkpoint candidate: it can load, but reports included missing HUD/teleporter/rewards and it likely has a native Sabretooth encounter plus the Rift boss. It remains available for fixed command diagnostics but is excluded from automatic random checkpoint selection for V1.
+- `sabretooth-showdown` was unstable as a clean checkpoint candidate because it likely had a native Sabretooth encounter plus the Rift boss. Checkpoint rooms now suppress native hostile population before the Rift boss spawns, so this map is back in automatic checkpoint selection for retesting.
 - A tester asked for raid bosses at milestone levels such as 50 or 100. This fits the checkpoint-tier idea well, but should be treated as a later curated milestone-boss extension rather than added blindly to the normal V1 boss pool.
 - Follow-up feedback reported that dying in `sc-fire-swamp` / `sc-mineshaft` could refresh into the story-mode version. Rift death release is now intercepted so respawn stays inside the same active Rift instance.
 - Follow-up feedback reported that Mythic Rift items could be used in Story Mode and teleport to a story-mode version. Launcher use is now gated to the Danger Room hub or to a successfully cleared Rift, and rejected elsewhere before native item behavior can run.
@@ -80,4 +83,4 @@ This file tracks the first wider-player review pass shared by MonEll on 2026-05-
 - Treasure rooms, patrol-wave rooms, and `SHOWDOWN`-style content investigation in Open Calligraphy.
 - Tune checkpoint boss health/rewards after TAHITI validates the every-5-level pacing.
 - Watch player feedback on whether every-5-level checkpoints feel exciting or disruptive. The V1 direction is mandatory checkpoints, but the interval and reward bump are both easy tuning knobs.
-- Extend the custom population system to Bugle-style low-population maps if they remain underfilled after focused tests.
+- Watch Daily Bugle after the custom-population pass and tune the custom spawn target/batch values if it feels too dense or still underfilled.

@@ -165,7 +165,7 @@ Curated non-terminal map-only pool:
 - Wakanda Jungle
 - HYDRA Island One-Shot
 - Daily Bugle Operation
-- Doctor Strange Times Square
+  - uses Rift custom population to compensate for low native enemy density
 
 Special low-chance pool:
 
@@ -180,6 +180,7 @@ Registered but random-excluded:
 
 - Magneto / Stryker Bunker
 - Ultron
+- Doctor Strange Times Square / Dimensions Collide
 
 ## Build Procedure
 
