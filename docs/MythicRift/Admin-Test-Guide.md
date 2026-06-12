@@ -626,6 +626,7 @@ Expected behavior:
 These notes are important when reviewing test-center feedback.
 
 - Reward tuning is now externalized in `Data/Game/MythicRift/CosmicRiftRewards.json`.
+- See `docs/MythicRift/Reward-Tuning-Guide.md` for concrete level-band and checkpoint reward examples.
 - Use `rift rewardconfig` to inspect the active reward profile.
 - Use `rift rewardconfig reload` after editing the JSON to apply reward changes without rebuilding or restarting the server.
 - The default JSON grants controlled Rift boss loot on success/failure, +10% RIF and +15% SIF on timed success, plus +5% RIF and +10% SIF on checkpoint success.
