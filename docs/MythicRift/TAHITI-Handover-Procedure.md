@@ -115,6 +115,7 @@ Current implemented prototype behavior:
 - automatic Rift failure and return-to-hub when the timer expires
 - automatic shutdown request for completed/aborted Rift terminal regions once they become vacant, so the next run gets a fresh instance
 - hot-reloadable reward tuning through `Data/Game/MythicRift/CosmicRiftRewards.json`, including primary loot overrides, extra loot tables, level filters, and inventory/ground delivery
+- reward tuning examples and admin workflow are documented in `docs/MythicRift/Reward-Tuning-Guide.md`
 - user-level `rift status` and `rift abandon` commands for player-like testing without admin run management
 - user-level `rift level [level|max]` command so unlocked players can choose a lower farming level before using the next beacon
 - player-facing chat feedback at launch, boss unlock, completion, failure, and early Rift closure
