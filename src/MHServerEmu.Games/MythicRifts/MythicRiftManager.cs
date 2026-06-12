@@ -71,13 +71,7 @@ namespace MHServerEmu.Games.MythicRifts
         private static readonly PrototypeId RiftDangerRoomTimerWidgetPrototypeRef = (PrototypeId)15369535438503023451UL;
         private const string RiftExitPortalPrototypeName = "Entity/Transitions/ReturnToLastBaseDR.prototype";
         private const float SpecialRandomMapChance = 0.05f;
-        private static readonly HashSet<string> RandomCheckpointContentExclusions = new(StringComparer.OrdinalIgnoreCase)
-        {
-            "sabretooth-showdown",
-            "supervillain-rec-center",
-            "sc-kill-house",
-            "tr-asgard-estate"
-        };
+        private static readonly HashSet<string> RandomCheckpointContentExclusions = new(StringComparer.OrdinalIgnoreCase);
         private static readonly string[] CustomRiftPopulationMobPrototypeNames =
         {
             "Entity/Characters/Mobs/EndGameRandoms01/ThugEG06.prototype",
@@ -219,8 +213,8 @@ namespace MHServerEmu.Games.MythicRifts
                 null,
                 null,
                 null,
-                RandomMapEligible: false,
-                RandomBossEligible: false),
+                RandomBossEligible: false,
+                UseCustomPopulation: true),
             new(
                 "dr-strange-times-square",
                 "Doctor Strange Times Square",
@@ -666,6 +660,7 @@ namespace MHServerEmu.Games.MythicRifts
             {
                 SendStartRiftTimer(runState);
                 SuppressNativeTerminalBosses(runState, currentTime, force: true);
+                SuppressNativeCheckpointPopulation(runState);
                 RefreshRiftObjectiveWidgets(runState, currentTime, force: true);
                 NotifyRunStarted(runState);
                 TryStartBossOnlyCheckpoint(runState, currentTime);
@@ -1027,7 +1022,9 @@ namespace MHServerEmu.Games.MythicRifts
             RegisterRegionPlayersAsParticipants(runState, region);
             ApplyRunDifficultyToRegion(runState, region);
             EnsureRegionListener(region);
-            EnableRiftPopulationRespawns(runState, region);
+            if (runState.Config.Content.BossOnlyCheckpointEligible == false)
+                EnableRiftPopulationRespawns(runState, region);
+
             return true;
         }
 
@@ -1041,6 +1038,7 @@ namespace MHServerEmu.Games.MythicRifts
                 UpdateParticipantPresence(runState, currentTime);
                 TryAutoBindAndStartPendingRun(runState, currentTime);
                 MaintainCustomRiftPopulation(runState, currentTime);
+                SuppressNativeCheckpointPopulation(runState);
                 TryStartBossOnlyCheckpoint(runState, currentTime);
                 SuppressNativeTerminalBosses(runState, currentTime);
                 RefreshRiftObjectiveWidgets(runState, currentTime);
@@ -1422,6 +1420,51 @@ namespace MHServerEmu.Games.MythicRifts
                     $"Mythic Rift run {runState.Config.RunId} suppressed native terminal boss {nativeBoss.PrototypeName} " +
                     $"so Rift boss {runState.Config.BossProtoRef.GetNameFormatted() ?? "unknown"} remains quota-gated.");
                 nativeBoss.Destroy();
+                destroyedCount++;
+            }
+
+            return destroyedCount;
+        }
+
+        private int SuppressNativeCheckpointPopulation(MythicRiftRunState runState)
+        {
+            if (runState?.Config?.Content?.BossOnlyCheckpointEligible != true)
+                return 0;
+
+            if (runState.Status != MythicRiftRunStatus.Active || runState.RegionId == 0 || runState.BossEntityId != 0)
+                return 0;
+
+            Region region = Game.RegionManager.GetRegion(runState.RegionId);
+            if (region == null)
+                return 0;
+
+            List<Agent> nativeAgentsToDestroy = null;
+            foreach (Entity entity in region.Entities)
+            {
+                if (entity is not Agent agent)
+                    continue;
+
+                if (agent is Avatar || agent.IsTeamUpAgent)
+                    continue;
+
+                if (agent.IsDestroyed || agent.IsDead || agent.IsInWorld == false)
+                    continue;
+
+                if (agent.IsHostileToPlayers() == false)
+                    continue;
+
+                nativeAgentsToDestroy ??= new();
+                nativeAgentsToDestroy.Add(agent);
+            }
+
+            if (nativeAgentsToDestroy == null)
+                return 0;
+
+            int destroyedCount = 0;
+            foreach (Agent nativeAgent in nativeAgentsToDestroy)
+            {
+                Logger.Info($"Mythic Rift checkpoint run {runState.Config.RunId} suppressed native checkpoint entity {nativeAgent.PrototypeName} so the room behaves as a clean Rift boss arena.");
+                nativeAgent.Destroy();
                 destroyedCount++;
             }
 
@@ -2088,6 +2131,9 @@ namespace MHServerEmu.Games.MythicRifts
 
                     continue;
                 }
+
+                if (runState.Config.Content.BossOnlyCheckpointEligible)
+                    continue;
 
                 bool shouldCountKill = ShouldCountKill(evt);
                 if (runState.BossUnlocked)

@@ -51,6 +51,8 @@ These entries are map-only. They can be selected as Rift maps, but they do not p
 - Bronx Zoo
 - Wakanda Jungle
 - HYDRA Island One-Shot
+- Daily Bugle Operation
+  - uses Rift custom population to compensate for low native enemy density
 
 ## Current Special Low-Chance Map Pool
 
@@ -65,7 +67,7 @@ These entries are special Rift variants. They can be selected randomly only thro
   - random level gate: level `25+`
   - direct test id: `cosmic-doop-sector`
 
-## Registered But Random-Excluded Terminal Content
+## Registered But Random-Excluded Content
 
 - Magneto
   - registered on the L60 terminal region for fixed validation, but still excluded from random selection until the bunker transition / door flow is validated safely
@@ -73,8 +75,6 @@ These entries are special Rift variants. They can be selected randomly only thro
   - registered on the L60 terminal region for fixed validation after MonEll's local branch showed this path progressing better, but still excluded from random selection until multiplayer and repeated-run tests confirm it is safe
 - Doctor Strange Times Square / Dimensions Collide
   - registered for fixed validation, but excluded from random selection after Test Center multiplayer produced a `region has not finished downloading` client-side/streaming error in the same Times Square family as Ultron
-- Daily Bugle Operation
-  - registered for fixed validation, but excluded from random selection after Test Center feedback showed the native population is too low for the current kill-quota Rift loop without a dedicated respawner
 
 ## What The Prototype Already Does
 
@@ -366,7 +366,9 @@ Current practical launcher stage
 - Checkpoint rooms hide the kill-quota HUD widget and keep only the level/timer widgets, because showing a fake `1/1` quota confused the intended boss-only flow.
 - Checkpoint progression eligibility is captured from players present at boss death, rather than from an instant boss-unlock snapshot at room start, so slower-loading group members are not excluded just because the boss spawned before their client finished zoning.
 - If a checkpoint boss cannot spawn immediately, the run now stays active and retries the spawn instead of aborting the Rift during region/player anchor timing windows.
-- `sabretooth-showdown`, `supervillain-rec-center`, `sc-kill-house`, and `tr-asgard-estate` are kept as fixed diagnostic targets but excluded from the automatic checkpoint random pool until their native encounter / spawn-location behavior is validated.
+- `sabretooth-showdown`, `supervillain-rec-center`, `sc-kill-house`, and `tr-asgard-estate` are back in the automatic checkpoint random pool for validation after adding checkpoint-native hostile suppression and native transition blocking.
+- Boss-only checkpoint rooms suppress native hostile population before the Rift boss spawns and do not enable native population respawns, so they behave more like controlled Rift boss arenas instead of story rooms.
+- Daily Bugle Operation is back in the random map pool with Rift custom population enabled, so the low native population should no longer block kill-quota progression.
 - Player-selected launch level is now explicitly separated from progression: `rift level [number]` only changes the next successful beacon launch and cannot lower `highestUnlockedRiftLevel`; after that launch, later beacons default back to highest unlocked level.
 - Test helper commands that unlock access now protect existing higher progress; `rift resetprogress` is the explicit way to wipe a tester back to level 1.
 - Checkpoint boss spawning now prefers positions in the player's current cell/room to reduce small-room cases where a boss appeared outside the playable map.

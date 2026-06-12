@@ -62,7 +62,7 @@ The next content expansion adds map-only Rift entries from private combat region
 | `bronx-zoo` | `BronxZooRegionL60` | `ZooEntryTarget` | Large private one-shot map with many populated areas and no terminal boss dependency. Current code now matches base/alt region equivalence in both directions to help one-shot L60 variants bind and scale correctly if the live region resolves through its base prototype. |
 | `wakanda-jungle` | `WakandaP1RegionL60` | `WakandaP1EntryTarget` | Private one-shot map with multiple populated areas and no registered metagame in the region data. |
 | `hydra-island-one-shot` | `HYDRAIslandPartDeuxRegionL60` | `Hydra1ShotEntryTarget` | Private one-shot map with many populated areas; selected for HYDRA visual variety. |
-| `daily-bugle` | `OpDailyBugleRegionL11To60` | `OpsDailyBugleStartTarget` | Registered for fixed validation only. Test Center feedback found its native population too low for the current kill-quota loop unless a dedicated respawner is added. |
+| `daily-bugle` | `OpDailyBugleRegionL11To60` | `OpsDailyBugleStartTarget` | Re-enabled for random selection with Rift custom population, so the low native population should no longer brick kill-quota progression. |
 | `dr-strange-times-square` | `DrStrangeTimesSquareRegionCosmic` | `DrStrangeTimesSquareEntryTargetCosmic` | Registered for fixed validation only. Test Center saw a `region has not finished downloading` error in this Times Square / Dimensions Collide family, so it is excluded from random selection until multiplayer streaming behavior is understood. |
 
 Recommended smoke-test command sequence:
@@ -108,14 +108,14 @@ Because these rooms are very small, they now run as boss-only checkpoint rooms i
 
 | Map id | Region | Start target | Mode | Notes |
 |---|---|---|---|---|
-| `sabretooth-showdown` | `CH0705SabretoothShowdownRegion` | `CH07SabretoothShowdownTarget` | Fixed diagnostic only | Good Showdown candidate visually, but current feedback reported missing HUD/teleporter/rewards and likely native Sabretooth encounter interference. Excluded from automatic random checkpoint pool until cleaned up. |
-| `supervillain-rec-center` | `CH0503SupervillainRecCenterRegion` | `CH05RecCenterIntTarget` | Fixed diagnostic only | Showdown-like compact supervillain room. Reported boss-outside-map; excluded from automatic checkpoint pool until retested cleanly. |
-| `sc-kill-house` | `SCKillHouseRegion` | `SCKillHouseTargetStart` | Fixed diagnostic only | Fort Stryker combat room candidate. Reported boss-outside-map; excluded from automatic checkpoint pool until retested cleanly. |
+| `sabretooth-showdown` | `CH0705SabretoothShowdownRegion` | `CH07SabretoothShowdownTarget` | Boss-only checkpoint | Good Showdown candidate visually. Native hostile suppression should remove the native Sabretooth encounter before the Rift boss spawns. Needs Test Center retest. |
+| `supervillain-rec-center` | `CH0503SupervillainRecCenterRegion` | `CH05RecCenterIntTarget` | Boss-only checkpoint | Showdown-like compact supervillain room. Re-enabled after player-cell boss spawn placement and native transition blocking. Needs Test Center retest. |
+| `sc-kill-house` | `SCKillHouseRegion` | `SCKillHouseTargetStart` | Boss-only checkpoint | Fort Stryker combat room candidate. Re-enabled after player-cell boss spawn placement and native transition blocking. Needs Test Center retest. |
 | `sc-missile-silo` | `SCMissileSiloRegion` | `SCMissileSiloTargetStart` | Boss-only checkpoint | Fort Stryker combat room candidate. |
 | `sc-mineshaft` | `SCMineshaftRegion` | `SCMineshaftTargetStart` | Boss-only checkpoint | Fort Stryker cave/mineshaft variety. |
 | `sc-dino-graveyard` | `SCDinoGraveyardRegion` | `SCDinoGraveyardTargetStart` | Boss-only checkpoint | Savage Land visual variety. |
 | `sc-fire-swamp` | `SCFireSwampRegion` | `SCFireSwampTargetStart` | Boss-only checkpoint | Savage Land swamp variety. |
-| `tr-asgard-estate` | `TREstateRegion` | `TREstateTargetStart` | Fixed diagnostic only | Asgard visual variety. Reported boss-outside-map / native portal risk; excluded from automatic checkpoint pool until retested cleanly. |
+| `tr-asgard-estate` | `TREstateRegion` | `TREstateTargetStart` | Boss-only checkpoint | Asgard visual variety. Re-enabled after player-cell boss spawn placement and native transition blocking. Needs Test Center retest, especially for native portal confusion. |
 | `tr-norway-tomb` | `TRTombRegion` | `TRTombTargetStart` | Boss-only checkpoint | Norway/Asgard tomb room. |
 | `tr-sacred-dojo` | `TRSacredDojoRegion` | `SacredDojoTarget` | Boss-only checkpoint | Madripoor dojo visual variety. |
 
@@ -138,7 +138,7 @@ rift armbeaconfixed tr-sacred-dojo 10
 
 Use one beacon after each `armbeaconfixed` command. Expected result: selected map loads, Rift HUD appears, `checkpointBoss=True` appears in `rift status` / `rift run [runId]`, the random validated terminal boss spawns immediately, completion portal returns players to Danger Room, and the instance cleans up after exit/abandon/timeout.
 
-Note: `sabretooth-showdown`, `supervillain-rec-center`, `sc-kill-house`, and `tr-asgard-estate` are intentionally still listed for isolated fixed-command investigation, but they should not appear from normal random level `5`, `10`, `15`, etc. checkpoint selection in the current V1 pool.
+Note: `sabretooth-showdown`, `supervillain-rec-center`, `sc-kill-house`, and `tr-asgard-estate` are back in automatic level `5`, `10`, `15`, etc. checkpoint selection. They should be retested specifically for clean boss spawn, no native extra boss, blocked native exits, reward grant, and return portal behavior.
 
 ## Detailed Recheck Notes
 

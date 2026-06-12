@@ -79,7 +79,7 @@ Expected result:
 - the active random test pool still excludes `Ultron Terminal` and `Magneto / Stryker Bunker`, but both are now registered on their L60 terminal variants for fixed validation
 - the random map pool now also includes a first curated set of non-terminal private combat maps; these are map-only entries, so bosses still come from the validated terminal boss pool
 - `Doctor Strange Times Square / Dimensions Collide` is temporarily excluded from random selection like Ultron because Test Center saw a `region has not finished downloading` error in that Times Square map family
-- `Daily Bugle Operation` is temporarily excluded from random selection because its native population is too low for the current kill-quota loop without a dedicated respawner
+- `Daily Bugle Operation` is back in random selection with Rift custom population enabled, so the low native population should no longer brick the kill-quota loop
 - `Cosmic Doop Sector` is registered as a special Rift map with a dedicated fixed boss and a 5% random selection chance; it does not use the normal random boss pool
 - `MODOK Terminal` can still appear as a Rift map, but MODOK is temporarily excluded from the random boss-source pool after player feedback reported that the boss can sometimes fail to move or attack
 - active Rifts now try to show a center-screen localized entry banner, a Danger Room-style kill quota widget, a Danger Room timer widget, and a small Rift level widget before the quota bar
@@ -306,6 +306,9 @@ Curated non-terminal map ids:
 - `wakanda-jungle`
 - `hydra-island-one-shot`
 - `daily-bugle`
+
+Registered fixed-validation non-terminal map ids:
+
 - `dr-strange-times-square`
 
 Special low-chance map id:
@@ -359,9 +362,10 @@ Expected result:
 - checkpoint rooms should show Rift level and timer UI only; they should not show a kill-count quota bar
 - checkpoint clears should award the normal timed success bonus plus a small extra checkpoint success bonus
 - if the checkpoint boss cannot spawn immediately, the run should stay active and retry the spawn instead of closing the Rift and poisoning later tests
-- `sabretooth-showdown`, `supervillain-rec-center`, `sc-kill-house`, and `tr-asgard-estate` remain available as fixed diagnostic command targets, but are excluded from the automatic every-5-level random checkpoint pool until their native encounter / spawn-location behavior is fully clean
+- `sabretooth-showdown`, `supervillain-rec-center`, `sc-kill-house`, and `tr-asgard-estate` are back in the automatic every-5-level random checkpoint pool for retesting
 - checkpoint boss spawn now prefers valid positions in the player's current room/cell instead of blindly spawning forward from the player; this specifically needs retesting on `tr-asgard-estate`, `supervillain-rec-center`, and `sc-kill-house`
 - native story/campaign room exits are blocked while a boss-only checkpoint Rift is active or cleared; testers should use the Cosmic Rift return portal after completion, not any native story portal that still appears in the room
+- native hostile population is suppressed before the Rift boss spawns in boss-only checkpoint rooms, and native respawns are not enabled for checkpoint rooms; this should prevent native encounters like Sabretooth from creating double-boss or polluted boss-room tests
 - death release inside an active Rift is intercepted and sent back to the same Rift instance start target, so StoryRevamp checkpoint rooms like `sc-fire-swamp` and `sc-mineshaft` should no longer refresh into the story-mode version after death
 - for party tests, the Rift should no longer auto-close immediately just because another party member is still zoning
 - for party checkpoint tests, a player who finishes zoning before the boss dies should be eligible for progression even though the boss spawned immediately at room start
