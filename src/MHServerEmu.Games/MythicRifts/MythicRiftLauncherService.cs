@@ -694,7 +694,9 @@ namespace MHServerEmu.Games.MythicRifts
             }
 
             result.TeleportSucceeded = true;
+            runState?.MarkParticipantAdmitted(player.DatabaseUniqueId);
             TeleportPartyMembersToRunEntry(player, runState, regionProtoRef, areaProtoRef, cellProtoRef, entityProtoRef);
+            runState?.FinalizeAdmission();
         }
 
         private static PrototypeId ResolveRunStartTarget(MythicRiftRunState runState)
@@ -762,11 +764,22 @@ namespace MHServerEmu.Games.MythicRifts
 
                 Player member = Game.EntityManager.GetEntityByDbGuid<Player>(memberDbId);
                 if (member == null)
+                {
+                    runState.RemoveParticipantBeforeAdmission(memberDbId);
                     continue;
+                }
 
                 if (TryTeleportPlayerToRunEntry(member, regionProtoRef, areaProtoRef, cellProtoRef, entityProtoRef, usePartyTeleportContext: true, out string errorMessage))
+                {
+                    runState.MarkParticipantAdmitted(memberDbId);
                     continue;
+                }
 
+                runState.RemoveParticipantBeforeAdmission(memberDbId);
+                Game.ChatManager.SendChatFromCustomSystem(
+                    member,
+                    $"[Cosmic Rift] You were not admitted to run {runState.Config.RunId} because the Rift teleport failed.",
+                    showSender: false);
                 Logger.Warn($"[MythicRiftLauncher] Failed to teleport party member playerDbId=0x{memberDbId:X} into run {runState.Config.RunId}: {errorMessage}");
             }
         }

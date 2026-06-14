@@ -4,14 +4,15 @@ This folder contains the project-specific documentation for the custom **Mythic 
 
 Recommended reading order:
 
-1. `High-Level.md`
-2. `Spec-V1.md`
-3. `Architecture.md`
-4. `Implementation-Status.md`
-5. `Player-Progression-Guide.md`
-6. `Admin-Test-Guide.md`
-7. `Player-Feedback-Triage.md`
-8. `TAHITI-Review-Bundle.md`
+1. `AI-Agent-Handoff.md`
+2. `High-Level.md`
+3. `Spec-V1.md`
+4. `Architecture.md`
+5. `Implementation-Status.md`
+6. `Player-Progression-Guide.md`
+7. `Admin-Test-Guide.md`
+8. `Player-Feedback-Triage.md`
+9. `TAHITI-Review-Bundle.md`
 
 These documents are meant to help reviewers, collaborators, and server leads quickly understand:
 

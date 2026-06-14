@@ -40,7 +40,7 @@
 - Hood
 - Mister Sinister
 - MODOK
-  - map-eligible only for now; MODOK is temporarily excluded from random boss-source selection after player feedback reported flaky movement / attack behavior
+  - AIM Facility is random-eligible and uses a replacement Rift boss; MODOK is excluded from boss-source selection after player feedback reported flaky movement / attack behavior
 - Mandarin
 - Kingpin
 
@@ -53,10 +53,14 @@ These entries are map-only. They can be selected as Rift maps, but they do not p
 - HYDRA Island One-Shot
 - Daily Bugle Operation
   - uses Rift custom population to compensate for low native enemy density
+- Civil War Airport - Captain America
+- Civil War Airport - Iron Man
+- Civil War Bazaar
+  - the Civil War scenarios are solo-only because their SIP region prototypes declare `playerLimit=1`
 
 ## Current Special Low-Chance Map Pool
 
-These entries are special Rift variants. They can be selected randomly only through the special branch, currently capped at a 5% chance before normal map selection. They keep their own fixed boss source instead of using the normal random terminal boss pool.
+These entries can be selected randomly only through the special branch, currently capped at a combined 5% chance before normal map selection.
 
 - Cosmic Doop Sector
   - region: `CosmicDoopSectorSpaceRegion`
@@ -66,6 +70,15 @@ These entries are special Rift variants. They can be selected randomly only thro
   - kill quota: `100`
   - random level gate: level `25+`
   - direct test id: `cosmic-doop-sector`
+- Doctor Strange Times Square / Dimensions Collide
+  - uses custom Rift population and a random Rift boss
+  - retains a known multiplayer region-streaming risk
+- March to Axis
+  - level `15+`, custom Rift population, random Rift boss
+  - native raid HUD is suppressed; native raid scripting still needs live validation
+- Muspelheim Raid
+  - level `15+`, custom Rift population, random Rift boss
+  - native raid scripting still needs live validation
 
 ## Registered But Random-Excluded Content
 
@@ -73,8 +86,6 @@ These entries are special Rift variants. They can be selected randomly only thro
   - registered on the L60 terminal region for fixed validation, but still excluded from random selection until the bunker transition / door flow is validated safely
 - Ultron
   - registered on the L60 terminal region for fixed validation after MonEll's local branch showed this path progressing better, but still excluded from random selection until multiplayer and repeated-run tests confirm it is safe
-- Doctor Strange Times Square / Dimensions Collide
-  - registered for fixed validation, but excluded from random selection after Test Center multiplayer produced a `region has not finished downloading` client-side/streaming error in the same Times Square family as Ultron
 
 ## What The Prototype Already Does
 
@@ -86,7 +97,9 @@ These entries are special Rift variants. They can be selected randomly only thro
 - use L60 terminal region variants for current terminal content, avoiding native `RegionBand` drift from terminal start targets
 - distinguish between the registered terminal catalog and the subset currently eligible for random selection
 - choose a random map source and a random boss source independently for random Rift runs
+- register boss-only sources independently from maps, beginning with Pyro, A.I.M. Doctor Octopus, Wizard, Bullseye, Elektra, Black Cat, Blob, Green Goblin, Rhino, and Venom
 - distinguish random map eligibility from random boss eligibility, allowing curated non-terminal maps without accidentally using them as boss sources
+- enforce per-map player limits during fixed and random run creation so solo-only regions cannot be selected for party runs
 - support special low-chance random maps, currently used by `Cosmic Doop Sector` at 5%, with fixed own boss selection
 - avoid selecting the same boss-source entry as the chosen map when the random pool offers alternatives
 - avoid immediately repeating the last completed Rift terminal map for the requester or party when another random map is available
@@ -125,6 +138,15 @@ These entries are special Rift variants. They can be selected randomly only thro
 - suppress terminal-native objective HUD widgets during active Rift runs so native terminal boss objectives do not mislead players after the boss pool is randomized
 - temporarily suspend the native terminal mission during Rift runs, scoped to the active Rift instance and restored when the run is removed, so native terminal objectives do not compete with the Rift objective
 - temporarily suspend active region-event missions during Rift runs, scoped only to the Rift region instance and restored when the run is removed, so the native "Region Events" tracker does not compete with the Rift objective
+- keep region HUD cleanup inside the Mythic Rift module: a Rift-owned controller removes every non-Rift widget on a 500ms refresh while the run is active
+- suppress native metagame widgets in addition to mission widgets, covering scripted scenarios and raids such as March to Axis
+- leave the stock `UIDataProvider` implementation unchanged
+- support an optional config-driven 30-wave cycle that resets after wave 30, uses the supplied per-boss health table, and spawns multiple bosses at milestone waves
+- build every multi-boss wave from distinct random boss entries and distinct boss prototypes, so wave 30 does not spawn six copies of one boss
+- add one-time kill-progress encounters at 25% (Champion invasion), 50% (random mini-boss), and 75% (Elite strike team)
+- grant every final-wave boss's own controlled loot table after success, with native death loot still suppressed
+- support JSON-configured guaranteed items filtered by level, wave, checkpoint, map, and any boss in the final wave
+- ship guaranteed ground cube-shard crates on every successful floor, with additional crates on waves 20-30 and checkpoint clears
 - intercept native `Mission` / `MissionObjective` update packets for controlled terminal objectives while a Rift is active, preventing terminal bounty counters from rebuilding on the client after suppression
 - reuse any remaining native generic fraction tracker widget as a best-effort no-client-patch kill counter by forcing it to the active Rift kill quota
 - add server-driven Danger Room UI widgets for the Rift kill quota, timer, and selected Rift level by reusing client-known widget prototypes
@@ -172,10 +194,13 @@ These entries are special Rift variants. They can be selected randomly only thro
 - keep normal stock `PortalToRandomDungeon` / Danger Room behavior intact by not accepting it as a Rift launcher
 - attempt to teleport the player to the selected Rift region start target immediately after a successful armed beacon launch
 - force the teleport to use the configured Rift region prototype together with the start-target area/cell/entity data, so native terminal `RegionBand` variants do not silently replace the intended Rift region
-- attempt a best-effort party teleport for online party members when the leader launches a Rift beacon
+- build the launch roster from online party members standing in the leader's current region
+- admit party members only after their Rift teleport succeeds, then freeze health scaling from the admitted count
+- exclude failed/offline/out-of-region party members from the run roster and reward eligibility
 - abort a newly created run immediately if the direct beacon launch cannot resolve or reach a valid Rift start target
 - auto-bind pending runs against equivalent terminal region variants, not just exact prototype matches
 - award next-level progression competitively: a player must be inside the Rift when the kill quota unlocks the boss and still be inside the Rift when that boss dies
+- advance each eligible player's personal progression by at most one level, preventing a high-level friend from replacing the lower player's personal maximum
 - expose competitive progression snapshots in `rift run`, so admins can inspect how many players qualified at boss unlock and at boss death
 - emit custom in-game system messages when a Rift starts, when the quota unlocks the final boss, and when the run succeeds, fails, or aborts
 - use player-facing chat wording for the live loop instead of admin/debug wording
@@ -224,8 +249,11 @@ These entries are special Rift variants. They can be selected randomly only thro
   - classic/checkpoint filters
   - content id / boss source filters
 - primary boss loot can be replaced in the JSON with `primaryLootTableOverrides`, including min/max Rift level gates, classic/checkpoint filters, and content id / boss source filters
-- primary and extra reward tables support `delivery: inventory` or `delivery: ground`, so TAHITI can decide whether rewards go straight to inventory or drop in-world
-- Rift-spawned bosses suppress native boss loot by default through `suppressNativeRiftBossLoot=true`, preventing native ground drops from doubling with the controlled Cosmic Rift reward grant
+- primary and extra reward tables support `delivery: inventory` or `delivery: ground`; player-owned ground delivery is the default
+- loot-table aliases and grouped reward recipes support multiple independent table rolls without requiring one patched mega-table
+- reward recipes can be filtered by boss source, map, level range, checkpoint/classic mode, and success/failure state
+- end rewards are restricted to admitted participants still present in the Rift at completion
+- Rift-spawned bosses always suppress native death loot, and Rift-spawned entities are not stamped with the terminal mission prototype, preventing native mission/event rewards from doubling with the controlled Cosmic Rift reward grant
 - the reward flow is no longer purely manual: a completed run can now attempt to auto-distribute rewards to tracked participants
 
 ## Current Progression Logic

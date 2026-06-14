@@ -243,16 +243,25 @@ namespace MHServerEmu.Commands.Implementations
         [CommandParamCount(2)]
         public string Scale(string[] @params, NetClient client)
         {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            if (game == null)
+                return "Game not found.";
+
             if (TryParsePositiveInt(@params[0], out int riftLevel) == false)
                 return "Invalid rift level.";
 
             if (TryParsePositiveInt(@params[1], out int requestedPlayers) == false)
                 return "Invalid player count.";
 
-            MythicRiftDifficultySnapshot snapshot = MythicRiftScaling.BuildSnapshot(riftLevel, requestedPlayers);
+            MythicRiftDifficultySnapshot snapshot = game.MythicRiftManager.GetDifficultySnapshot(riftLevel, requestedPlayers);
+            MythicRiftWaveProfile waveProfile = MythicRiftScaling.GetThirtyWaveProfile(riftLevel);
+            string modeText = game.MythicRiftManager.ThirtyWaveModeEnabled
+                ? $"30-wave | wave={waveProfile.Wave}/30 | bosses={waveProfile.BossCount} | perBossHP x{waveProfile.PerBossHealthMultiplier:F2} | totalBossHP x{waveProfile.TotalBossHealthMultiplier:F2}"
+                : "classic";
 
             return string.Create(CultureInfo.InvariantCulture,
-                $"Rift level {snapshot.RiftLevel} | requested players={requestedPlayers} | effective players={snapshot.EffectivePlayerCount} | d3EquivalentLevel={snapshot.EquivalentD3RiftLevel:F2} | groupHealth x{snapshot.GroupHealthMultiplier:F3} | HP x{snapshot.HealthMultiplier:F3} | damage x{snapshot.DamageMultiplier:F3}");
+                $"Rift level {snapshot.RiftLevel} | mode={modeText} | requested players={requestedPlayers} | effective players={snapshot.EffectivePlayerCount} | d3EquivalentLevel={snapshot.EquivalentD3RiftLevel:F2} | groupHealth x{snapshot.GroupHealthMultiplier:F3} | HP x{snapshot.HealthMultiplier:F3} | damage x{snapshot.DamageMultiplier:F3}");
         }
 
         [Command("access")]
@@ -481,7 +490,9 @@ namespace MHServerEmu.Commands.Implementations
             if (TryParsePositiveInt(@params[2], out int timeLimitMinutes) == false)
                 return "Invalid time limit.";
 
-            IReadOnlyList<MythicRiftContentEntry> mapPool = game.MythicRiftManager.RandomMapEligibleContentPool;
+            List<MythicRiftContentEntry> mapPool = game.MythicRiftManager.RandomMapEligibleContentPool
+                .Where(entry => entry.SupportsPlayerCount(requestedPlayers))
+                .ToList();
             IReadOnlyList<MythicRiftContentEntry> bossPool = game.MythicRiftManager.RandomBossEligibleContentPool;
             if (mapPool.Count == 0 || bossPool.Count == 0)
                 return "No random-eligible Mythic Rift map or boss content is registered.";
@@ -2283,7 +2294,9 @@ namespace MHServerEmu.Commands.Implementations
                 $"Mythic Rift run {runState.Config.RunId}",
                 $"status={runState.Status} | content={runState.Config.Content.DisplayName} ({runState.Config.Content.Id})",
                 $"bossSource={runState.Config.BossContent?.DisplayName ?? "n/a"} ({runState.Config.BossContent?.Id ?? "n/a"}) | regionScalingApplied={runState.RegionDifficultyScalingApplied}",
-                $"level={runState.Config.RiftLevel} | requestedPlayers={runState.Config.RequestedPlayerCount} | effectivePlayers={runState.Config.EffectivePlayerCount}",
+                $"bossWave={string.Join(", ", runState.Config.BossWaveContent.Select(content => $"{content.DisplayName} ({content.Id})"))}",
+                $"level={runState.Config.RiftLevel} | requestedPlayers={runState.Config.RequestedPlayerCount} | effectivePlayers={runState.EffectivePlayerCount}",
+                $"scalingMode={(runState.Config.UseThirtyWaveMode ? "30-wave" : "classic")} | wave={runState.Config.WaveNumber}/30 | bosses={runState.BossKillCount}/{runState.Config.RequiredBossKillCount} defeated | activeBosses={runState.ActiveBossEntityIds.Count}",
                 $"killQuota={runState.CurrentKillCount}/{runState.Config.KillQuota} | bossUnlocked={runState.BossUnlocked} | rewardsGranted={runState.RewardsGranted}",
                 $"timeLimit={runState.Config.TimeLimit.TotalMinutes:0} min | remaining={runState.GetTimeRemaining(currentTime).TotalMinutes:0.##} min | d3EquivalentLevel={runState.Config.Difficulty.EquivalentD3RiftLevel:F2} | groupHealth x{runState.Config.Difficulty.GroupHealthMultiplier:F3} | HP x{runState.Config.Difficulty.HealthMultiplier:F3} | damage x{runState.Config.Difficulty.DamageMultiplier:F3}",
                 $"regionId=0x{runState.RegionId:X} | bossEntityId=0x{runState.BossEntityId:X}",
@@ -2297,11 +2310,16 @@ namespace MHServerEmu.Commands.Implementations
             if (rewardOutcome != null)
             {
                 lines.Add(
-                    $"rewardProfile={rewardOutcome.RewardProfileName ?? "default"} | rewardBossLoot={rewardOutcome.BossLootTableProtoRef.GetNameFormatted()} | bossLootSource={rewardOutcome.BossLootTableSourceId ?? "native-boss"} | bossDelivery={rewardOutcome.BossLootDelivery ?? "inventory"} | timedBonus={rewardOutcome.TimedSuccessBonusApplied} | bonusRIF={rewardOutcome.BonusRarityPct:P0} | bonusSIF={rewardOutcome.BonusSpecialPct:P0} | extraLootTables={rewardOutcome.ExtraLootTables.Count}");
+                    $"rewardProfile={rewardOutcome.RewardProfileName ?? "default"} | rewardBossLoot={rewardOutcome.BossLootTableProtoRef.GetNameFormatted()} | bossLootSource={rewardOutcome.BossLootTableSourceId ?? "native-boss"} | bossDelivery={rewardOutcome.BossLootDelivery ?? "inventory"} | timedBonus={rewardOutcome.TimedSuccessBonusApplied} | bonusRIF={rewardOutcome.BonusRarityPct:P0} | bonusSIF={rewardOutcome.BonusSpecialPct:P0} | extraLootTables={rewardOutcome.ExtraLootTables.Count} | guaranteedItems={rewardOutcome.GuaranteedItems.Count}");
 
                 foreach (MythicRiftRewardExtraLootTable extraLootTable in rewardOutcome.ExtraLootTables.Take(10))
                 {
                     lines.Add($"rewardExtraLoot id={extraLootTable.Id} | lootTable={extraLootTable.LootTableProtoRef.GetNameFormatted()} | delivery={extraLootTable.Delivery ?? "inventory"} | rolls={extraLootTable.Rolls} | chance={extraLootTable.ChancePercent:0.##}%");
+                }
+
+                foreach (MythicRiftRewardGuaranteedItem guaranteedItem in rewardOutcome.GuaranteedItems.Take(10))
+                {
+                    lines.Add($"rewardGuaranteedItem id={guaranteedItem.Id} | item={guaranteedItem.ItemProtoRef.GetNameFormatted()} | itemLevel={guaranteedItem.ItemLevel} | delivery={guaranteedItem.Delivery ?? "inventory"} | quantity={guaranteedItem.Quantity}");
                 }
             }
 

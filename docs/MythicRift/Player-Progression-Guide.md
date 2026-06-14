@@ -52,9 +52,10 @@ Cosmic Rift progression is competitive but group-friendly:
 - In classic Rift levels, players should be inside the Rift when the kill quota unlocks the boss and still inside when the boss dies.
 - In checkpoint Rift levels, players should be inside the Rift when the checkpoint boss dies.
 - A player who leaves the Rift early becomes ineligible for rewards and next-level unlocks for that run.
+- Completing a Rift above your personal maximum advances your personal maximum by one level only; it no longer jumps directly to the host's completed tier.
 - If everyone leaves, the Rift is cleaned up and a new launcher item is required.
 
-For clean multiplayer tests, all intended party members should stand in the Danger Room hub before the launcher item is used.
+All intended party members must be online and standing in the leader's current region when the launcher item is used. Only members whose Rift teleport succeeds are admitted, counted for scaling, and eligible for rewards.
 
 ## Player Commands
 

@@ -12,8 +12,9 @@ namespace MHServerEmu.Games.MythicRifts
         public float BonusRarityPct { get; init; }
         public float BonusSpecialPct { get; init; }
         public IReadOnlyList<MythicRiftRewardExtraLootTable> ExtraLootTables { get; init; } = Array.Empty<MythicRiftRewardExtraLootTable>();
+        public IReadOnlyList<MythicRiftRewardGuaranteedItem> GuaranteedItems { get; init; } = Array.Empty<MythicRiftRewardGuaranteedItem>();
 
         public bool HasBossLootTable => BossLootTableProtoRef != PrototypeId.Invalid;
-        public bool HasAnyLoot => HasBossLootTable || ExtraLootTables.Count > 0;
+        public bool HasAnyLoot => HasBossLootTable || ExtraLootTables.Count > 0 || GuaranteedItems.Count > 0;
     }
 }

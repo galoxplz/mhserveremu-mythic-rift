@@ -67,5 +67,41 @@ namespace MHServerEmu.Games.Tests.MythicRifts
             Assert.True(levelTwentyFive.DamageMultiplier > levelTen.DamageMultiplier);
             Assert.True(levelFifty.DamageMultiplier > levelTwentyFive.DamageMultiplier);
         }
+
+        [Theory]
+        [InlineData(1, 1, 1.00f, 1.00f)]
+        [InlineData(10, 2, 2.50f, 5.00f)]
+        [InlineData(20, 3, 5.00f, 15.00f)]
+        [InlineData(25, 4, 5.00f, 20.00f)]
+        [InlineData(28, 5, 6.50f, 32.50f)]
+        [InlineData(30, 6, 7.00f, 42.00f)]
+        [InlineData(31, 1, 1.00f, 1.00f)]
+        [InlineData(60, 6, 7.00f, 42.00f)]
+        public void GetThirtyWaveProfile_MatchesThirtyWaveTable(
+            int riftLevel,
+            int expectedBossCount,
+            float expectedPerBossMultiplier,
+            float expectedTotalMultiplier)
+        {
+            MythicRiftWaveProfile profile = MythicRiftScaling.GetThirtyWaveProfile(riftLevel);
+
+            Assert.Equal(((riftLevel - 1) % 30) + 1, profile.Wave);
+            Assert.Equal(expectedBossCount, profile.BossCount);
+            Assert.Equal(expectedPerBossMultiplier, profile.PerBossHealthMultiplier);
+            Assert.Equal(expectedTotalMultiplier, profile.TotalBossHealthMultiplier);
+        }
+
+        [Fact]
+        public void BuildSnapshot_ThirtyWaveModeUsesPerBossScalingWithoutPartyHealthStacking()
+        {
+            MythicRiftDifficultySnapshot solo = MythicRiftScaling.BuildSnapshot(20, 1, useThirtyWaveMode: true);
+            MythicRiftDifficultySnapshot party = MythicRiftScaling.BuildSnapshot(20, 4, useThirtyWaveMode: true);
+
+            Assert.Equal(20f, solo.EquivalentD3RiftLevel);
+            Assert.Equal(5f, solo.HealthMultiplier);
+            Assert.Equal(5f, party.HealthMultiplier);
+            Assert.Equal(1f, party.GroupHealthMultiplier);
+            Assert.Equal(4, party.EffectivePlayerCount);
+        }
     }
 }

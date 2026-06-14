@@ -13,21 +13,22 @@ This file tracks the first wider-player review pass shared by MonEll on 2026-05-
 
 ## Fixed / Improved From 2026-06-02 Feedback
 
-- Rift-forced exits now try to resurrect a dead avatar before teleporting that player back to the Danger Room hub. This targets the timeout/death-stuck report directly.
+- Failed-run evacuation is deferred out of the entity-death callback, dead avatars are verified alive, and the hub transfer uses resurrection context. This prevents the original death processing from re-applying a dead state after the player reaches the hub.
 - Party member teleports now use the run's registered participant roster instead of depending on the party leader still matching at the exact teleport moment. This should make leader swaps and party-state timing less likely to fall out of the Rift path.
-- Rift boss spawning now prefers a real alive player in the Rift as the spawn anchor. It no longer uses the killed mob/turret/minion location as the primary boss spawn point.
-- Rift-spawned bosses now suppress native boss loot by default through `suppressNativeRiftBossLoot=true`, leaving the Cosmic Rift reward manager as the controlled reward source and preventing native boss loot plus Rift-granted boss loot from doubling.
+- Rift boss spawning now chooses the admitted alive player nearest the party's spatial center. Turrets, minions, kill tags, and the killed entity position are no longer boss spawn anchors.
+- Rift-spawned mobs and bosses no longer carry the terminal mission prototype. Rift bosses always suppress their native death loot, leaving only the controlled Cosmic Rift completion reward.
+- Managed completion rewards now default to player-owned ground drops. Failed runs grant no completion table unless an admin deliberately configures one.
+- March to Axis and MODOK are excluded from normal random selection while their native UI / AI behavior remains unstable.
 
 ## Still Open From 2026-06-02 Feedback
 
-- Axis / March to Axis UI issues should remain out of the normal random pool until the exact content id and native UI interaction are isolated.
-- Anti-carry progression policy is still a design decision: current rules intentionally unlock the next level for eligible players present in the Rift, even if they joined a higher-level friend.
+- Anti-carry progression is now enforced: an eligible player present at boss unlock and boss death advances at most one personal Rift level, even when joining a much higher-level friend.
 - The seasonal hard-stop / boss-wave idea is promising, but it is a V2 design discussion rather than a P0 bug fix.
 
 ## P1 Started From 2026-06-02 Feedback
 
 - Treasure-room / StoryRevamp native exits are now intercepted during boss-only checkpoint Rifts. The official Cosmic Rift return portal still works, but native story/campaign exits in the same Rift room are blocked with a chat explanation so players are not sent to campaign/story flow by mistake.
-- MODOK remains available as a fixed map test target, but the MODOK boss source is temporarily removed from the random boss pool until the "does not move / does not attack" report is reproduced or fixed. This keeps AIM Facility map variety while avoiding a flaky random final boss.
+- AIM Facility remains available as a fixed admin map target with a replacement Rift boss, but the MODOK boss source is removed from selection until the "does not move / does not attack" report is reproduced or fixed.
 - Boss-only checkpoint rooms now suppress their native hostile population before the Rift boss is spawned, and native population respawns are not enabled for checkpoint rooms. This is intended to clean up native encounters such as Sabretooth and make the rooms behave like controlled Rift boss arenas.
 - `sabretooth-showdown`, `supervillain-rec-center`, `sc-kill-house`, and `tr-asgard-estate` are no longer excluded from automatic every-5-level checkpoint selection. They still need focused Test Center validation, but the known native-boss/native-portal/spawn-location issues now have server-side mitigations.
 - `daily-bugle` is now eligible as a normal random Rift map again, backed by Rift custom population spawns so the low native population should no longer brick kill-quota progression.
@@ -78,7 +79,6 @@ This file tracks the first wider-player review pass shared by MonEll on 2026-05-
 ## Design Backlog
 
 - External reward tuning file with live reload/admin reload command is now started through `Data/Game/MythicRift/CosmicRiftRewards.json` and `rift rewardconfig reload`; next step is real TAHITI reward values for primary overrides and extra tables.
-- Better anti-carry / level unlock policy if high-level friends can push low-level players too far too quickly.
 - Optional infinite-wave mode, likely as a separate Rift variant rather than replacing the current GRift-style flow.
 - Treasure rooms, patrol-wave rooms, and `SHOWDOWN`-style content investigation in Open Calligraphy.
 - Tune checkpoint boss health/rewards after TAHITI validates the every-5-level pacing.
