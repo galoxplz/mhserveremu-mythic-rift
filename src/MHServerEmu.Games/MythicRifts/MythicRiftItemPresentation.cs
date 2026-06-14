@@ -6,18 +6,27 @@ namespace MHServerEmu.Games.MythicRifts
 {
     public static class MythicRiftItemPresentation
     {
-        public const string PresentationPrototypeName = "DangerRoomScenarioCrateUniqueCableFight";
-        public const string PresentationPrototypePath = "Entity/Items/Consumables/Prototypes/DangerRoom/DangerRoomScenarioCrateUniqueCableFight.prototype";
-        public const string PresentationDisplayName = "Mythic Rift Scenario";
-        public const ulong PresentationPrototypeId = 17067585073904428862UL;
+        public const string StandardPresentationPrototypeName = "DangerRoomScenarioCrateUniqueCableFight";
+        public const string StandardPresentationPrototypePath = "Entity/Items/Consumables/Prototypes/DangerRoom/DangerRoomScenarioCrateUniqueCableFight.prototype";
+        public const string StandardPresentationDisplayName = "Mythic Rift Scenario";
+        public const ulong StandardPresentationPrototypeId = 17067585073904428862UL;
+        public const string EndlessPresentationPrototypeName = "TestHearthStone";
+        public const string EndlessPresentationPrototypePath = "Entity/Items/Consumables/Prototypes/Test/TestHearthStone.prototype";
+        public const string EndlessPresentationDisplayName = "Endless Rift Scenario";
+        public const ulong EndlessPresentationPrototypeId = 16713492285336591108UL;
         public const ulong PresentationVisualRarityPrototypeId = 6033964048325414744UL;
 
-        public static ItemSpec ApplyLauncherPresentation(ItemSpec itemSpec)
+        public const string PresentationPrototypeName = StandardPresentationPrototypeName;
+        public const string PresentationPrototypePath = StandardPresentationPrototypePath;
+        public const string PresentationDisplayName = StandardPresentationDisplayName;
+        public const ulong PresentationPrototypeId = StandardPresentationPrototypeId;
+
+        public static ItemSpec ApplyLauncherPresentation(ItemSpec itemSpec, MythicRiftMode mode = MythicRiftMode.Standard)
         {
             if (itemSpec == null)
                 return null;
 
-            PrototypeId presentationProtoRef = ResolvePresentationPrototypeRef();
+            PrototypeId presentationProtoRef = ResolvePresentationPrototypeRef(mode);
             if (presentationProtoRef.As<ItemPrototype>() == null)
                 return itemSpec;
 
@@ -38,17 +47,27 @@ namespace MHServerEmu.Games.MythicRifts
             };
         }
 
-        public static PrototypeId ResolvePresentationPrototypeRef()
+        public static PrototypeId ResolvePresentationPrototypeRef(MythicRiftMode mode = MythicRiftMode.Standard)
         {
-            PrototypeId prototypeRef = GameDatabase.GetPrototypeRefByName(PresentationPrototypePath);
+            string prototypePath = mode == MythicRiftMode.Endless
+                ? EndlessPresentationPrototypePath
+                : StandardPresentationPrototypePath;
+            string prototypeName = mode == MythicRiftMode.Endless
+                ? EndlessPresentationPrototypeName
+                : StandardPresentationPrototypeName;
+            ulong prototypeId = mode == MythicRiftMode.Endless
+                ? EndlessPresentationPrototypeId
+                : StandardPresentationPrototypeId;
+
+            PrototypeId prototypeRef = GameDatabase.GetPrototypeRefByName(prototypePath);
             if (prototypeRef.As<ItemPrototype>() != null)
                 return prototypeRef;
 
-            prototypeRef = GameDatabase.GetPrototypeRefByName(PresentationPrototypeName);
+            prototypeRef = GameDatabase.GetPrototypeRefByName(prototypeName);
             if (prototypeRef.As<ItemPrototype>() != null)
                 return prototypeRef;
 
-            prototypeRef = (PrototypeId)PresentationPrototypeId;
+            prototypeRef = (PrototypeId)prototypeId;
             return prototypeRef.As<ItemPrototype>() != null
                 ? prototypeRef
                 : PrototypeId.Invalid;

@@ -14,7 +14,7 @@
 - The run is timed.
 - Progression is potentially infinite by level.
 - End rewards should reuse existing boss loot and world drops as much as possible, with SIF/RIF bonus on top.
-- The current preferred TAHITI-facing direction is now a `consumable item -> direct private Rift region -> Danger Room return portal` flow, using `PortalToRandomMaxAffixDungeon` as the technical launcher base, `DangerRoomScenarioCrateUniqueCableFight` as the vendor-facing `Mythic Rift Scenario` presentation shell, and keeping stock `PortalToRandomDungeon` behavior isolated.
+- The TAHITI-facing flow is `consumable item -> direct private Rift region -> Danger Room return portal`. Standard uses `PortalToRandomMaxAffixDungeon` with the `DangerRoomScenarioCrateUniqueCableFight` presentation shell. Endless uses `PortalToDangerRoomRandomThemeNoAffixesPurple` with the `TestHearthStone` presentation shell. Stock `PortalToRandomDungeon` remains isolated.
 
 ## Architecture Principles
 
@@ -64,7 +64,9 @@
 ## Entry Point Note
 
 - The entry layer can now support logical launcher definitions such as `default`, `capital-hub`, or a future `consumable-portal` flow without assuming a specific clickable object yet.
-- The current preferred launcher candidate is now `PortalToRandomMaxAffixDungeon`, because it appears easier to isolate from normal gameplay than the older `PortalToRandomDungeon`-based path while still fitting the same random-dungeon consumable model. The vendor can present it through `DangerRoomScenarioCrateUniqueCableFight` so players see `Mythic Rift Scenario`; `PortalToRandomDungeon` is no longer registered as an active Rift fallback.
-- The first implemented no-client-patch seller pass is now a server-scoped `Danger Room` hub vendor injection, so testers can buy the launcher without admin grant commands before the final NPC is locked.
+- The Standard launcher is `PortalToRandomMaxAffixDungeon`, presented through `DangerRoomScenarioCrateUniqueCableFight` as `Mythic Rift Scenario`.
+- The Endless launcher is `PortalToDangerRoomRandomThemeNoAffixesPurple`, presented through `TestHearthStone` as `Endless Rift Scenario`.
+- The consumed launcher selects and freezes `MythicRiftMode` in the run. No global mode configuration or restart is required.
+- The implemented no-client-patch seller pass injects both items into `Danger Room` hub vendors, so testers can buy either mode without admin grant commands before the final NPC is locked.
 - The preferred final seller target after TAHITI confirms the exact NPC is still `DangerRoomScenarioVendor`.
 - `DangerRoomVendorWeaponMadisonJeffries` remains the best named-NPC fallback if TAHITI later wants stronger feature identity after the safer vendor-path rollout is validated.

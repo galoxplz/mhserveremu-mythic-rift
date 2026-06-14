@@ -42,15 +42,13 @@ origin   https://github.com/mtzimas92/Test-Rifts.git
 upstream https://github.com/galoxplz/mhserveremu-mythic-rift.git
 ```
 
-Current committed HEAD:
+The last pre-Endless milestone pushed to the user repository is:
 
 ```text
-85211ab Document Cosmic Rift reward tuning workflow
+d0bf413 Expand Mythic Rift waves rewards and stability
 ```
 
-At the time of this handoff, `HEAD`, `origin/codex/mythic-rift`, and `upstream/codex/mythic-rift` all point to `85211ab`. This means the committed baseline matches Galox's branch, but the working tree intentionally contains newer local work and no longer matches it byte-for-byte.
-
-Do not run `git reset --hard`, `git clean`, or a destructive checkout to make the tree match upstream.
+Run `git status --short --branch` and `git log -3 --oneline` before editing. Do not run `git reset --hard`, `git clean`, or a destructive checkout to make the tree match upstream.
 
 ## Product Intent
 
@@ -62,7 +60,7 @@ Mythic Rift is a server-side endgame mode inspired by Diablo 3 Greater Rifts:
 - independently selected boss source
 - timed kill quota followed by a boss wave
 - persistent personal Rift progression
-- optional 30-wave difficulty cycle
+- launcher-selected Standard or Endless difficulty model
 - distinct random multi-boss rosters
 - one-time 25% / 50% / 75% milestone encounters
 - controlled ground loot
@@ -73,15 +71,26 @@ The desired experience is varied, replayable, worthwhile, and administratively t
 
 ## Current Launcher And Exit
 
-Launcher family:
+Standard launcher family:
 
 ```text
 Technical base: PortalToRandomMaxAffixDungeon
 Presentation:   DangerRoomScenarioCrateUniqueCableFight
 Visible intent: Mythic Rift Scenario
+Mode:           Standard/classic compressed scaling
+```
+
+Endless launcher family:
+
+```text
+Technical base: PortalToDangerRoomRandomThemeNoAffixesPurple
+Presentation:   TestHearthStone
+Visible intent: Endless Rift Scenario
+Mode:           Repeating 30-wave cycle
 ```
 
 The regular `PortalToRandomDungeon` item is deliberately excluded from Mythic Rift interception.
+Both launcher families are injected into Danger Room vendors. The consumed item selects the run mode; no global config toggle or server restart is required.
 
 The completed Rift exit uses:
 
@@ -109,10 +118,10 @@ src/MHServerEmu.Games/MythicRifts/MythicRiftRewardTuning.cs
 src/MHServerEmu/Commands/Implementations/MythicRiftCommands.cs
 ```
 
-New focused helpers in the current working tree:
+Focused helpers:
 
 ```text
-MythicRiftConfig.cs
+MythicRiftMode.cs
 MythicRiftProgression.cs
 MythicRiftUiController.cs
 MythicRiftUiOwnership.cs
@@ -130,31 +139,6 @@ Tests:
 ```text
 src/MHServerEmu.Games.Tests/MythicRifts/
 ```
-
-## Current Uncommitted Work
-
-The working tree contains a large coherent Rift change set. Important modified files include:
-
-```text
-docs/MythicRift/Admin-Test-Guide.md
-docs/MythicRift/Implementation-Status.md
-docs/MythicRift/Player-Feedback-Triage.md
-docs/MythicRift/Player-Progression-Guide.md
-docs/MythicRift/Reward-Tuning-Guide.md
-docs/MythicRift/Terminal-Compatibility-Audit.md
-src/MHServerEmu.Games/Data/Game/MythicRift/CosmicRiftRewards.json
-src/MHServerEmu.Games/MythicRifts/MythicRiftContentEntry.cs
-src/MHServerEmu.Games/MythicRifts/MythicRiftLauncherService.cs
-src/MHServerEmu.Games/MythicRifts/MythicRiftManager.cs
-src/MHServerEmu.Games/MythicRifts/MythicRiftRewardTuning.cs
-src/MHServerEmu.Games/MythicRifts/MythicRiftRunConfig.cs
-src/MHServerEmu.Games/MythicRifts/MythicRiftRunState.cs
-src/MHServerEmu.Games/MythicRifts/MythicRiftScaling.cs
-src/MHServerEmu/Commands/Implementations/MythicRiftCommands.cs
-src/MHServerEmu/Config.ini
-```
-
-There are also untracked Rift helpers, tests, and documents. Run `git status --short` before doing anything.
 
 ## Implemented Behavior
 
@@ -278,18 +262,11 @@ Boss-only source expansion currently includes:
 
 Do not add raw SIP boss results directly. The SIP contains phase actors, summons, markers, turrets, props, and broken AI variants mixed with real bosses.
 
-### Optional 30-Wave Mode
+### Launcher-Selected Difficulty Modes
 
-Configuration:
+`Mythic Rift Scenario` launches Standard mode: classic compressed Greater Rift scaling, normal admitted-party health scaling, and one final boss.
 
-```ini
-[MythicRift]
-EnableThirtyWaveMode=true
-```
-
-Set it to `false` and restart to restore classic compressed Greater Rift scaling and one final boss.
-
-Wave mode repeats every 30 Rift levels:
+`Endless Rift Scenario` launches Endless mode. Its wave cycle repeats every 30 Rift levels:
 
 | Waves | Boss count | Per-boss HP progression |
 |---|---:|---|
@@ -301,7 +278,7 @@ Wave mode repeats every 30 Rift levels:
 | 30 | 6 | 7.0x |
 | 31 | reset to wave 1 | 1 boss at 1.0x |
 
-In wave mode, the old party health multiplier is not added on top of this table. The admitted player count is still tracked for run state.
+In Endless mode, the old party health multiplier is not added on top of this table. The admitted player count is still tracked for run state. Mode is copied from the consumed launcher into `MythicRiftRunConfig`, so changing party leader or owning both launcher items cannot change an active run.
 
 ### Reward Control
 
@@ -360,16 +337,21 @@ Per-boss recipes can target any boss present in a multi-boss wave. The profile d
 
 Cosmic artifact rewards use a Rift-owned random item pool over `Entity/Items/Artifacts/Prototypes/SpecialArtifacts/CosmicArtifacts/`. SIP inspection found 85 approved, live item prototypes in that directory, while the stock `CosmicArtifactsTable` directly exposes only 48. The pool therefore includes all 37 omitted artifacts, including the 17 omitted prototypes whose ordinary loot weight is zero. Selection is uniform and artifacts are created directly at item level 63, so red Danger Room region difficulty does not prevent them from dropping.
 
-## Proposed Endless Rift Launcher
-
-The recommended second technical launcher base is:
+## Endless Rift Launcher
 
 ```text
 Entity/Items/Consumables/Prototypes/DangerRoom/PortalToDangerRoomRandomThemeNoAffixesPurple.prototype
 runtimeId=1020710291701049759
 ```
 
-SIP inspection found it is `DevelopmentOnly`, usable, live-tuning enabled, has normal drop weight, uses the same Danger Room scenario OnUse power family as the current launcher, and has no incoming stock prototype references. Purple is preferred over White because White is the parent of the colored variants. This candidate is identification-only: it is not yet registered, patched into vendor stock, or routed to an Endless mode.
+It is registered as the Endless technical base, patched live, and injected into Danger Room vendor inventories. The vendor-facing presentation shell is:
+
+```text
+Entity/Items/Consumables/Prototypes/Test/TestHearthStone.prototype
+runtimeId=16713492285336591108
+```
+
+The patch assigns that shell the `Endless Rift Scenario` name, Endless-specific tooltip, and Danger Room simulation-chip icon. Both its native prototype and the purple technical prototype route only to Endless mode.
 
 Avoid weekly-event tables such as Cosmic Chaos and Odin's Bounty unless their live-tuning enable state is deliberately handled. Those tables can silently roll nothing when the event is inactive.
 

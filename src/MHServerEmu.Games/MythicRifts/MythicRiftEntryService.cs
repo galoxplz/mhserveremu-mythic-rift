@@ -10,6 +10,7 @@ namespace MHServerEmu.Games.MythicRifts
     {
         public const string DefaultEntryPointId = "default";
         public const string ConsumablePortalEntryPointId = "cosmic-rift-consumable";
+        public const string EndlessConsumablePortalEntryPointId = "endless-rift-consumable";
         private readonly Dictionary<string, MythicRiftEntryPointDefinition> _entryPoints = new(StringComparer.OrdinalIgnoreCase);
         private readonly List<MythicRiftLauncherItemCandidate> _launcherItemCandidates = new();
 
@@ -94,9 +95,12 @@ namespace MHServerEmu.Games.MythicRifts
 
             int killQuota = request.KillQuotaOverride.GetValueOrDefault();
 
+            MythicRiftMode mode = entryPoint.Id == DefaultEntryPointId
+                ? request.Mode
+                : entryPoint.Mode;
             MythicRiftRunState runState = request.HasFixedContent
-                ? Manager.RequestFixedRun(player, request.ContentId, request.RiftLevel, killQuota, timeLimit, out string errorMessage)
-                : Manager.RequestRun(player, request.RiftLevel, killQuota, timeLimit, out errorMessage);
+                ? Manager.RequestFixedRun(player, request.ContentId, request.RiftLevel, killQuota, timeLimit, mode, out string errorMessage)
+                : Manager.RequestRun(player, request.RiftLevel, killQuota, timeLimit, mode, out errorMessage);
 
             MythicRiftPortalLaunchPlan launchPlan = BuildLaunchPlan(entryPoint, request);
 
@@ -152,6 +156,7 @@ namespace MHServerEmu.Games.MythicRifts
             {
                 Id = DefaultEntryPointId,
                 DisplayName = "Default Mythic Rift Launcher",
+                Mode = MythicRiftMode.Standard,
                 AllowsRandomContent = true,
                 AllowsFixedContentSelection = true,
                 IsPatcherFriendly = false,
@@ -163,6 +168,7 @@ namespace MHServerEmu.Games.MythicRifts
             {
                 Id = "capital-hub",
                 DisplayName = "Capital Hub Launcher",
+                Mode = MythicRiftMode.Standard,
                 AllowsRandomContent = true,
                 AllowsFixedContentSelection = true,
                 IsPatcherFriendly = true,
@@ -174,6 +180,7 @@ namespace MHServerEmu.Games.MythicRifts
             {
                 Id = ConsumablePortalEntryPointId,
                 DisplayName = "Cosmic Rift Consumable Launcher",
+                Mode = MythicRiftMode.Standard,
                 AllowsRandomContent = true,
                 AllowsFixedContentSelection = false,
                 IsPatcherFriendly = true,
@@ -187,6 +194,27 @@ namespace MHServerEmu.Games.MythicRifts
                 },
                 CandidateTransitionPrototypeName = "ReturnToLastBaseDR",
                 Notes = "Official current direction for the feature: Cosmic Rift uses PortalToRandomMaxAffixDungeon as the technical launcher base, can present it as Mythic Rift Scenario, and returns players through the Danger Room base transition."
+            });
+
+            RegisterEntryPoint(new MythicRiftEntryPointDefinition
+            {
+                Id = EndlessConsumablePortalEntryPointId,
+                DisplayName = "Endless Rift Consumable Launcher",
+                Mode = MythicRiftMode.Endless,
+                AllowsRandomContent = true,
+                AllowsFixedContentSelection = false,
+                IsPatcherFriendly = true,
+                LaunchModel = "consumable-portal",
+                CandidateItemPrototypeName = MythicRiftLauncherService.EndlessRiftBeaconPrototypeName,
+                AcceptedCandidateItemPrototypeNames = new[]
+                {
+                    MythicRiftLauncherService.EndlessRiftBeaconPrototypeName,
+                    MythicRiftLauncherService.EndlessRiftBeaconPrototypePath,
+                    MythicRiftLauncherService.PresentationEndlessRiftBeaconPrototypeName,
+                    MythicRiftLauncherService.PresentationEndlessRiftBeaconPrototypePath
+                },
+                CandidateTransitionPrototypeName = "ReturnToLastBaseDR",
+                Notes = "Endless Rift uses the unused purple no-affix Danger Room portal as its technical base, presents as Endless Rift Scenario through TestHearthStone, and uses the repeating 30-wave boss cycle."
             });
         }
 
@@ -216,6 +244,32 @@ namespace MHServerEmu.Games.MythicRifts
                 PatcherFriendly = true,
                 Recommendation = "chosen-presentation",
                 Notes = "Player-facing wrapper used for vendor and inventory presentation. The server still resolves this into the Cosmic Rift consumable flow."
+            });
+
+            RegisterLauncherItemCandidate(new MythicRiftLauncherItemCandidate
+            {
+                PrototypeName = MythicRiftLauncherService.EndlessRiftBeaconPrototypeName,
+                DisplayName = "Endless Rift Beacon Base",
+                SourceFamily = "DangerRoom / RandomThemeNoAffixesPurple",
+                IsLikelyUnusedOrLowRisk = true,
+                IsShopLinked = false,
+                SupportsRandomThemeIdentity = true,
+                PatcherFriendly = true,
+                Recommendation = "chosen-endless",
+                Notes = "Technical launcher base for Endless Rift. It is a DevelopmentOnly, usable, unreferenced purple Danger Room portal and is patched live only for this feature."
+            });
+
+            RegisterLauncherItemCandidate(new MythicRiftLauncherItemCandidate
+            {
+                PrototypeName = MythicRiftLauncherService.PresentationEndlessRiftBeaconPrototypeName,
+                DisplayName = MythicRiftItemPresentation.EndlessPresentationDisplayName,
+                SourceFamily = "Test / HearthStone",
+                IsLikelyUnusedOrLowRisk = true,
+                IsShopLinked = false,
+                SupportsRandomThemeIdentity = false,
+                PatcherFriendly = true,
+                Recommendation = "chosen-endless-presentation",
+                Notes = "Independent player-facing wrapper for Endless Rift. Its display name, tooltip, and icon are patched without changing the standard Mythic Rift Scenario item."
             });
 
             RegisterLauncherItemCandidate(new MythicRiftLauncherItemCandidate

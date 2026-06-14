@@ -10,5 +10,11 @@
   },
   "18000000000000080011": {
     "en_us": "Opens a single-use Mythic Rift scenario. Clear the enemy quota, defeat the Rift boss, and claim your completion rewards."
+  },
+  "18000000000000080020": {
+    "en_us": "Endless Rift Scenario"
+  },
+  "18000000000000080021": {
+    "en_us": "Opens a single-use Endless Rift. Its 30-wave boss cycle repeats every 30 Rift levels with milestone encounters and controlled rewards."
   }
 }

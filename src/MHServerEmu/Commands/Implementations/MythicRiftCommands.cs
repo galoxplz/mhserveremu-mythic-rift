@@ -158,7 +158,7 @@ namespace MHServerEmu.Commands.Implementations
         }
 
         [Command("beacon")]
-        [CommandDescription("Displays the current player-facing Cosmic Rift Beacon identity and its server-side technical base.")]
+        [CommandDescription("Displays the standard and Endless Rift player-facing items and their server-side technical bases.")]
         [CommandUsage("rift beacon")]
         [CommandUserLevel(AccountUserLevel.Admin)]
         [CommandInvokerType(CommandInvokerType.Client)]
@@ -170,15 +170,16 @@ namespace MHServerEmu.Commands.Implementations
                 return "Game not found.";
 
             MythicRiftLauncherItemCandidate candidate = game.MythicRiftLauncherService.ResolveChosenCandidate();
-            if (candidate == null)
-                return "Chosen Cosmic Rift Beacon candidate not found.";
+            MythicRiftLauncherItemCandidate endlessCandidate = game.MythicRiftLauncherService.ResolveEndlessCandidate();
+            if (candidate == null || endlessCandidate == null)
+                return "One or more chosen Rift launcher candidates were not found.";
 
             List<string> lines = new()
             {
-                $"playerFacingItem={MythicRiftLauncherService.CosmicRiftBeaconDisplayName} | technicalBase={MythicRiftLauncherService.CosmicRiftBeaconPrototypeName}",
-                $"sourceFamily={candidate.SourceFamily} | patcherFriendly={candidate.PatcherFriendly} | shopLinked={candidate.IsShopLinked} | recommendation={candidate.Recommendation}",
-                $"notes={candidate.Notes}",
-                "distributionPlan=server-side item grant first, then optional loot/reward/vendor policy later if TAHITI wants it"
+                $"mode=Standard | playerFacingItem={MythicRiftItemPresentation.StandardPresentationDisplayName} | presentation={MythicRiftItemPresentation.StandardPresentationPrototypeName} | technicalBase={MythicRiftLauncherService.CosmicRiftBeaconPrototypeName}",
+                $"sourceFamily={candidate.SourceFamily} | recommendation={candidate.Recommendation} | notes={candidate.Notes}",
+                $"mode=Endless | playerFacingItem={MythicRiftItemPresentation.EndlessPresentationDisplayName} | presentation={MythicRiftItemPresentation.EndlessPresentationPrototypeName} | technicalBase={MythicRiftLauncherService.EndlessRiftBeaconPrototypeName}",
+                $"sourceFamily={endlessCandidate.SourceFamily} | recommendation={endlessCandidate.Recommendation} | notes={endlessCandidate.Notes}"
             };
 
             CommandHelper.SendMessages(client, lines);
@@ -254,14 +255,18 @@ namespace MHServerEmu.Commands.Implementations
             if (TryParsePositiveInt(@params[1], out int requestedPlayers) == false)
                 return "Invalid player count.";
 
-            MythicRiftDifficultySnapshot snapshot = game.MythicRiftManager.GetDifficultySnapshot(riftLevel, requestedPlayers);
+            MythicRiftDifficultySnapshot standardSnapshot = game.MythicRiftManager.GetDifficultySnapshot(
+                riftLevel,
+                requestedPlayers,
+                MythicRiftMode.Standard);
+            MythicRiftDifficultySnapshot endlessSnapshot = game.MythicRiftManager.GetDifficultySnapshot(
+                riftLevel,
+                requestedPlayers,
+                MythicRiftMode.Endless);
             MythicRiftWaveProfile waveProfile = MythicRiftScaling.GetThirtyWaveProfile(riftLevel);
-            string modeText = game.MythicRiftManager.ThirtyWaveModeEnabled
-                ? $"30-wave | wave={waveProfile.Wave}/30 | bosses={waveProfile.BossCount} | perBossHP x{waveProfile.PerBossHealthMultiplier:F2} | totalBossHP x{waveProfile.TotalBossHealthMultiplier:F2}"
-                : "classic";
 
             return string.Create(CultureInfo.InvariantCulture,
-                $"Rift level {snapshot.RiftLevel} | mode={modeText} | requested players={requestedPlayers} | effective players={snapshot.EffectivePlayerCount} | d3EquivalentLevel={snapshot.EquivalentD3RiftLevel:F2} | groupHealth x{snapshot.GroupHealthMultiplier:F3} | HP x{snapshot.HealthMultiplier:F3} | damage x{snapshot.DamageMultiplier:F3}");
+                $"Rift level {standardSnapshot.RiftLevel} | requested players={requestedPlayers} | standard: effective={standardSnapshot.EffectivePlayerCount} d3Equivalent={standardSnapshot.EquivalentD3RiftLevel:F2} groupHealth x{standardSnapshot.GroupHealthMultiplier:F3} HP x{standardSnapshot.HealthMultiplier:F3} damage x{standardSnapshot.DamageMultiplier:F3} | endless: wave={waveProfile.Wave}/30 bosses={waveProfile.BossCount} perBossHP x{endlessSnapshot.HealthMultiplier:F2} totalBossHP x{waveProfile.TotalBossHealthMultiplier:F2} damage x{endlessSnapshot.DamageMultiplier:F3}");
         }
 
         [Command("access")]
@@ -835,6 +840,29 @@ namespace MHServerEmu.Commands.Implementations
             return $"Granted {count}x {MythicRiftLauncherService.CosmicRiftBeaconDisplayName} to the player using {itemProtoRef.GetNameFormatted()}.";
         }
 
+        [Command("giveendless")]
+        [CommandDescription("Grants the Endless Rift technical launcher item to the invoking player.")]
+        [CommandUsage("rift giveendless [count]")]
+        [CommandUserLevel(AccountUserLevel.Admin)]
+        [CommandInvokerType(CommandInvokerType.Client)]
+        [CommandParamCount(1)]
+        public string GiveEndless(string[] @params, NetClient client)
+        {
+            PlayerConnection playerConnection = (PlayerConnection)client;
+            Game game = playerConnection?.Game;
+            Player player = playerConnection?.Player;
+            if (game == null || player == null)
+                return "Game or player not found.";
+
+            if (TryParsePositiveInt(@params[0], out int count) == false)
+                return "Invalid launcher count.";
+
+            if (game.MythicRiftLauncherService.TryGrantEndlessLauncher(player, count, out PrototypeId itemProtoRef, out string errorMessage) == false)
+                return string.IsNullOrWhiteSpace(errorMessage) ? "Failed to grant Endless Rift Scenario." : errorMessage;
+
+            return $"Granted {count}x {MythicRiftItemPresentation.EndlessPresentationDisplayName} using {itemProtoRef.GetNameFormatted()}.";
+        }
+
         [Command("prepbeacon")]
         [CommandDescription("Prepares the invoking player for Cosmic Rift Beacon testing by unlocking a target Rift level and granting beacon items server-side.")]
         [CommandUsage("rift prepbeacon [level] [count]")]
@@ -1027,7 +1055,8 @@ namespace MHServerEmu.Commands.Implementations
                     ownedLauncherStacks += Math.Max(item.CurrentStackSize, 0);
 
                     int trackedCharges = game.MythicRiftLauncherService.GetTrackedBeaconChargeCount(player, item);
-                    lines.Add($"ownedLauncherItem id={item.Id} | prototype={item.PrototypeDataRef.GetNameFormatted()} | stack={item.CurrentStackSize} | trackedCharges={trackedCharges} | preferredBeacon={preferredBeacon} | candidate={candidate?.PrototypeName ?? "none"} | recommendation={candidate?.Recommendation ?? "none"} | inventory={inventory.PrototypeDataRef.GetNameFormatted()} | slot={item.InventoryLocation.Slot} | onUsePower={item.OnUsePower.GetNameFormatted()}");
+                    MythicRiftMode mode = game.MythicRiftLauncherService.ResolveModeForPrototype(item.PrototypeDataRef);
+                    lines.Add($"ownedLauncherItem id={item.Id} | mode={mode} | prototype={item.PrototypeDataRef.GetNameFormatted()} | stack={item.CurrentStackSize} | trackedCharges={trackedCharges} | preferredBeacon={preferredBeacon} | candidate={candidate?.PrototypeName ?? "none"} | recommendation={candidate?.Recommendation ?? "none"} | inventory={inventory.PrototypeDataRef.GetNameFormatted()} | slot={item.InventoryLocation.Slot} | onUsePower={item.OnUsePower.GetNameFormatted()}");
                 }
             }
 
@@ -2296,7 +2325,7 @@ namespace MHServerEmu.Commands.Implementations
                 $"bossSource={runState.Config.BossContent?.DisplayName ?? "n/a"} ({runState.Config.BossContent?.Id ?? "n/a"}) | regionScalingApplied={runState.RegionDifficultyScalingApplied}",
                 $"bossWave={string.Join(", ", runState.Config.BossWaveContent.Select(content => $"{content.DisplayName} ({content.Id})"))}",
                 $"level={runState.Config.RiftLevel} | requestedPlayers={runState.Config.RequestedPlayerCount} | effectivePlayers={runState.EffectivePlayerCount}",
-                $"scalingMode={(runState.Config.UseThirtyWaveMode ? "30-wave" : "classic")} | wave={runState.Config.WaveNumber}/30 | bosses={runState.BossKillCount}/{runState.Config.RequiredBossKillCount} defeated | activeBosses={runState.ActiveBossEntityIds.Count}",
+                $"mode={runState.Config.Mode} | scalingMode={(runState.Config.UseThirtyWaveMode ? "30-wave" : "classic")} | wave={runState.Config.WaveNumber}/30 | bosses={runState.BossKillCount}/{runState.Config.RequiredBossKillCount} defeated | activeBosses={runState.ActiveBossEntityIds.Count}",
                 $"killQuota={runState.CurrentKillCount}/{runState.Config.KillQuota} | bossUnlocked={runState.BossUnlocked} | rewardsGranted={runState.RewardsGranted}",
                 $"timeLimit={runState.Config.TimeLimit.TotalMinutes:0} min | remaining={runState.GetTimeRemaining(currentTime).TotalMinutes:0.##} min | d3EquivalentLevel={runState.Config.Difficulty.EquivalentD3RiftLevel:F2} | groupHealth x{runState.Config.Difficulty.GroupHealthMultiplier:F3} | HP x{runState.Config.Difficulty.HealthMultiplier:F3} | damage x{runState.Config.Difficulty.DamageMultiplier:F3}",
                 $"regionId=0x{runState.RegionId:X} | bossEntityId=0x{runState.BossEntityId:X}",

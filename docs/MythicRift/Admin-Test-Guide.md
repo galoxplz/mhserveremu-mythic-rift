@@ -2,27 +2,28 @@
 
 ## Goal
 
-This guide is meant to let TAHITI admins test the current **Mythic Rift Scenario** vendor flow without any custom client-side vendor or launcher work.
+This guide is meant to let TAHITI admins test the current two-item Mythic Rift vendor flow without any custom client-side vendor or launcher work.
 
 Current player-facing / vendor identity:
 
-- The vendor now tries to present the injected launcher as `Mythic Rift Scenario` by selling the existing `DangerRoomScenarioCrateUniqueCableFight` presentation shell.
+- `Mythic Rift Scenario` uses the existing `DangerRoomScenarioCrateUniqueCableFight` presentation shell and launches Standard/classic mode.
+- `Endless Rift Scenario` uses the existing `TestHearthStone` presentation shell and launches the repeating 30-wave mode.
 - The server still keeps chat hints when the Danger Room vendor opens and when the item is purchased, because old builds or missing game-data strings may still fall back to stock-looking text.
 
 Current technical base:
 
-- `PortalToRandomMaxAffixDungeon`
-- `DangerRoomScenarioCrateUniqueCableFight` for player-facing presentation
+- Standard: `PortalToRandomMaxAffixDungeon` with `DangerRoomScenarioCrateUniqueCableFight` presentation
+- Endless: `PortalToDangerRoomRandomThemeNoAffixesPurple` with `TestHearthStone` presentation
 
 ## Current Testing Assumptions
 
 - no manual client patch is required for the current server-side test flow
 - the beacon can now be obtained either from a Danger Room hub vendor or from a server grant command
-- the actual Rift flow still prefers the game's `PortalToRandomMaxAffixDungeon` prototype as its technical base
-- the vendor-injected player-facing item is swapped to `DangerRoomScenarioCrateUniqueCableFight` when that prototype and visual rarity resolve, so the UI can show `Mythic Rift Scenario`
+- the Standard Rift flow uses `PortalToRandomMaxAffixDungeon` and the Endless flow uses `PortalToDangerRoomRandomThemeNoAffixesPurple`
+- vendor-injected items are swapped to their separate presentation shells so the UI can show `Mythic Rift Scenario` and `Endless Rift Scenario`
 - `PortalToRandomDungeon` is no longer accepted as a Rift launcher fallback, because it is a stock item and should stay isolated from Cosmic Rift behavior
 - because both prototypes appear to be `DesignState: DevelopmentOnly`, TAHITI should patch the chosen live test item to `DesignState=Live`
-- `PortalToRandomMaxAffixDungeon` and the presentation shell are both treated as the dedicated Rift launcher family, so either can launch a Rift even if the live server creates or clones the purchased item without preserving the previous in-memory tracking entry
+- each technical prototype and its presentation shell are treated as one dedicated launcher family, so cloned or recreated items retain the correct mode without relying on in-memory tracking
 - the current no-client-patch naming mitigation is the presentation-item swap plus a `Z_` achievement string map; if those strings do not load on a test server, chat hints remain the fallback
 - `rift diagbeacon` is a server-side prerequisite check only; it does not prove the final client click path, so live item-click tests should also check the `[MythicRiftLauncher]` logs if the item still reaches native Danger Room behavior
 - the current prototype remains admin-oriented while the final player entry flow is still being refined
@@ -51,9 +52,9 @@ Use this when you want to validate the newest server-only player flow with no ad
 
 1. Move a character to the `Danger Room` hub.
 2. Open a vendor there.
-3. Confirm that the vendor now offers one injected launcher entry, ideally displayed as `Mythic Rift Scenario`.
-4. Buy the item from that vendor.
-5. Use the purchased item in-game.
+3. Confirm that the vendor offers two injected entries: `Mythic Rift Scenario` and `Endless Rift Scenario`.
+4. Buy both items from that vendor.
+5. Use each purchased item in a separate run.
 6. Inspect the launcher state and active run:
 
 ```text
@@ -70,8 +71,8 @@ Expected result:
 - no admin grant command is required to obtain a test launcher item
 - the current seller pass is intentionally scoped to `Danger Room` hub vendors rather than a single hard-locked NPC
 - this keeps the implementation server-only and easy for TAHITI to iterate before they choose the permanent seller
-- after purchase, the item should launch through the Mythic Rift path exactly like a server-granted beacon
-- `rift beaconmode` should show the purchased item as a recognized launcher candidate even if its visible prototype is `DangerRoomScenarioCrateUniqueCableFight`
+- after purchase, each item should launch through the Mythic Rift path with its own frozen mode
+- `rift beaconmode` should show both purchased items as recognized launcher candidates with different modes
 - after a committed Rift launch, the purchased launcher item should be consumed
 - `rift status` should show the invoking player's active Rift without needing the admin-only `runId` list
 - admins can use `rift enter [runId]` to teleport into a registered Rift run for inspection; if the run is already bound, it enters the existing region instance, otherwise it enters the configured start target and lets auto-bind attach the run

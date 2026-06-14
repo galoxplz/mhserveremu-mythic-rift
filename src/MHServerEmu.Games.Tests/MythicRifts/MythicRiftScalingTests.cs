@@ -103,5 +103,15 @@ namespace MHServerEmu.Games.Tests.MythicRifts
             Assert.Equal(1f, party.GroupHealthMultiplier);
             Assert.Equal(4, party.EffectivePlayerCount);
         }
+
+        [Fact]
+        public void RunConfig_UsesThirtyWaveCycleOnlyForEndlessMode()
+        {
+            MythicRiftRunConfig standard = new() { Mode = MythicRiftMode.Standard };
+            MythicRiftRunConfig endless = new() { Mode = MythicRiftMode.Endless };
+
+            Assert.False(standard.UseThirtyWaveMode);
+            Assert.True(endless.UseThirtyWaveMode);
+        }
     }
 }
