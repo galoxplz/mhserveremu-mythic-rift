@@ -4,16 +4,10 @@ Date: 2026-06-14
 
 ## Before Starting
 
-1. Rebuild and restart the server. Mythic Rift config is read at startup.
-2. Confirm `Config.ini` or `ConfigOverride.ini` contains:
-
-```ini
-[MythicRift]
-EnableThirtyWaveMode=true
-```
-
-`ConfigOverride.ini` is the easiest place to toggle the feature. Set the value to `false` and restart to restore classic scaling and single-boss clears.
-
+1. Rebuild and restart the server.
+2. Open a Danger Room vendor and confirm it offers two separate launchers:
+   - `Mythic Rift Scenario`: classic compressed scaling with one final boss
+   - `Endless Rift Scenario`: repeating 30-wave scaling with the configured multi-boss milestones
 3. In game, run:
 
 ```text
@@ -46,7 +40,7 @@ rift level 10
 rift armbeaconfixed bronx-zoo 10
 ```
 
-Use one Mythic Rift Scenario item.
+Use one Endless Rift Scenario item.
 
 Expected:
 
@@ -66,7 +60,7 @@ rift level 30
 rift armbeaconfixed bronx-zoo 10
 ```
 
-Use one Scenario.
+Use one Endless Rift Scenario.
 
 Expected:
 
@@ -99,7 +93,7 @@ rift level 31
 rift armbeaconfixed bronx-zoo 10
 ```
 
-Use one Scenario.
+Use one Endless Rift Scenario.
 
 Expected:
 
@@ -116,7 +110,7 @@ rift level 20
 rift armbeaconfixed march-to-axis 10
 ```
 
-Use one Scenario.
+Use one Endless Rift Scenario.
 
 Expected:
 
@@ -134,13 +128,13 @@ Repeat separately:
 rift armbeaconfixed muspelheim-raid 10
 ```
 
-Use one Scenario, finish or abandon that run, then:
+Use one Endless Rift Scenario, finish or abandon that run, then:
 
 ```text
 rift armbeaconfixed dr-strange-times-square 10
 ```
 
-Use one Scenario.
+Use one Endless Rift Scenario.
 
 For each run verify:
 
@@ -164,7 +158,7 @@ rift level 10
 rift armbeaconfixed bronx-zoo 10
 ```
 
-4. Use one Scenario.
+4. Use one Endless Rift Scenario.
 
 Expected:
 
@@ -190,19 +184,19 @@ Then test solo:
 rift armbeaconfixed civil-war-airport-cap 10
 ```
 
-Use one Scenario and finish or abandon the run. Repeat that sequence with:
+Use one Endless Rift Scenario and finish or abandon the run. Repeat that sequence with:
 
 ```text
 rift armbeaconfixed civil-war-airport-iron-man 10
 ```
 
-Use one Scenario and finish or abandon the run. Then:
+Use one Endless Rift Scenario and finish or abandon the run. Then:
 
 ```text
 rift armbeaconfixed civil-war-bazaar 10
 ```
 
-Use one Scenario.
+Use one Endless Rift Scenario.
 
 Expected: each works solo and uses only the Mythic Rift HUD.
 
@@ -247,28 +241,25 @@ Expected:
 - The costume/card/token table is a chase attempt, not a guaranteed item.
 - No duplicate inventory copy appears after ground loot spawns.
 
-## Test 10: Disable The Feature
+## Test 10: Standard And Endless Isolation
 
-Set:
-
-```ini
-[MythicRift]
-EnableThirtyWaveMode=false
-```
-
-Restart the server, then run:
+Prepare two launchers at Rift level 10:
 
 ```text
-rift scale 10 4
+rift setaccess 10
+rift level 10
+rift givebeacon 1
+rift giveendless 1
 ```
+
+Use `Mythic Rift Scenario` first, finish or abandon the run, and then use `Endless Rift Scenario`. No server restart or configuration edit should be needed.
 
 Expected:
 
-- Output says `mode=classic`.
-- Classic party health scaling returns.
-- A level 10 Rift summons one final boss.
-
-Set the option back to `true` and restart to restore the 30-wave cycle.
+- `Mythic Rift Scenario` reports Standard/classic mode, applies classic party health scaling, and summons one final boss.
+- `Endless Rift Scenario` reports `Wave 10/30`, does not add the old party health multiplier, and summons two distinct bosses.
+- Purchasing or holding both items does not make one item launch the other item's mode.
+- Each active run retains the mode selected by the consumed launcher even if party leadership changes.
 
 ## Record For Any Failure
 

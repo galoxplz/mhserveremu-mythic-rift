@@ -17,7 +17,7 @@ The SIP directory `Entity/Items/Artifacts/Prototypes/SpecialArtifacts/CosmicArti
 
 The `37` missing prototypes are all live-tuning enabled. Of those, `17` have `LootDropWeightMultiplier=0`, which explains why using ordinary loot selection rules would continue to hide part of the directory. Mythic Rift random item pools deliberately ignore ordinary drop weight and select uniformly from every approved, live item below the configured directory.
 
-## Endless Launcher Candidate
+## Endless Launcher
 
 Recommended unused technical base:
 
@@ -36,7 +36,14 @@ Audit properties:
 - zero incoming stock prototype references
 - visually distinct purple theme
 
-It is not wired into Mythic Rift code or vendor stock yet. The current `PortalToRandomMaxAffixDungeon` launcher remains unchanged pending approval of the second item and the Endless mode contract.
+It is now registered as the Endless technical launcher and injected into Danger Room vendor stock. Its player-facing shell is:
+
+```text
+Entity/Items/Consumables/Prototypes/Test/TestHearthStone.prototype
+runtimeId=16713492285336591108
+```
+
+The shell is patched to display `Endless Rift Scenario`, use an Endless-specific description, and show the Danger Room simulation-chip icon. The existing `PortalToRandomMaxAffixDungeon` / `DangerRoomScenarioCrateUniqueCableFight` family remains the separate Standard launcher.
 
 ## Native UI Finding
 

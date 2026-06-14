@@ -22,5 +22,53 @@
     "Description": "Fallback tooltip for server-side Cosmic Rift launcher surfaces when the presentation item cannot be used.",
     "ValueType": "LocaleStringId",
     "Value": 18000000000000080011
+  },
+  {
+    "Enabled": true,
+    "Prototype": "Entity/Items/Consumables/Prototypes/DangerRoom/PortalToDangerRoomRandomThemeNoAffixesPurple.prototype",
+    "Path": "DesignState",
+    "Description": "Enable the unused purple no-affix Danger Room portal as the Endless Rift technical launcher base.",
+    "ValueType": "Enum",
+    "Value": "Live"
+  },
+  {
+    "Enabled": true,
+    "Prototype": "Entity/Items/Consumables/Prototypes/DangerRoom/PortalToDangerRoomRandomThemeNoAffixesPurple.prototype",
+    "Path": "DisplayName",
+    "Description": "Fallback display name for the Endless Rift technical launcher.",
+    "ValueType": "LocaleStringId",
+    "Value": 18000000000000080020
+  },
+  {
+    "Enabled": true,
+    "Prototype": "Entity/Items/Consumables/Prototypes/DangerRoom/PortalToDangerRoomRandomThemeNoAffixesPurple.prototype",
+    "Path": "TooltipDescription",
+    "Description": "Fallback tooltip for the Endless Rift technical launcher.",
+    "ValueType": "LocaleStringId",
+    "Value": 18000000000000080021
+  },
+  {
+    "Enabled": true,
+    "Prototype": "Entity/Items/Consumables/Prototypes/Test/TestHearthStone.prototype",
+    "Path": "DisplayName",
+    "Description": "Present the independent Endless Rift vendor item with its own player-facing name.",
+    "ValueType": "LocaleStringId",
+    "Value": 18000000000000080020
+  },
+  {
+    "Enabled": true,
+    "Prototype": "Entity/Items/Consumables/Prototypes/Test/TestHearthStone.prototype",
+    "Path": "TooltipDescription",
+    "Description": "Present the independent Endless Rift vendor item with its own tooltip.",
+    "ValueType": "LocaleStringId",
+    "Value": 18000000000000080021
+  },
+  {
+    "Enabled": true,
+    "Prototype": "Entity/Items/Consumables/Prototypes/Test/TestHearthStone.prototype",
+    "Path": "IconPath",
+    "Description": "Use the Danger Room simulation chip icon for the Endless Rift presentation item.",
+    "ValueType": "AssetId",
+    "Value": 12202641426798417230
   }
 ]

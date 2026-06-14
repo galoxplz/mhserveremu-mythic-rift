@@ -26,12 +26,20 @@ namespace MHServerEmu.Games.MythicRifts
         public const string CosmicRiftBeaconPrototypeName = PreferredCosmicRiftBeaconPrototypeName;
         public const string PresentationCosmicRiftBeaconPrototypeName = MythicRiftItemPresentation.PresentationPrototypeName;
         public const string PresentationCosmicRiftBeaconPrototypePath = MythicRiftItemPresentation.PresentationPrototypePath;
+        public const string EndlessRiftBeaconPrototypeName = "PortalToDangerRoomRandomThemeNoAffixesPurple";
+        public const string EndlessRiftBeaconPrototypePath = "Entity/Items/Consumables/Prototypes/DangerRoom/PortalToDangerRoomRandomThemeNoAffixesPurple.prototype";
+        public const string PresentationEndlessRiftBeaconPrototypeName = MythicRiftItemPresentation.EndlessPresentationPrototypeName;
+        public const string PresentationEndlessRiftBeaconPrototypePath = MythicRiftItemPresentation.EndlessPresentationPrototypePath;
         public static readonly TimeSpan DefaultLauncherTimeLimit = TimeSpan.FromMinutes(10);
         private static readonly string[] SupportedCosmicRiftBeaconPrototypeNames =
         {
             CosmicRiftBeaconPrototypeName,
             PresentationCosmicRiftBeaconPrototypeName,
-            PresentationCosmicRiftBeaconPrototypePath
+            PresentationCosmicRiftBeaconPrototypePath,
+            EndlessRiftBeaconPrototypeName,
+            EndlessRiftBeaconPrototypePath,
+            PresentationEndlessRiftBeaconPrototypeName,
+            PresentationEndlessRiftBeaconPrototypePath
         };
         private readonly Dictionary<string, string> _candidateToEntryPointId = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<ulong, MythicRiftLauncherIntent> _pendingIntentsByPlayerDbId = new();
@@ -40,6 +48,8 @@ namespace MHServerEmu.Games.MythicRifts
         private readonly Dictionary<ulong, Dictionary<ulong, int>> _trackedBeaconChargesByPlayerDbId = new();
         private bool _chosenBeaconPrototypeResolved;
         private PrototypeId _chosenBeaconPrototypeRef = PrototypeId.Invalid;
+        private bool _endlessBeaconPrototypeResolved;
+        private PrototypeId _endlessBeaconPrototypeRef = PrototypeId.Invalid;
         private bool _chosenBeaconOnUsePowerResolved;
         private PrototypeId _chosenBeaconOnUsePowerRef = PrototypeId.Invalid;
         private bool _supportedBeaconOnUsePowersResolved;
@@ -79,6 +89,12 @@ namespace MHServerEmu.Games.MythicRifts
                 string.Equals(candidate.PrototypeName, CosmicRiftBeaconPrototypeName, StringComparison.OrdinalIgnoreCase));
         }
 
+        public MythicRiftLauncherItemCandidate ResolveEndlessCandidate()
+        {
+            return EntryService.LauncherItemCandidates.FirstOrDefault(candidate =>
+                string.Equals(candidate.PrototypeName, EndlessRiftBeaconPrototypeName, StringComparison.OrdinalIgnoreCase));
+        }
+
         public PrototypeId ResolveChosenBeaconPrototypeRef()
         {
             if (_chosenBeaconPrototypeResolved)
@@ -87,6 +103,19 @@ namespace MHServerEmu.Games.MythicRifts
             _chosenBeaconPrototypeRef = ResolvePrototypeRefByName(CosmicRiftBeaconPrototypeName);
             _chosenBeaconPrototypeResolved = true;
             return _chosenBeaconPrototypeRef;
+        }
+
+        public PrototypeId ResolveEndlessBeaconPrototypeRef()
+        {
+            if (_endlessBeaconPrototypeResolved)
+                return _endlessBeaconPrototypeRef;
+
+            _endlessBeaconPrototypeRef = ResolvePrototypeRefByName(EndlessRiftBeaconPrototypePath);
+            if (_endlessBeaconPrototypeRef == PrototypeId.Invalid)
+                _endlessBeaconPrototypeRef = ResolvePrototypeRefByName(EndlessRiftBeaconPrototypeName);
+
+            _endlessBeaconPrototypeResolved = true;
+            return _endlessBeaconPrototypeRef;
         }
 
         public PrototypeId ResolveChosenBeaconOnUsePowerRef()
@@ -120,6 +149,30 @@ namespace MHServerEmu.Games.MythicRifts
         public bool IsPreferredCosmicRiftBeaconPrototype(PrototypeId prototypeRef)
         {
             return PrototypeNameMatches(prototypeRef, CosmicRiftBeaconPrototypeName);
+        }
+
+        public MythicRiftMode ResolveModeForPrototype(PrototypeId prototypeRef)
+        {
+            return TryResolveCandidateEntryPointId(prototypeRef, out string entryPointId)
+                ? EntryService.GetEntryPoint(entryPointId)?.Mode ?? MythicRiftMode.Standard
+                : MythicRiftMode.Standard;
+        }
+
+        public MythicRiftMode ResolveModeForPrototype(string prototypeName)
+        {
+            return TryResolveCandidateMapping(prototypeName, out _, out string entryPointId)
+                ? EntryService.GetEntryPoint(entryPointId)?.Mode ?? MythicRiftMode.Standard
+                : MythicRiftMode.Standard;
+        }
+
+        public bool IsLauncherPrototypeForMode(PrototypeId prototypeRef, MythicRiftMode mode)
+        {
+            return CanHandlePrototype(prototypeRef) && ResolveModeForPrototype(prototypeRef) == mode;
+        }
+
+        private bool CanHandlePrototype(PrototypeId prototypeRef)
+        {
+            return TryResolveCandidateEntryPointId(prototypeRef, out _);
         }
 
         public bool IsChosenBeaconOnUsePower(PrototypeId powerProtoRef)
@@ -422,6 +475,7 @@ namespace MHServerEmu.Games.MythicRifts
             {
                 EntryPointId = entryPointId,
                 LauncherItemPrototypeName = itemPrototypeName,
+                Mode = ResolveModeForPrototype(item.PrototypeDataRef),
                 RiftLevel = riftLevel,
                 TimeLimit = timeLimit
             });
@@ -484,7 +538,7 @@ namespace MHServerEmu.Games.MythicRifts
                 MythicRiftLauncherUseResult rejectedResult = BuildRejectedLauncherUseResult(
                     player,
                     item,
-                    "Cosmic Rift launchers can only be used from the Danger Room hub or from a completed Cosmic Rift.");
+                    "Rift launchers can only be used from the Danger Room hub or from a completed Rift.");
 
                 interceptedItemUse = true;
                 if (player != null)
@@ -648,6 +702,7 @@ namespace MHServerEmu.Games.MythicRifts
             {
                 EntryPointId = MythicRiftEntryService.DefaultEntryPointId,
                 LauncherItemPrototypeName = itemPrototypeName,
+                Mode = ResolveModeForPrototype(item.PrototypeDataRef),
                 RiftLevel = riftLevel,
                 ContentId = contentId,
                 TimeLimit = timeLimit
@@ -811,9 +866,15 @@ namespace MHServerEmu.Games.MythicRifts
             }
 
             string bossName = ResolveBossDisplayName(config);
+            string launcherName = config.Mode == MythicRiftMode.Endless
+                ? MythicRiftItemPresentation.EndlessPresentationDisplayName
+                : MythicRiftItemPresentation.StandardPresentationDisplayName;
+            string waveText = config.Mode == MythicRiftMode.Endless
+                ? $" Wave {config.WaveNumber}/30 with {config.RequiredBossKillCount} final boss(es)."
+                : string.Empty;
             string message = result.TeleportSucceeded
-                ? $"[Cosmic Rift] Beacon activated. Opening {config.Content.DisplayName}. Rift level {config.RiftLevel}. Time limit: {FormatDuration(config.TimeLimit)}. Final boss: {bossName}."
-                : $"[Cosmic Rift] Beacon activated, but the teleport did not complete. Please try again with a new Beacon.";
+                ? $"[Cosmic Rift] {launcherName} activated. Opening {config.Content.DisplayName}. Rift level {config.RiftLevel}.{waveText} Time limit: {FormatDuration(config.TimeLimit)}. Final boss: {bossName}."
+                : $"[Cosmic Rift] {launcherName} activated, but the teleport did not complete. Please try again with a new Scenario.";
             Game.ChatManager.SendChatFromCustomSystem(player, message, showSender: false);
         }
 
@@ -909,6 +970,7 @@ namespace MHServerEmu.Games.MythicRifts
             {
                 EntryPointId = entryPointId,
                 LauncherItemPrototypeName = resolvedCandidatePrototypeName,
+                Mode = ResolveModeForPrototype(resolvedCandidatePrototypeName),
                 RiftLevel = riftLevel,
                 TimeLimit = timeLimit
             });
@@ -927,6 +989,37 @@ namespace MHServerEmu.Games.MythicRifts
 
         public bool TryGrantChosenLauncher(Player player, int count, out PrototypeId itemProtoRef, out string errorMessage)
         {
+            return TryGrantLauncher(
+                player,
+                count,
+                ResolveChosenBeaconPrototypeRef(),
+                CosmicRiftBeaconDisplayName,
+                CosmicRiftBeaconPrototypeName,
+                out itemProtoRef,
+                out errorMessage);
+        }
+
+        public bool TryGrantEndlessLauncher(Player player, int count, out PrototypeId itemProtoRef, out string errorMessage)
+        {
+            return TryGrantLauncher(
+                player,
+                count,
+                ResolveEndlessBeaconPrototypeRef(),
+                MythicRiftItemPresentation.EndlessPresentationDisplayName,
+                EndlessRiftBeaconPrototypeName,
+                out itemProtoRef,
+                out errorMessage);
+        }
+
+        private bool TryGrantLauncher(
+            Player player,
+            int count,
+            PrototypeId resolvedItemProtoRef,
+            string displayName,
+            string prototypeName,
+            out PrototypeId itemProtoRef,
+            out string errorMessage)
+        {
             itemProtoRef = PrototypeId.Invalid;
             errorMessage = string.Empty;
 
@@ -942,10 +1035,10 @@ namespace MHServerEmu.Games.MythicRifts
                 return false;
             }
 
-            itemProtoRef = ResolveChosenBeaconPrototypeRef();
+            itemProtoRef = resolvedItemProtoRef;
             if (itemProtoRef == PrototypeId.Invalid)
             {
-                errorMessage = $"Chosen launcher prototype not found in game data: {CosmicRiftBeaconPrototypeName}";
+                errorMessage = $"Chosen launcher prototype not found in game data: {prototypeName}";
                 return false;
             }
 
@@ -954,7 +1047,7 @@ namespace MHServerEmu.Games.MythicRifts
                 Dictionary<ulong, int> beforeSnapshot = SnapshotChosenLauncherStacks(player);
                 if (Game.LootManager.GiveItem(itemProtoRef, LootContext.CashShop, player) == false)
                 {
-                    errorMessage = $"Failed to grant {CosmicRiftBeaconDisplayName} to the player.";
+                    errorMessage = $"Failed to grant {displayName} to the player.";
                     return false;
                 }
 
@@ -1109,6 +1202,10 @@ namespace MHServerEmu.Games.MythicRifts
             RegisterCandidateMapping(CosmicRiftBeaconPrototypeName, MythicRiftEntryService.ConsumablePortalEntryPointId);
             RegisterCandidateMapping(PresentationCosmicRiftBeaconPrototypeName, MythicRiftEntryService.ConsumablePortalEntryPointId);
             RegisterCandidateMapping(PresentationCosmicRiftBeaconPrototypePath, MythicRiftEntryService.ConsumablePortalEntryPointId);
+            RegisterCandidateMapping(EndlessRiftBeaconPrototypeName, MythicRiftEntryService.EndlessConsumablePortalEntryPointId);
+            RegisterCandidateMapping(EndlessRiftBeaconPrototypePath, MythicRiftEntryService.EndlessConsumablePortalEntryPointId);
+            RegisterCandidateMapping(PresentationEndlessRiftBeaconPrototypeName, MythicRiftEntryService.EndlessConsumablePortalEntryPointId);
+            RegisterCandidateMapping(PresentationEndlessRiftBeaconPrototypePath, MythicRiftEntryService.EndlessConsumablePortalEntryPointId);
         }
 
         private void RegisterCandidateMapping(string prototypeName, string entryPointId)

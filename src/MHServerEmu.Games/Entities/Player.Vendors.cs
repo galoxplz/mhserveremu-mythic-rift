@@ -71,9 +71,11 @@ namespace MHServerEmu.Games.Entities
         private const string MythicRiftDangerRoomVendorMode = "danger-room-hub-any-vendor";
         private const string MythicRiftDangerRoomVendorTypeName = "VendorDangerRoomRewards";
         private const string MythicRiftVendorHint =
-            "[Cosmic Rift] Buy the Mythic Rift Scenario from this vendor, then use it from the Danger Room Hub to start a Cosmic Rift.";
+            "[Cosmic Rift] Mythic Rift Scenario starts standard scaling. Endless Rift Scenario starts the repeating 30-wave challenge.";
         private const string MythicRiftPurchaseHint =
-            "[Cosmic Rift] Mythic Rift Scenario purchased. Use this item from the Danger Room Hub to open your selected Rift level.";
+            "[Cosmic Rift] Mythic Rift Scenario purchased. Use it from the Danger Room Hub to open a standard Rift.";
+        private const string EndlessRiftPurchaseHint =
+            "[Cosmic Rift] Endless Rift Scenario purchased. Use it from the Danger Room Hub to enter the repeating 30-wave Rift.";
 
         private static readonly Item DummyItem = new(null);     // Dummy item instance to calculate character unlock ES costs
 
@@ -1055,7 +1057,11 @@ namespace MHServerEmu.Games.Entities
             OnScoringEvent(new(ScoringEventType.ItemBought, clonedItem.Prototype, rarityProto, count));
             OnScoringEvent(new(ScoringEventType.ItemCollected, clonedItem.Prototype, rarityProto, count));
 
-            Game.ChatManager?.SendChatFromCustomSystem(this, MythicRiftPurchaseHint, showSender: false);
+            MythicRiftMode mode = Game.MythicRiftLauncherService.ResolveModeForPrototype(clonedItem.PrototypeDataRef);
+            string purchaseHint = mode == MythicRiftMode.Endless
+                ? EndlessRiftPurchaseHint
+                : MythicRiftPurchaseHint;
+            Game.ChatManager?.SendChatFromCustomSystem(this, purchaseHint, showSender: false);
 
             return true;
         }
@@ -1105,9 +1111,13 @@ namespace MHServerEmu.Games.Entities
         {
             if (vendorTypeProto == null) return Logger.WarnReturn(false, "TryAddMythicRiftVendorItem(): vendorTypeProto == null");
 
-            PrototypeId itemProtoRef = Game.MythicRiftLauncherService.ResolveChosenBeaconPrototypeRef();
-            if (itemProtoRef == PrototypeId.Invalid)
+            PrototypeId standardItemProtoRef = Game.MythicRiftLauncherService.ResolveChosenBeaconPrototypeRef();
+            if (standardItemProtoRef == PrototypeId.Invalid)
                 return Logger.WarnReturn(false, $"TryAddMythicRiftVendorItem(): Failed to resolve {MythicRiftLauncherService.CosmicRiftBeaconPrototypeName}");
+
+            PrototypeId endlessItemProtoRef = Game.MythicRiftLauncherService.ResolveEndlessBeaconPrototypeRef();
+            if (endlessItemProtoRef == PrototypeId.Invalid)
+                return Logger.WarnReturn(false, $"TryAddMythicRiftVendorItem(): Failed to resolve {MythicRiftLauncherService.EndlessRiftBeaconPrototypeName}");
 
             using var inventoryHandle = ListPool<Inventory>.Instance.Get(out List<Inventory> inventories);
             GetMythicRiftVendorInventories(vendorTypeProto, inventories);
@@ -1118,12 +1128,27 @@ namespace MHServerEmu.Games.Entities
 
             bool addedAny = false;
             foreach (Inventory inventory in inventories)
-                addedAny |= TryAddMythicRiftVendorItemToInventory(vendorTypeProto, itemProtoRef, inventory);
+            {
+                addedAny |= TryAddMythicRiftVendorItemToInventory(
+                    vendorTypeProto,
+                    standardItemProtoRef,
+                    inventory,
+                    MythicRiftMode.Standard);
+                addedAny |= TryAddMythicRiftVendorItemToInventory(
+                    vendorTypeProto,
+                    endlessItemProtoRef,
+                    inventory,
+                    MythicRiftMode.Endless);
+            }
 
             return addedAny;
         }
 
-        private bool TryAddMythicRiftVendorItemToInventory(VendorTypePrototype vendorTypeProto, PrototypeId itemProtoRef, Inventory inventory)
+        private bool TryAddMythicRiftVendorItemToInventory(
+            VendorTypePrototype vendorTypeProto,
+            PrototypeId itemProtoRef,
+            Inventory inventory,
+            MythicRiftMode mode)
         {
             if (inventory == null)
                 return false;
@@ -1131,7 +1156,8 @@ namespace MHServerEmu.Games.Entities
             foreach (var entry in inventory)
             {
                 Item existingItem = Game.EntityManager.GetEntity<Item>(entry.Id);
-                if (existingItem != null && Game.MythicRiftLauncherService.IsChosenBeaconPrototype(existingItem.PrototypeDataRef))
+                if (existingItem != null &&
+                    Game.MythicRiftLauncherService.IsLauncherPrototypeForMode(existingItem.PrototypeDataRef, mode))
                 {
                     _mythicRiftVendorItemIds.Add(existingItem.Id);
                     return false;
@@ -1146,7 +1172,7 @@ namespace MHServerEmu.Games.Entities
             if (itemSpec == null)
                 return Logger.WarnReturn(false, $"TryAddMythicRiftVendorItem(): Failed to create ItemSpec for {itemProtoRef.GetNameFormatted()}");
 
-            itemSpec = MythicRiftItemPresentation.ApplyLauncherPresentation(itemSpec);
+            itemSpec = MythicRiftItemPresentation.ApplyLauncherPresentation(itemSpec, mode);
 
             using EntitySettings settings = ObjectPoolManager.Instance.Get<EntitySettings>();
             settings.EntityRef = itemSpec.ItemProtoRef;
@@ -1167,7 +1193,7 @@ namespace MHServerEmu.Games.Entities
             }
 
             _mythicRiftVendorItemIds.Add(item.Id);
-            Logger.Info($"[MythicRiftVendor] Added {item.PrototypeDataRef.GetNameFormatted()} to vendorType={vendorTypeProto.DataRef.GetNameFormatted()} inventory={inventory.PrototypeDataRef.GetNameFormatted()} technicalBase={MythicRiftLauncherService.CosmicRiftBeaconPrototypeName} mode={MythicRiftDangerRoomVendorMode}");
+            Logger.Info($"[MythicRiftVendor] Added {item.PrototypeDataRef.GetNameFormatted()} to vendorType={vendorTypeProto.DataRef.GetNameFormatted()} inventory={inventory.PrototypeDataRef.GetNameFormatted()} technicalBase={itemProtoRef.GetNameFormatted()} riftMode={mode} vendorMode={MythicRiftDangerRoomVendorMode}");
             return true;
         }
 

@@ -14,7 +14,8 @@
 - The server build is stable again as long as bin/obj outputs are redirected to a writable folder outside the repo.
 - A dedicated server-side entry layer now exists to prepare a future player-facing entry point without assuming a specific clickable object yet.
 - Logical entry points can now be registered server-side even though no concrete in-game launcher has been chosen yet.
-- A more concrete TAHITI-friendly direction now exists: a consumable portal launcher modeled after `PortalToRandomMaxAffixDungeon` as the only active launcher base, with stock `PortalToRandomDungeon` behavior kept out of the Rift path.
+- Two TAHITI-friendly consumable launcher families are active: `PortalToRandomMaxAffixDungeon` selects Standard mode, while `PortalToDangerRoomRandomThemeNoAffixesPurple` selects Endless mode. Stock `PortalToRandomDungeon` behavior stays outside the Rift path.
+- Danger Room vendors present those families as separate `Mythic Rift Scenario` and `Endless Rift Scenario` items. The item selects the mode directly; there is no global 30-wave config toggle.
 - Random Rift runs now decouple the selected map from the selected boss source, so the current prototype can produce a random dungeon or curated non-terminal map with a different random terminal boss.
 - Terminal Rift entries now prefer the `AltRegions/*RegionL60` variants instead of the older base terminal region refs, matching MonEll's local finding that native start targets can otherwise resolve into `RegionBand` variants.
 - Successful Rift clears now spawn a return portal back to the Danger Room hub; cleanup is requested after the completed Rift region becomes empty.

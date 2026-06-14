@@ -19,9 +19,11 @@ namespace MHServerEmu.Games.MythicRifts
         public PrototypeId BossProtoRef { get; init; }
         public PrototypeId BossLootTableProtoRef { get; init; }
         public MythicRiftDifficultySnapshot Difficulty { get; init; }
-        public bool UseThirtyWaveMode { get; init; }
+        public MythicRiftMode Mode { get; init; }
         public int WaveNumber { get; init; } = 1;
         public int RequiredBossKillCount { get; init; } = 1;
+
+        public bool UseThirtyWaveMode => Mode == MythicRiftMode.Endless;
 
         public bool IsValid =>
             RunId != 0 &&

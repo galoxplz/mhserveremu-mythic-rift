@@ -4,6 +4,7 @@ namespace MHServerEmu.Games.MythicRifts
     {
         public string EntryPointId { get; init; }
         public string LauncherItemPrototypeName { get; init; }
+        public MythicRiftMode Mode { get; init; }
         public int RiftLevel { get; init; }
         public string ContentId { get; init; }
         public int? KillQuotaOverride { get; init; }

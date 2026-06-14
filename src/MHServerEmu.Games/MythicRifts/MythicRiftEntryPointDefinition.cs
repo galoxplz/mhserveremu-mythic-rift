@@ -7,6 +7,7 @@ namespace MHServerEmu.Games.MythicRifts
     {
         public string Id { get; init; }
         public string DisplayName { get; init; }
+        public MythicRiftMode Mode { get; init; }
         public bool AllowsRandomContent { get; init; }
         public bool AllowsFixedContentSelection { get; init; }
         public bool IsPatcherFriendly { get; init; }

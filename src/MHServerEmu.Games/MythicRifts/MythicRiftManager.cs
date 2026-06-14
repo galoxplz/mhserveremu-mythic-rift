@@ -1,5 +1,4 @@
 using Gazillion;
-using MHServerEmu.Core.Config;
 using MHServerEmu.Core.Helpers;
 using MHServerEmu.Core.Logging;
 using MHServerEmu.Core.Memory;
@@ -515,7 +514,6 @@ namespace MHServerEmu.Games.MythicRifts
         private readonly Dictionary<ulong, TimeSpan> _nextCheckpointBossSpawnRetryAt = new();
         private readonly Dictionary<ulong, HashSet<Mission>> _serverSuspendedNativeObjectiveMissionsByRun = new();
         private readonly Dictionary<string, IReadOnlyList<PrototypeId>> _rewardItemPoolsByDirectory = new(StringComparer.OrdinalIgnoreCase);
-        private readonly MythicRiftConfig _riftConfig;
         private static PrototypeId _cachedRiftDangerRoomLevelWidgetPrototypeRef = PrototypeId.Invalid;
         private static PrototypeId _cachedRiftDangerRoomQuotaWidgetPrototypeRef = PrototypeId.Invalid;
         private static PrototypeId _cachedRiftDangerRoomTimerWidgetPrototypeRef = PrototypeId.Invalid;
@@ -529,11 +527,9 @@ namespace MHServerEmu.Games.MythicRifts
         public MythicRiftManager(Game game)
         {
             Game = game;
-            _riftConfig = ConfigManager.Instance.GetConfig<MythicRiftConfig>();
             RegisterDefaultContent();
             TryReloadRewardTuning(out _rewardTuningLastLoadMessage);
             Logger.Info($"Mythic Rift reward tuning: {_rewardTuningLastLoadMessage}");
-            Logger.Info($"Mythic Rift 30-wave mode enabled={_riftConfig.EnableThirtyWaveMode}.");
         }
 
         public IReadOnlyList<MythicRiftContentEntry> ContentPool => _contentPool;
@@ -543,11 +539,15 @@ namespace MHServerEmu.Games.MythicRifts
         public IReadOnlyCollection<MythicRiftRunState> ActiveRuns => _activeRuns.Values;
         public MythicRiftRewardTuning RewardTuning => _rewardTuning;
         public string RewardTuningLastLoadMessage => _rewardTuningLastLoadMessage;
-        public bool ThirtyWaveModeEnabled => _riftConfig.EnableThirtyWaveMode;
-
-        public MythicRiftDifficultySnapshot GetDifficultySnapshot(int riftLevel, int requestedPlayerCount)
+        public MythicRiftDifficultySnapshot GetDifficultySnapshot(
+            int riftLevel,
+            int requestedPlayerCount,
+            MythicRiftMode mode = MythicRiftMode.Standard)
         {
-            return MythicRiftScaling.BuildSnapshot(riftLevel, requestedPlayerCount, _riftConfig.EnableThirtyWaveMode);
+            return MythicRiftScaling.BuildSnapshot(
+                riftLevel,
+                requestedPlayerCount,
+                mode == MythicRiftMode.Endless);
         }
 
         public int GetHighestUnlockedRiftLevel(ulong playerDbId)
@@ -674,7 +674,13 @@ namespace MHServerEmu.Games.MythicRifts
             return nextUnlockedLevel;
         }
 
-        public MythicRiftRunConfig CreateDebugRunConfig(string contentId, int riftLevel, int requestedPlayerCount, int killQuota, TimeSpan timeLimit)
+        public MythicRiftRunConfig CreateDebugRunConfig(
+            string contentId,
+            int riftLevel,
+            int requestedPlayerCount,
+            int killQuota,
+            TimeSpan timeLimit,
+            MythicRiftMode mode = MythicRiftMode.Standard)
         {
             MythicRiftContentEntry content = GetContent(contentId);
             if (content == null)
@@ -682,10 +688,17 @@ namespace MHServerEmu.Games.MythicRifts
 
             MythicRiftContentEntry bossContent = SelectBossContentForFixedMap(content);
 
-            return CreateRunConfig(content, bossContent, riftLevel, requestedPlayerCount, killQuota, timeLimit);
+            return CreateRunConfig(content, bossContent, riftLevel, requestedPlayerCount, killQuota, timeLimit, mode);
         }
 
-        public MythicRiftRunConfig CreateDebugRunConfig(string contentId, string bossContentId, int riftLevel, int requestedPlayerCount, int killQuota, TimeSpan timeLimit)
+        public MythicRiftRunConfig CreateDebugRunConfig(
+            string contentId,
+            string bossContentId,
+            int riftLevel,
+            int requestedPlayerCount,
+            int killQuota,
+            TimeSpan timeLimit,
+            MythicRiftMode mode = MythicRiftMode.Standard)
         {
             MythicRiftContentEntry content = GetContent(contentId);
             MythicRiftContentEntry bossContent = GetContent(bossContentId);
@@ -695,17 +708,23 @@ namespace MHServerEmu.Games.MythicRifts
             if (bossContent.HasValidBossSource == false)
                 return null;
 
-            return CreateRunConfig(content, bossContent, riftLevel, requestedPlayerCount, killQuota, timeLimit);
+            return CreateRunConfig(content, bossContent, riftLevel, requestedPlayerCount, killQuota, timeLimit, mode);
         }
 
-        public MythicRiftRunConfig CreateRandomDebugRunConfig(int riftLevel, int requestedPlayerCount, int killQuota, TimeSpan timeLimit, IReadOnlyCollection<string> excludedMapContentIds = null)
+        public MythicRiftRunConfig CreateRandomDebugRunConfig(
+            int riftLevel,
+            int requestedPlayerCount,
+            int killQuota,
+            TimeSpan timeLimit,
+            IReadOnlyCollection<string> excludedMapContentIds = null,
+            MythicRiftMode mode = MythicRiftMode.Standard)
         {
             MythicRiftContentEntry content = SelectRandomMapContent(riftLevel, requestedPlayerCount, excludedMapContentIds);
             MythicRiftContentEntry bossContent = SelectBossContentForRandomMap(content);
             if (content == null || bossContent == null)
                 return null;
 
-            return CreateRunConfig(content, bossContent, riftLevel, requestedPlayerCount, killQuota, timeLimit);
+            return CreateRunConfig(content, bossContent, riftLevel, requestedPlayerCount, killQuota, timeLimit, mode);
         }
 
         public MythicRiftRunState CreateRunState(MythicRiftRunConfig config)
@@ -716,32 +735,74 @@ namespace MHServerEmu.Games.MythicRifts
             return new MythicRiftRunState(config);
         }
 
-        public MythicRiftRunState CreateDebugRun(string contentId, int riftLevel, int requestedPlayerCount, int killQuota, TimeSpan timeLimit)
+        public MythicRiftRunState CreateDebugRun(
+            string contentId,
+            int riftLevel,
+            int requestedPlayerCount,
+            int killQuota,
+            TimeSpan timeLimit,
+            MythicRiftMode mode = MythicRiftMode.Standard)
         {
-            MythicRiftRunConfig config = CreateDebugRunConfig(contentId, riftLevel, requestedPlayerCount, killQuota, timeLimit);
+            MythicRiftRunConfig config = CreateDebugRunConfig(contentId, riftLevel, requestedPlayerCount, killQuota, timeLimit, mode);
             return RegisterRun(config);
         }
 
-        public MythicRiftRunState CreateDebugRun(string contentId, string bossContentId, int riftLevel, int requestedPlayerCount, int killQuota, TimeSpan timeLimit)
+        public MythicRiftRunState CreateDebugRun(
+            string contentId,
+            string bossContentId,
+            int riftLevel,
+            int requestedPlayerCount,
+            int killQuota,
+            TimeSpan timeLimit,
+            MythicRiftMode mode = MythicRiftMode.Standard)
         {
-            MythicRiftRunConfig config = CreateDebugRunConfig(contentId, bossContentId, riftLevel, requestedPlayerCount, killQuota, timeLimit);
+            MythicRiftRunConfig config = CreateDebugRunConfig(contentId, bossContentId, riftLevel, requestedPlayerCount, killQuota, timeLimit, mode);
             return RegisterRun(config);
         }
 
-        public MythicRiftRunState CreateRandomDebugRun(int riftLevel, int requestedPlayerCount, int killQuota, TimeSpan timeLimit, IReadOnlyCollection<string> excludedMapContentIds = null)
+        public MythicRiftRunState CreateRandomDebugRun(
+            int riftLevel,
+            int requestedPlayerCount,
+            int killQuota,
+            TimeSpan timeLimit,
+            IReadOnlyCollection<string> excludedMapContentIds = null,
+            MythicRiftMode mode = MythicRiftMode.Standard)
         {
-            MythicRiftRunConfig config = CreateRandomDebugRunConfig(riftLevel, requestedPlayerCount, killQuota, timeLimit, excludedMapContentIds);
+            MythicRiftRunConfig config = CreateRandomDebugRunConfig(riftLevel, requestedPlayerCount, killQuota, timeLimit, excludedMapContentIds, mode);
             return RegisterRun(config);
         }
 
         public MythicRiftRunState RequestRun(Player player, int riftLevel, int killQuota, TimeSpan timeLimit, out string errorMessage)
         {
-            return RequestRunInternal(player, null, riftLevel, killQuota, timeLimit, useRandomContent: true, out errorMessage);
+            return RequestRun(player, riftLevel, killQuota, timeLimit, MythicRiftMode.Standard, out errorMessage);
+        }
+
+        public MythicRiftRunState RequestRun(
+            Player player,
+            int riftLevel,
+            int killQuota,
+            TimeSpan timeLimit,
+            MythicRiftMode mode,
+            out string errorMessage)
+        {
+            return RequestRunInternal(player, null, riftLevel, killQuota, timeLimit, mode, useRandomContent: true, out errorMessage);
         }
 
         public MythicRiftRunState RequestFixedRun(Player player, string contentId, int riftLevel, int killQuota, TimeSpan timeLimit, out string errorMessage)
         {
-            return RequestRunInternal(player, contentId, riftLevel, killQuota, timeLimit, useRandomContent: false, out errorMessage);
+            return RequestFixedRun(player, contentId, riftLevel, killQuota, timeLimit, MythicRiftMode.Standard, out errorMessage);
+        }
+
+        public MythicRiftRunState RequestFixedRun(
+            Player player,
+            string contentId,
+            int riftLevel,
+            int killQuota,
+            TimeSpan timeLimit,
+            MythicRiftMode mode,
+            out string errorMessage)
+        {
+            return RequestRunInternal(player, contentId, riftLevel, killQuota, timeLimit, mode, useRandomContent: false, out errorMessage);
         }
 
         public MythicRiftRunState GetRun(ulong runId)
@@ -1391,7 +1452,15 @@ namespace MHServerEmu.Games.MythicRifts
             return runState;
         }
 
-        private MythicRiftRunState RequestRunInternal(Player player, string contentId, int riftLevel, int killQuota, TimeSpan timeLimit, bool useRandomContent, out string errorMessage)
+        private MythicRiftRunState RequestRunInternal(
+            Player player,
+            string contentId,
+            int riftLevel,
+            int killQuota,
+            TimeSpan timeLimit,
+            MythicRiftMode mode,
+            bool useRandomContent,
+            out string errorMessage)
         {
             errorMessage = string.Empty;
 
@@ -1435,8 +1504,8 @@ namespace MHServerEmu.Games.MythicRifts
                 : null;
 
             MythicRiftRunState runState = useRandomContent
-                ? CreateRandomDebugRun(riftLevel, requestedPlayerCount, killQuota, timeLimit, excludedMapContentIds)
-                : CreateDebugRun(contentId, riftLevel, requestedPlayerCount, killQuota, timeLimit);
+                ? CreateRandomDebugRun(riftLevel, requestedPlayerCount, killQuota, timeLimit, excludedMapContentIds, mode)
+                : CreateDebugRun(contentId, riftLevel, requestedPlayerCount, killQuota, timeLimit, mode);
 
             if (runState == null)
             {
@@ -1459,7 +1528,7 @@ namespace MHServerEmu.Games.MythicRifts
                     showSender: false);
             }
 
-            Logger.Info($"Mythic Rift run {runState.Config.RunId} requested by playerDbId=0x{player.DatabaseUniqueId:X} at level {riftLevel}. partyId=0x{party?.PartyId ?? 0UL:X} partyLeaderDbId=0x{party?.LeaderId ?? 0UL:X} partyMembers={party?.NumMembers ?? 1} launchRoster={launchRoster.Count} excludedPartyMembers={excludedPartyMembers}");
+            Logger.Info($"Mythic Rift run {runState.Config.RunId} requested by playerDbId=0x{player.DatabaseUniqueId:X} at level {riftLevel}. mode={mode} partyId=0x{party?.PartyId ?? 0UL:X} partyLeaderDbId=0x{party?.LeaderId ?? 0UL:X} partyMembers={party?.NumMembers ?? 1} launchRoster={launchRoster.Count} excludedPartyMembers={excludedPartyMembers}");
             return runState;
         }
 
@@ -3190,7 +3259,14 @@ namespace MHServerEmu.Games.MythicRifts
             };
         }
 
-        private MythicRiftRunConfig CreateRunConfig(MythicRiftContentEntry content, MythicRiftContentEntry bossContent, int riftLevel, int requestedPlayerCount, int killQuota, TimeSpan timeLimit)
+        private MythicRiftRunConfig CreateRunConfig(
+            MythicRiftContentEntry content,
+            MythicRiftContentEntry bossContent,
+            int riftLevel,
+            int requestedPlayerCount,
+            int killQuota,
+            TimeSpan timeLimit,
+            MythicRiftMode mode)
         {
             if (content == null || bossContent == null)
                 return null;
@@ -3200,7 +3276,7 @@ namespace MHServerEmu.Games.MythicRifts
                 bossContent.HasValidBossSource == false)
                 return null;
 
-            bool useThirtyWaveMode = _riftConfig.EnableThirtyWaveMode;
+            bool useThirtyWaveMode = mode == MythicRiftMode.Endless;
             MythicRiftWaveProfile waveProfile = MythicRiftScaling.GetThirtyWaveProfile(riftLevel);
             MythicRiftDifficultySnapshot difficulty = MythicRiftScaling.BuildSnapshot(riftLevel, requestedPlayerCount, useThirtyWaveMode);
             int requestedBossCount = useThirtyWaveMode ? waveProfile.BossCount : 1;
@@ -3233,7 +3309,7 @@ namespace MHServerEmu.Games.MythicRifts
                 BossProtoRef = bossContent.BossProtoRef,
                 BossLootTableProtoRef = bossContent.BossLootTableProtoRef,
                 Difficulty = difficulty,
-                UseThirtyWaveMode = useThirtyWaveMode,
+                Mode = mode,
                 WaveNumber = useThirtyWaveMode ? waveProfile.Wave : Math.Max(riftLevel, 1),
                 RequiredBossKillCount = bossWaveContent.Count
             };

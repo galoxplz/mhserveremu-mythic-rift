@@ -6,20 +6,29 @@ namespace MHServerEmu.Games.Tests.MythicRifts
     public class MythicRiftLauncherSelectionTests
     {
         [Fact]
-        public void ConsumableEntryPoint_UsesCurrentChosenBeaconPrototype()
+        public void ConsumableEntryPoints_UseIndependentStandardAndEndlessLaunchers()
         {
             MythicRiftEntryService entryService = new(null);
 
-            MythicRiftEntryPointDefinition entryPoint = entryService.GetEntryPoint(MythicRiftEntryService.ConsumablePortalEntryPointId);
+            MythicRiftEntryPointDefinition standardEntryPoint = entryService.GetEntryPoint(MythicRiftEntryService.ConsumablePortalEntryPointId);
+            MythicRiftEntryPointDefinition endlessEntryPoint = entryService.GetEntryPoint(MythicRiftEntryService.EndlessConsumablePortalEntryPointId);
 
-            Assert.NotNull(entryPoint);
-            Assert.Equal(MythicRiftLauncherService.CosmicRiftBeaconPrototypeName, entryPoint.CandidateItemPrototypeName);
-            Assert.Equal(MythicRiftLauncherService.PreferredCosmicRiftBeaconPrototypeName, entryPoint.CandidateItemPrototypeName);
-            Assert.True(entryPoint.AcceptsLauncherItemPrototypeName(MythicRiftLauncherService.CosmicRiftBeaconPrototypeName));
-            Assert.True(entryPoint.AcceptsLauncherItemPrototypeName(MythicRiftLauncherService.PresentationCosmicRiftBeaconPrototypeName));
-            Assert.True(entryPoint.AcceptsLauncherItemPrototypeName(MythicRiftLauncherService.PresentationCosmicRiftBeaconPrototypePath));
-            Assert.Contains(MythicRiftLauncherService.PresentationCosmicRiftBeaconPrototypeName, entryPoint.AcceptedCandidateItemPrototypeNames);
-            Assert.Contains(MythicRiftLauncherService.PresentationCosmicRiftBeaconPrototypePath, entryPoint.AcceptedCandidateItemPrototypeNames);
+            Assert.NotNull(standardEntryPoint);
+            Assert.Equal(MythicRiftMode.Standard, standardEntryPoint.Mode);
+            Assert.Equal(MythicRiftLauncherService.CosmicRiftBeaconPrototypeName, standardEntryPoint.CandidateItemPrototypeName);
+            Assert.Equal(MythicRiftLauncherService.PreferredCosmicRiftBeaconPrototypeName, standardEntryPoint.CandidateItemPrototypeName);
+            Assert.True(standardEntryPoint.AcceptsLauncherItemPrototypeName(MythicRiftLauncherService.CosmicRiftBeaconPrototypeName));
+            Assert.True(standardEntryPoint.AcceptsLauncherItemPrototypeName(MythicRiftLauncherService.PresentationCosmicRiftBeaconPrototypeName));
+            Assert.False(standardEntryPoint.AcceptsLauncherItemPrototypeName(MythicRiftLauncherService.PresentationEndlessRiftBeaconPrototypeName));
+
+            Assert.NotNull(endlessEntryPoint);
+            Assert.Equal(MythicRiftMode.Endless, endlessEntryPoint.Mode);
+            Assert.Equal(MythicRiftLauncherService.EndlessRiftBeaconPrototypeName, endlessEntryPoint.CandidateItemPrototypeName);
+            Assert.True(endlessEntryPoint.AcceptsLauncherItemPrototypeName(MythicRiftLauncherService.EndlessRiftBeaconPrototypeName));
+            Assert.True(endlessEntryPoint.AcceptsLauncherItemPrototypeName(MythicRiftLauncherService.EndlessRiftBeaconPrototypePath));
+            Assert.True(endlessEntryPoint.AcceptsLauncherItemPrototypeName(MythicRiftLauncherService.PresentationEndlessRiftBeaconPrototypeName));
+            Assert.True(endlessEntryPoint.AcceptsLauncherItemPrototypeName(MythicRiftLauncherService.PresentationEndlessRiftBeaconPrototypePath));
+            Assert.False(endlessEntryPoint.AcceptsLauncherItemPrototypeName(MythicRiftLauncherService.PresentationCosmicRiftBeaconPrototypeName));
         }
 
         [Fact]
@@ -38,6 +47,15 @@ namespace MHServerEmu.Games.Tests.MythicRifts
 
             Assert.Equal("chosen-presentation", presentationCandidate.Recommendation);
             Assert.Equal(MythicRiftItemPresentation.PresentationDisplayName, presentationCandidate.DisplayName);
+
+            MythicRiftLauncherItemCandidate endlessCandidate = entryService.LauncherItemCandidates.Single(candidate =>
+                candidate.PrototypeName == MythicRiftLauncherService.EndlessRiftBeaconPrototypeName);
+            MythicRiftLauncherItemCandidate endlessPresentationCandidate = entryService.LauncherItemCandidates.Single(candidate =>
+                candidate.PrototypeName == MythicRiftLauncherService.PresentationEndlessRiftBeaconPrototypeName);
+
+            Assert.Equal("chosen-endless", endlessCandidate.Recommendation);
+            Assert.Equal("chosen-endless-presentation", endlessPresentationCandidate.Recommendation);
+            Assert.Equal(MythicRiftItemPresentation.EndlessPresentationDisplayName, endlessPresentationCandidate.DisplayName);
             Assert.DoesNotContain(entryService.LauncherItemCandidates, candidate =>
                 candidate.Recommendation == "compatibility");
         }
