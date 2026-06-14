@@ -81,7 +81,7 @@ Expected result:
 - `Doctor Strange Times Square / Dimensions Collide` is temporarily excluded from random selection like Ultron because Test Center saw a `region has not finished downloading` error in that Times Square map family
 - `Daily Bugle Operation` is back in random selection with Rift custom population enabled, so the low native population should no longer brick the kill-quota loop
 - `Cosmic Doop Sector` is registered as a special Rift map with a dedicated fixed boss and a 5% random selection chance; it does not use the normal random boss pool
-- `MODOK Terminal` can still appear as a Rift map, but MODOK is temporarily excluded from the random boss-source pool after player feedback reported that the boss can sometimes fail to move or attack
+- `MODOK Terminal` and `March to Axis` are excluded from random Rift maps, and MODOK is excluded from the random boss-source pool, after player feedback reported flaky MODOK AI and Axis HUD conflicts
 - active Rifts now try to show a center-screen localized entry banner, a Danger Room-style kill quota widget, a Danger Room timer widget, and a small Rift level widget before the quota bar
 - local validation on 2026-05-09 confirmed that the client renders the server-driven Danger Room UI frame without a client patch: `Level N`, `Complete Simulation` kill progress bar, and red `Time` countdown
 - successful boss kills now send a short localized top-left completion banner: `COSMIC RIFT CLEARED`
@@ -99,8 +99,8 @@ Expected result:
 - if the client keeps a generic counter widget visible, the server forces that counter to the active Rift kill quota; chat messages and `rift status` remain the authoritative no-client-patch fallback
 - the launcher now uses the configured Rift region during teleport instead of trusting the native target region baked into some terminal start targets; current terminal entries prefer `AltRegions/*RegionL60` to avoid `RegionBand` drift
 - successful Rift clears should spawn a return portal that takes players back to the Danger Room hub
-- current group launch expectation: the current party leader should use the Beacon while intended party members are also in the Danger Room hub; members outside the launch context may not be pulled in reliably
-- group progression is intentionally competitive but team-friendly: players who are inside the Rift at boss unlock and still inside at boss death unlock the next level even if their previous personal max was lower
+- current group launch rule: the current party leader should use the Beacon while intended party members are in the same region; only successful teleports are admitted and counted for scaling
+- group progression is competitive but anti-carry: players must be inside at boss unlock and boss death, and an eligible player advances at most one personal Rift level per clear
 - leaving the party mid-run should not by itself invalidate the run or rewards
 - leaving the Rift region before completion now removes only that player from Rift eligibility; remaining players inside the Rift can continue the run
 - if leader swap testing fails, check server logs for `Mythic Rift request rejected because requester is not party leader`
@@ -630,7 +630,8 @@ These notes are important when reviewing test-center feedback.
 - Use `rift rewardconfig` to inspect the active reward profile.
 - Use `rift rewardconfig reload` after editing the JSON to apply reward changes without rebuilding or restarting the server.
 - The default JSON grants controlled Rift boss loot on success/failure, +10% RIF and +15% SIF on timed success, plus +5% RIF and +10% SIF on checkpoint success.
-- `suppressNativeRiftBossLoot=true` is enabled by default so a Rift-spawned boss does not also drop its native boss loot on the ground in addition to the controlled Cosmic Rift reward.
+- Rift-spawned bosses always suppress native death loot, and Rift-spawned mobs/bosses are not attached to the native terminal mission, so only the controlled Cosmic Rift completion reward should appear.
+- Controlled completion rewards default to player-owned ground drops; failed runs grant no completion table unless the reward profile deliberately enables one.
 - Primary boss loot can be overridden in the JSON with `primaryLootTableOverrides`, including min/max Rift level gates, checkpoint/classic filters, content/boss-source filters, and `delivery` set to `inventory` or `ground`.
 - Extra loot tables can be enabled in the JSON with `chancePercent`, `rolls`, min/max Rift level gates, checkpoint/classic filters, optional content/boss-source filters, and `delivery` set to `inventory` or `ground`.
 - the current updated build is intended to keep successful beacon clicks inside the Mythic Rift flow instead of falling back into a normal Danger Room result

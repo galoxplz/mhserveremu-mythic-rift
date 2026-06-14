@@ -1,37 +1,50 @@
 {
-  "profileName": "default",
+  "profileName": "worthwhile-v4-all-cosmic-artifacts",
   "enabled": true,
   "grantBossLootOnSuccess": true,
-  "grantBossLootOnFailure": true,
+  "grantBossLootOnFailure": false,
   "suppressNativeRiftBossLoot": true,
-  "timedSuccessBonusRarityPct": 0.10,
-  "timedSuccessBonusSpecialPct": 0.15,
-  "checkpointSuccessBonusRarityPct": 0.05,
-  "checkpointSuccessBonusSpecialPct": 0.10,
+  "timedSuccessBonusRarityPct": 0.20,
+  "timedSuccessBonusSpecialPct": 0.25,
+  "checkpointSuccessBonusRarityPct": 0.10,
+  "checkpointSuccessBonusSpecialPct": 0.15,
   "failureBonusRarityPct": 0.0,
   "failureBonusSpecialPct": 0.0,
-  "defaultDelivery": "inventory",
-  "primaryLootTableOverrides": [
+  "defaultDelivery": "ground",
+  "lootTableAliases": {
+    "cosmic-doop-overlord": "Loot/Tables/Mob/NormalMobs/CosmicDoopOverlordTable.prototype",
+    "costume-card-token-chase": "Loot/Tables/ItemType/SpecialsCostumesCardsTokens.prototype"
+  },
+  "primaryLootTableOverrides": [],
+  "extraLootTables": [],
+  "rewardRecipes": [
     {
-      "id": "example-disabled-level-50-plus-primary-override",
-      "enabled": false,
-      "lootTablePrototype": "Loot/Tables/Mob/Bosses/EndgameDailies/Terminals/AbandonedSubway/ShockerTerminalLoot.prototype",
-      "minRiftLevel": 50,
+      "id": "cosmic-doop-sector-jackpot",
+      "enabled": true,
+      "minRiftLevel": 25,
       "maxRiftLevel": 0,
+      "successOnly": true,
       "checkpointOnly": false,
       "classicOnly": false,
-      "contentIds": [],
-      "bossSourceIds": [],
-      "delivery": "ground"
-    }
-  ],
-  "extraLootTables": [
+      "contentIds": [
+        "cosmic-doop-sector"
+      ],
+      "bossSourceIds": [
+        "cosmic-doop-sector"
+      ],
+      "tables": [
+        {
+          "id": "overlord-bonus-rolls",
+          "lootTable": "cosmic-doop-overlord",
+          "chancePercent": 100.0,
+          "rolls": 3,
+          "delivery": "ground"
+        }
+      ]
+    },
     {
-      "id": "example-disabled-extra-success-roll",
-      "enabled": false,
-      "lootTablePrototype": "Loot/Tables/Mob/Bosses/EndgameDailies/Terminals/AbandonedSubway/ShockerTerminalLoot.prototype",
-      "chancePercent": 25.0,
-      "rolls": 1,
+      "id": "all-levels-rare-chase",
+      "enabled": true,
       "minRiftLevel": 1,
       "maxRiftLevel": 0,
       "successOnly": true,
@@ -39,7 +52,199 @@
       "classicOnly": false,
       "contentIds": [],
       "bossSourceIds": [],
-      "delivery": "inventory"
+      "tables": [
+        {
+          "id": "costume-card-or-token",
+          "lootTable": "costume-card-token-chase",
+          "chancePercent": 100.0,
+          "rolls": 1,
+          "delivery": "ground"
+        }
+      ]
+    }
+  ],
+  "randomItemPools": [
+    {
+      "id": "levels-1-9-all-cosmic-artifacts",
+      "enabled": true,
+      "prototypeDirectoryPrefix": "Entity/Items/Artifacts/Prototypes/SpecialArtifacts/CosmicArtifacts/",
+      "chancePercent": 10.0,
+      "rolls": 1,
+      "itemLevel": 63,
+      "minRiftLevel": 1,
+      "maxRiftLevel": 9,
+      "successOnly": true,
+      "checkpointOnly": false,
+      "classicOnly": false,
+      "contentIds": [],
+      "bossSourceIds": [],
+      "delivery": "ground"
+    },
+    {
+      "id": "levels-10-19-all-cosmic-artifacts",
+      "enabled": true,
+      "prototypeDirectoryPrefix": "Entity/Items/Artifacts/Prototypes/SpecialArtifacts/CosmicArtifacts/",
+      "chancePercent": 20.0,
+      "rolls": 1,
+      "itemLevel": 63,
+      "minRiftLevel": 10,
+      "maxRiftLevel": 19,
+      "successOnly": true,
+      "checkpointOnly": false,
+      "classicOnly": false,
+      "contentIds": [],
+      "bossSourceIds": [],
+      "delivery": "ground"
+    },
+    {
+      "id": "levels-20-29-all-cosmic-artifacts",
+      "enabled": true,
+      "prototypeDirectoryPrefix": "Entity/Items/Artifacts/Prototypes/SpecialArtifacts/CosmicArtifacts/",
+      "chancePercent": 35.0,
+      "rolls": 1,
+      "itemLevel": 63,
+      "minRiftLevel": 20,
+      "maxRiftLevel": 29,
+      "successOnly": true,
+      "checkpointOnly": false,
+      "classicOnly": false,
+      "contentIds": [],
+      "bossSourceIds": [],
+      "delivery": "ground"
+    },
+    {
+      "id": "levels-30-plus-all-cosmic-artifacts",
+      "enabled": true,
+      "prototypeDirectoryPrefix": "Entity/Items/Artifacts/Prototypes/SpecialArtifacts/CosmicArtifacts/",
+      "chancePercent": 50.0,
+      "rolls": 1,
+      "itemLevel": 63,
+      "minRiftLevel": 30,
+      "maxRiftLevel": 0,
+      "successOnly": true,
+      "checkpointOnly": false,
+      "classicOnly": false,
+      "contentIds": [],
+      "bossSourceIds": [],
+      "delivery": "ground"
+    },
+    {
+      "id": "checkpoint-all-cosmic-artifact-bonus",
+      "enabled": true,
+      "prototypeDirectoryPrefix": "Entity/Items/Artifacts/Prototypes/SpecialArtifacts/CosmicArtifacts/",
+      "chancePercent": 30.0,
+      "rolls": 1,
+      "itemLevel": 63,
+      "minRiftLevel": 1,
+      "maxRiftLevel": 19,
+      "successOnly": true,
+      "checkpointOnly": true,
+      "classicOnly": false,
+      "contentIds": [],
+      "bossSourceIds": [],
+      "delivery": "ground"
+    },
+    {
+      "id": "checkpoint-elite-all-cosmic-artifact-bonus",
+      "enabled": true,
+      "prototypeDirectoryPrefix": "Entity/Items/Artifacts/Prototypes/SpecialArtifacts/CosmicArtifacts/",
+      "chancePercent": 75.0,
+      "rolls": 1,
+      "itemLevel": 63,
+      "minRiftLevel": 20,
+      "maxRiftLevel": 0,
+      "successOnly": true,
+      "checkpointOnly": true,
+      "classicOnly": false,
+      "contentIds": [],
+      "bossSourceIds": [],
+      "delivery": "ground"
+    },
+    {
+      "id": "cosmic-doop-sector-all-cosmic-artifact",
+      "enabled": true,
+      "prototypeDirectoryPrefix": "Entity/Items/Artifacts/Prototypes/SpecialArtifacts/CosmicArtifacts/",
+      "chancePercent": 100.0,
+      "rolls": 1,
+      "itemLevel": 63,
+      "minRiftLevel": 25,
+      "maxRiftLevel": 0,
+      "successOnly": true,
+      "checkpointOnly": false,
+      "classicOnly": false,
+      "contentIds": [
+        "cosmic-doop-sector"
+      ],
+      "bossSourceIds": [
+        "cosmic-doop-sector"
+      ],
+      "delivery": "ground"
+    }
+  ],
+  "guaranteedItems": [
+    {
+      "id": "cube-shards-every-floor",
+      "enabled": true,
+      "itemPrototypeRuntimeId": 12443539321764519670,
+      "quantity": 1,
+      "minRiftLevel": 1,
+      "maxRiftLevel": 0,
+      "minWave": 1,
+      "maxWave": 0,
+      "successOnly": true,
+      "checkpointOnly": false,
+      "classicOnly": false,
+      "contentIds": [],
+      "bossSourceIds": [],
+      "delivery": "ground"
+    },
+    {
+      "id": "cube-shards-waves-20-29",
+      "enabled": true,
+      "itemPrototypeRuntimeId": 12443539321764519670,
+      "quantity": 1,
+      "minRiftLevel": 1,
+      "maxRiftLevel": 0,
+      "minWave": 20,
+      "maxWave": 29,
+      "successOnly": true,
+      "checkpointOnly": false,
+      "classicOnly": false,
+      "contentIds": [],
+      "bossSourceIds": [],
+      "delivery": "ground"
+    },
+    {
+      "id": "cube-shards-wave-30",
+      "enabled": true,
+      "itemPrototypeRuntimeId": 12443539321764519670,
+      "quantity": 2,
+      "minRiftLevel": 1,
+      "maxRiftLevel": 0,
+      "minWave": 30,
+      "maxWave": 30,
+      "successOnly": true,
+      "checkpointOnly": false,
+      "classicOnly": false,
+      "contentIds": [],
+      "bossSourceIds": [],
+      "delivery": "ground"
+    },
+    {
+      "id": "cube-shards-checkpoint-bonus",
+      "enabled": true,
+      "itemPrototypeRuntimeId": 12443539321764519670,
+      "quantity": 1,
+      "minRiftLevel": 1,
+      "maxRiftLevel": 0,
+      "minWave": 1,
+      "maxWave": 0,
+      "successOnly": true,
+      "checkpointOnly": true,
+      "classicOnly": false,
+      "contentIds": [],
+      "bossSourceIds": [],
+      "delivery": "ground"
     }
   ]
 }

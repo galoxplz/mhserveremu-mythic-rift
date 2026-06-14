@@ -8,6 +8,7 @@ namespace MHServerEmu.Games.MythicRifts
         public int RiftLevel { get; init; }
         public MythicRiftContentEntry Content { get; init; }
         public MythicRiftContentEntry BossContent { get; init; }
+        public IReadOnlyList<MythicRiftContentEntry> BossWaveContent { get; init; } = Array.Empty<MythicRiftContentEntry>();
         public int RequestedPlayerCount { get; init; }
         public int EffectivePlayerCount { get; init; }
         public int KillQuota { get; init; }
@@ -18,12 +19,16 @@ namespace MHServerEmu.Games.MythicRifts
         public PrototypeId BossProtoRef { get; init; }
         public PrototypeId BossLootTableProtoRef { get; init; }
         public MythicRiftDifficultySnapshot Difficulty { get; init; }
+        public bool UseThirtyWaveMode { get; init; }
+        public int WaveNumber { get; init; } = 1;
+        public int RequiredBossKillCount { get; init; } = 1;
 
         public bool IsValid =>
             RunId != 0 &&
             RiftLevel > 0 &&
             Content != null &&
             BossContent != null &&
+            BossWaveContent.Count > 0 &&
             RegionProtoRef != PrototypeId.Invalid &&
             StartTargetProtoRef != PrototypeId.Invalid &&
             BossProtoRef != PrototypeId.Invalid &&

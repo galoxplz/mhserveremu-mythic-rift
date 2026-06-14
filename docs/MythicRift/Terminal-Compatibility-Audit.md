@@ -61,9 +61,11 @@ The next content expansion adds map-only Rift entries from private combat region
 |---|---|---|---|
 | `bronx-zoo` | `BronxZooRegionL60` | `ZooEntryTarget` | Large private one-shot map with many populated areas and no terminal boss dependency. Current code now matches base/alt region equivalence in both directions to help one-shot L60 variants bind and scale correctly if the live region resolves through its base prototype. |
 | `wakanda-jungle` | `WakandaP1RegionL60` | `WakandaP1EntryTarget` | Private one-shot map with multiple populated areas and no registered metagame in the region data. |
-| `hydra-island-one-shot` | `HYDRAIslandPartDeuxRegionL60` | `Hydra1ShotEntryTarget` | Private one-shot map with many populated areas; selected for HYDRA visual variety. |
+| `hydra-island-one-shot` | `HYDRAIslandPartDeuxRegionL60` | `Hydra1ShotEntryTarget` | Private one-shot map with many populated areas; restored to random selection for HYDRA visual variety. |
 | `daily-bugle` | `OpDailyBugleRegionL11To60` | `OpsDailyBugleStartTarget` | Re-enabled for random selection with Rift custom population, so the low native population should no longer brick kill-quota progression. |
-| `dr-strange-times-square` | `DrStrangeTimesSquareRegionCosmic` | `DrStrangeTimesSquareEntryTargetCosmic` | Registered for fixed validation only. Test Center saw a `region has not finished downloading` error in this Times Square / Dimensions Collide family, so it is excluded from random selection until multiplayer streaming behavior is understood. |
+| `dr-strange-times-square` | `DrStrangeTimesSquareRegionCosmic` | `DrStrangeTimesSquareEntryTargetCosmic` | Enabled in the low-frequency special branch with custom Rift population. The earlier `region has not finished downloading` report still requires multiplayer streaming validation. |
+
+The SIP expansion also adds three solo-only Civil War cosmic scenarios and two raid-region experiments. Civil War prototypes declare `playerLimit=1`, so party selection filters them out. March to Axis and Muspelheim are level-15+ special maps; region-level UI ownership now hides their native metagame widgets, while live testing remains necessary for their native raid scripts.
 
 Recommended smoke-test command sequence:
 

@@ -12,26 +12,33 @@ namespace MHServerEmu.Games.MythicRifts
     public sealed class MythicRiftRunState
     {
         private readonly HashSet<ulong> _participantPlayerDbIds = new();
+        private readonly HashSet<ulong> _admittedPlayerDbIds = new();
         private readonly HashSet<ulong> _rewardedPlayerDbIds = new();
+        private readonly HashSet<ulong> _rewardEligiblePlayerDbIds = new();
         private readonly HashSet<ulong> _bossUnlockEligiblePlayerDbIds = new();
         private readonly HashSet<ulong> _progressionEligiblePlayerDbIds = new();
         private readonly HashSet<ulong> _participantsSeenInRunRegion = new();
         private readonly HashSet<ulong> _earlyExitPlayerDbIds = new();
         private readonly HashSet<ulong> _riftEntryBannerSentPlayerDbIds = new();
         private readonly HashSet<ulong> _customPopulationEntityIds = new();
+        private readonly HashSet<ulong> _activeBossEntityIds = new();
         private readonly HashSet<int> _sentTimeWarningThresholds = new();
         private readonly HashSet<int> _sentKillProgressMilestones = new();
+        private readonly HashSet<int> _spawnedMilestoneEncounterPercents = new();
 
         public MythicRiftRunConfig Config { get; }
         public MythicRiftRunStatus Status { get; private set; } = MythicRiftRunStatus.Pending;
         public TimeSpan RegisteredAt { get; private set; }
         public ulong RegionId { get; private set; }
-        public ulong BossEntityId { get; private set; }
+        public ulong BossEntityId => _activeBossEntityIds.FirstOrDefault();
         public ulong ExitPortalEntityId { get; private set; }
         public int CurrentKillCount { get; private set; }
         public bool BossUnlocked { get; private set; }
         public bool RewardsGranted { get; private set; }
         public MythicRiftRewardOutcome RewardOutcome { get; private set; }
+        public MythicRiftDifficultySnapshot Difficulty { get; private set; }
+        public bool AdmissionTrackingEnabled { get; private set; }
+        public bool AdmissionFinalized { get; private set; }
         public TimeSpan StartedAt { get; private set; }
         public TimeSpan? CompletedAt { get; private set; }
         public TimeSpan? ExpiresAt { get; private set; }
@@ -39,22 +46,30 @@ namespace MHServerEmu.Games.MythicRifts
         public TimeSpan NextCustomPopulationSpawnAt { get; private set; }
         public int CustomPopulationTotalSpawned { get; private set; }
         public bool RegionDifficultyScalingApplied { get; private set; }
+        public int BossSpawnCount { get; private set; }
+        public int BossKillCount { get; private set; }
         public float RegionPlayerToMobDamageMultiplierBeforeScaling { get; private set; } = 1f;
         public float RegionMobToPlayerDamageMultiplierBeforeScaling { get; private set; } = 1f;
         public IReadOnlyCollection<ulong> ParticipantPlayerDbIds => _participantPlayerDbIds;
+        public IReadOnlyCollection<ulong> AdmittedPlayerDbIds => _admittedPlayerDbIds;
         public IReadOnlyCollection<ulong> RewardedPlayerDbIds => _rewardedPlayerDbIds;
+        public IReadOnlyCollection<ulong> RewardEligiblePlayerDbIds => _rewardEligiblePlayerDbIds;
         public IReadOnlyCollection<ulong> BossUnlockEligiblePlayerDbIds => _bossUnlockEligiblePlayerDbIds;
         public IReadOnlyCollection<ulong> ProgressionEligiblePlayerDbIds => _progressionEligiblePlayerDbIds;
         public IReadOnlyCollection<ulong> ParticipantsSeenInRunRegionPlayerDbIds => _participantsSeenInRunRegion;
         public IReadOnlyCollection<ulong> EarlyExitPlayerDbIds => _earlyExitPlayerDbIds;
         public IReadOnlyCollection<ulong> CustomPopulationEntityIds => _customPopulationEntityIds;
+        public IReadOnlyCollection<ulong> ActiveBossEntityIds => _activeBossEntityIds;
         public int ParticipantCount => _participantPlayerDbIds.Count;
+        public int AdmittedPlayerCount => _admittedPlayerDbIds.Count;
+        public int EffectivePlayerCount => Difficulty.EffectivePlayerCount;
         public int RewardedPlayerCount => _rewardedPlayerDbIds.Count;
         public bool IsInProgress => Status == MythicRiftRunStatus.Pending || Status == MythicRiftRunStatus.Active;
 
         public MythicRiftRunState(MythicRiftRunConfig config)
         {
             Config = config;
+            Difficulty = config?.Difficulty ?? default;
         }
 
         public void AttachRegion(ulong regionId)
@@ -64,7 +79,24 @@ namespace MHServerEmu.Games.MythicRifts
 
         public void AttachBoss(ulong bossEntityId)
         {
-            BossEntityId = bossEntityId;
+            if (bossEntityId == 0 || _activeBossEntityIds.Add(bossEntityId) == false)
+                return;
+
+            BossSpawnCount++;
+        }
+
+        public bool IsTrackedBoss(ulong bossEntityId)
+        {
+            return bossEntityId != 0 && _activeBossEntityIds.Contains(bossEntityId);
+        }
+
+        public bool MarkBossDefeated(ulong bossEntityId)
+        {
+            if (_activeBossEntityIds.Remove(bossEntityId) == false)
+                return false;
+
+            BossKillCount++;
+            return true;
         }
 
         public void AttachExitPortal(ulong exitPortalEntityId)
@@ -177,15 +209,54 @@ namespace MHServerEmu.Games.MythicRifts
             return _participantPlayerDbIds.Add(playerDbId);
         }
 
+        public bool IsParticipant(ulong playerDbId)
+        {
+            return playerDbId != 0 && _participantPlayerDbIds.Contains(playerDbId);
+        }
+
+        public bool MarkParticipantAdmitted(ulong playerDbId)
+        {
+            if (AdmissionTrackingEnabled == false || AdmissionFinalized || IsParticipant(playerDbId) == false || _earlyExitPlayerDbIds.Contains(playerDbId))
+                return false;
+
+            return _admittedPlayerDbIds.Add(playerDbId);
+        }
+
+        public bool RemoveParticipantBeforeAdmission(ulong playerDbId)
+        {
+            if (AdmissionTrackingEnabled == false || AdmissionFinalized || playerDbId == 0 || _admittedPlayerDbIds.Contains(playerDbId))
+                return false;
+
+            return _participantPlayerDbIds.Remove(playerDbId);
+        }
+
+        public void EnableAdmissionTracking()
+        {
+            if (AdmissionFinalized == false)
+                AdmissionTrackingEnabled = true;
+        }
+
+        public void FinalizeAdmission()
+        {
+            if (AdmissionTrackingEnabled == false || AdmissionFinalized)
+                return;
+
+            int admittedPlayerCount = Math.Max(_admittedPlayerDbIds.Count, 1);
+            Difficulty = MythicRiftScaling.BuildSnapshot(Config.RiftLevel, admittedPlayerCount, Config.UseThirtyWaveMode);
+            AdmissionFinalized = true;
+        }
+
         public bool MarkParticipantLeftEarly(ulong playerDbId)
         {
             if (playerDbId == 0)
                 return false;
 
             bool wasParticipant = _participantPlayerDbIds.Remove(playerDbId);
+            _admittedPlayerDbIds.Remove(playerDbId);
             _participantsSeenInRunRegion.Remove(playerDbId);
             _bossUnlockEligiblePlayerDbIds.Remove(playerDbId);
             _progressionEligiblePlayerDbIds.Remove(playerDbId);
+            _rewardEligiblePlayerDbIds.Remove(playerDbId);
             _riftEntryBannerSentPlayerDbIds.Remove(playerDbId);
             _earlyExitPlayerDbIds.Add(playerDbId);
             return wasParticipant;
@@ -268,6 +339,24 @@ namespace MHServerEmu.Games.MythicRifts
             }
         }
 
+        public void SnapshotRewardEligiblePlayers(IEnumerable<ulong> playerDbIds)
+        {
+            _rewardEligiblePlayerDbIds.Clear();
+            if (playerDbIds == null)
+                return;
+
+            foreach (ulong playerDbId in playerDbIds)
+            {
+                if (IsParticipant(playerDbId) && HasParticipantLeftEarly(playerDbId) == false)
+                    _rewardEligiblePlayerDbIds.Add(playerDbId);
+            }
+        }
+
+        public bool IsRewardEligible(ulong playerDbId)
+        {
+            return playerDbId != 0 && _rewardEligiblePlayerDbIds.Contains(playerDbId);
+        }
+
         public bool MarkTimeWarningSent(int thresholdSeconds)
         {
             return thresholdSeconds > 0 && _sentTimeWarningThresholds.Add(thresholdSeconds);
@@ -276,6 +365,16 @@ namespace MHServerEmu.Games.MythicRifts
         public bool MarkKillProgressMilestoneSent(int milestonePercent)
         {
             return milestonePercent > 0 && _sentKillProgressMilestones.Add(milestonePercent);
+        }
+
+        public bool HasSpawnedMilestoneEncounter(int milestonePercent)
+        {
+            return milestonePercent > 0 && _spawnedMilestoneEncounterPercents.Contains(milestonePercent);
+        }
+
+        public bool MarkMilestoneEncounterSpawned(int milestonePercent)
+        {
+            return milestonePercent > 0 && _spawnedMilestoneEncounterPercents.Add(milestonePercent);
         }
 
         public void SetNextCustomPopulationSpawnAt(TimeSpan nextSpawnAt)
