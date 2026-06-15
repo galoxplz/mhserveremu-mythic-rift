@@ -177,8 +177,8 @@ namespace MHServerEmu.Games.Entities
         public bool ConfigureDirectTarget(PrototypeId targetRef)
         {
             TransitionDestination destination = TransitionDestination.FromTargetRef(targetRef);
-            if (destination == null)
-                return Logger.WarnReturn(false, $"ConfigureDirectTarget(): Failed to build destination for target {targetRef.GetNameFormatted()}");
+            if (!Verify.IsNotNull(destination, $"ConfigureDirectTarget(): Failed to build destination for target {targetRef.GetNameFormatted()}"))
+                return false;
 
             _destinationList.Clear();
             _destinationList.Add(destination);

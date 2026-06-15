@@ -2635,10 +2635,10 @@ namespace MHServerEmu.Games.MythicRifts
             if (attackerOwner != null)
                 runState.MarkParticipantSeenInRunRegion(attackerOwner.DatabaseUniqueId);
 
-            if (evt.Defender?.TagPlayers == null)
+            if (evt.Defender?.PlayerTags == null)
                 return;
 
-            foreach (Player taggedPlayer in evt.Defender.TagPlayers.GetPlayers())
+            foreach (Player taggedPlayer in evt.Defender.PlayerTags.GetPlayers())
                 runState.MarkParticipantSeenInRunRegion(taggedPlayer.DatabaseUniqueId);
         }
 
@@ -3241,7 +3241,7 @@ namespace MHServerEmu.Games.MythicRifts
             if (evt.Attacker?.GetOwnerOfType<Player>() != null)
                 return true;
 
-            return evt.Defender.TagPlayers.HasTags;
+            return evt.Defender.PlayerTags.HasTags;
         }
 
         private static int GetKillCountCredit(in EntityDeadGameEvent evt)
