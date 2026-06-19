@@ -2274,6 +2274,7 @@ namespace MHServerEmu.Commands.Implementations
 
             using Teleporter teleporter = ObjectPoolManager.Instance.Get<Teleporter>();
             teleporter.Initialize(player, TeleportContextEnum.TeleportContext_Debug);
+            teleporter.BypassQueueRegionForRift = true;
             teleporter.DifficultyTierRef = player.GetDifficultyTierForRegion(runState.Config.RegionProtoRef);
             if (teleporter.DifficultyTierRef == PrototypeId.Invalid)
                 teleporter.DifficultyTierRef = GameDatabase.GlobalsPrototype.DifficultyTierDefault;

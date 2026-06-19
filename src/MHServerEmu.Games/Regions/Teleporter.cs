@@ -47,6 +47,7 @@ namespace MHServerEmu.Games.Regions
         public PrototypeId ItemRarity { get; set; }
         public PropertyCollection Properties { get; set; }
         public PrototypeId DangerRoomScenarioRef { get; set; }
+        public bool BypassQueueRegionForRift { get; set; }
 
         public bool IsInPool { get; set; }
 
@@ -74,6 +75,7 @@ namespace MHServerEmu.Games.Regions
             ItemRarity = default;
             Properties = default;
             DangerRoomScenarioRef = default;
+            BypassQueueRegionForRift = default;
         }
 
         public void Dispose()
@@ -228,7 +230,7 @@ namespace MHServerEmu.Games.Regions
                 if (Player.CanEnterRegion(regionProtoRef, DifficultyTierRef, false) == false)
                     return false;
 
-                if (destinationRegionProto.IsQueueRegion)
+                if (destinationRegionProto.IsQueueRegion && BypassQueueRegionForRift == false)
                     return BeginTeleportToQueueTarget(regionProtoRef);
 
                 return TeleportToRemoteTarget(regionProtoRef, areaProtoRef, cellProtoRef, entityProtoRef);

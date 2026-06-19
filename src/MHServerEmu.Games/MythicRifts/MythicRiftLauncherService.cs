@@ -805,6 +805,7 @@ namespace MHServerEmu.Games.MythicRifts
             teleporter.Initialize(
                 player,
                 usePartyTeleportContext ? TeleportContextEnum.TeleportContext_Party : TeleportContextEnum.TeleportContext_Debug);
+            teleporter.BypassQueueRegionForRift = true;
 
             Region currentRegion = player.GetRegion();
             if (currentRegion != null)

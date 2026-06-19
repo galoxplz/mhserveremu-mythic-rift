@@ -115,6 +115,7 @@ Use one Endless Rift Scenario.
 
 Expected:
 
+- Rift launch should bypass the native raid queue and teleport into a Rift-owned Axis instance directly.
 - Mythic Rift level, kill bar, and timer remain visible.
 - Axis raid objective bars, ready checks, score panels, or native top UI do not persist for more than one second.
 - `rift objectives` shows the Rift widgets and no lasting native tracker.
@@ -139,6 +140,7 @@ Use one Endless Rift Scenario.
 
 For each run verify:
 
+- raid maps bypass the native queue and load as Rift-owned instances
 - both players finish downloading the region
 - native UI does not persist
 - kill quota advances
@@ -169,7 +171,7 @@ Expected:
 - Passing party leadership during the run does not cancel generation, rewards, or progression.
 - Each player can use the return portal independently.
 
-## Test 8: Solo-Only Civil War Guard
+## Test 8: Removed Civil War Guard
 
 With two players in the launch party:
 
@@ -178,28 +180,6 @@ rift previewrandom 20 20 2 10
 ```
 
 Expected: no Civil War Airport or Bazaar map appears.
-
-Then test solo:
-
-```text
-rift armbeaconfixed civil-war-airport-cap 10
-```
-
-Use one Endless Rift Scenario and finish or abandon the run. Repeat that sequence with:
-
-```text
-rift armbeaconfixed civil-war-airport-iron-man 10
-```
-
-Use one Endless Rift Scenario and finish or abandon the run. Then:
-
-```text
-rift armbeaconfixed civil-war-bazaar 10
-```
-
-Use one Endless Rift Scenario.
-
-Expected: each works solo and uses only the Mythic Rift HUD.
 
 ## Test 9: Targeted Ground Loot
 

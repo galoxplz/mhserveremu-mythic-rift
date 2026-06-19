@@ -111,16 +111,16 @@ rift validaterandompool 20 2 10
 rift previewrandom 20 20 1 10
 rift previewrandom 20 20 2 10
 
-rift armbeaconfixed civil-war-airport-cap 10
-rift armbeaconfixed civil-war-airport-iron-man 10
-rift armbeaconfixed civil-war-bazaar 10
 rift armbeaconfixed dr-strange-times-square 10
 rift armbeaconfixed march-to-axis 10
 rift armbeaconfixed muspelheim-raid 10
 ```
 
+Civil War Airport / Bazaar cosmic variants are intentionally removed from Rift region selection after TC feedback.
+
 For Axis and Muspelheim, verify:
 
+- the Rift launcher bypasses the native raid queue and teleports directly into a Rift-owned instance
 - only the Mythic Rift level/quota/timer HUD is visible
 - native raid objective UI does not return after zoning or phase changes
 - kill quota progresses from native and custom Rift enemies
