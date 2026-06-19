@@ -505,7 +505,9 @@ namespace MHServerEmu.Games.MythicRifts
         private readonly Dictionary<ulong, MythicRiftRunState> _activeRuns = new();
         private readonly Dictionary<ulong, Event<EntityDeadGameEvent>.Action> _regionEntityDeadActions = new();
         private readonly Dictionary<ulong, int> _highestUnlockedRiftLevelByPlayer = new();
+        private readonly Dictionary<ulong, int> _highestUnlockedEndlessRiftLevelByPlayer = new();
         private readonly Dictionary<ulong, int> _preferredLaunchRiftLevelByPlayer = new();
+        private readonly Dictionary<ulong, int> _preferredLaunchEndlessRiftLevelByPlayer = new();
         private readonly Dictionary<ulong, string> _lastCompletedMapContentIdByPlayer = new();
         private readonly Dictionary<ulong, List<string>> _recentRandomMapContentIdsByPlayer = new();
         private readonly Dictionary<ulong, TimeSpan> _nextNativeBossSuppressionScanAt = new();
@@ -550,49 +552,56 @@ namespace MHServerEmu.Games.MythicRifts
                 mode == MythicRiftMode.Endless);
         }
 
-        public int GetHighestUnlockedRiftLevel(ulong playerDbId)
+        public int GetHighestUnlockedRiftLevel(ulong playerDbId, MythicRiftMode mode = MythicRiftMode.Standard)
         {
             if (playerDbId == 0)
                 return 1;
 
+            Dictionary<ulong, int> unlockedCache = GetHighestUnlockedCache(mode);
             Player onlinePlayer = Game.EntityManager.GetEntityByDbGuid<Player>(playerDbId);
             if (onlinePlayer != null)
             {
-                int persistentLevel = onlinePlayer.MythicRiftHighestUnlockedLevel;
-                if (_highestUnlockedRiftLevelByPlayer.TryGetValue(playerDbId, out int cachedUnlockedLevel))
+                int persistentLevel = GetPersistentUnlockedRiftLevel(onlinePlayer, mode);
+                if (unlockedCache.TryGetValue(playerDbId, out int cachedUnlockedLevel))
                     return Math.Max(Math.Max(cachedUnlockedLevel, persistentLevel), 1);
 
                 return Math.Max(persistentLevel, 1);
             }
 
-            return _highestUnlockedRiftLevelByPlayer.TryGetValue(playerDbId, out int unlockedLevel)
+            return unlockedCache.TryGetValue(playerDbId, out int unlockedLevel)
                 ? Math.Max(unlockedLevel, 1)
                 : 1;
         }
 
-        public bool CanAccessRiftLevel(ulong playerDbId, int riftLevel)
+        public bool CanAccessRiftLevel(ulong playerDbId, int riftLevel, MythicRiftMode mode = MythicRiftMode.Standard)
         {
             if (riftLevel <= 0)
                 return false;
 
-            return riftLevel <= GetHighestUnlockedRiftLevel(playerDbId);
+            return riftLevel <= GetHighestUnlockedRiftLevel(playerDbId, mode);
         }
 
-        public int GetPreferredLaunchRiftLevel(ulong playerDbId)
+        public int GetPreferredLaunchRiftLevel(ulong playerDbId, MythicRiftMode mode = MythicRiftMode.Standard)
         {
-            int highestUnlockedLevel = GetHighestUnlockedRiftLevel(playerDbId);
+            int highestUnlockedLevel = GetHighestUnlockedRiftLevel(playerDbId, mode);
             if (playerDbId == 0)
                 return highestUnlockedLevel;
 
-            if (_preferredLaunchRiftLevelByPlayer.TryGetValue(playerDbId, out int preferredLevel) == false || preferredLevel <= 0)
+            Dictionary<ulong, int> preferredCache = GetPreferredLaunchCache(mode);
+            if (preferredCache.TryGetValue(playerDbId, out int preferredLevel) == false || preferredLevel <= 0)
                 return highestUnlockedLevel;
 
             return Math.Min(Math.Max(preferredLevel, 1), highestUnlockedLevel);
         }
 
-        public bool TrySetPreferredLaunchRiftLevel(ulong playerDbId, int riftLevel, out int appliedLevel, out string errorMessage)
+        public bool TrySetPreferredLaunchRiftLevel(
+            ulong playerDbId,
+            int riftLevel,
+            out int appliedLevel,
+            out string errorMessage,
+            MythicRiftMode mode = MythicRiftMode.Standard)
         {
-            appliedLevel = GetPreferredLaunchRiftLevel(playerDbId);
+            appliedLevel = GetPreferredLaunchRiftLevel(playerDbId, mode);
             errorMessage = string.Empty;
 
             if (playerDbId == 0)
@@ -607,71 +616,106 @@ namespace MHServerEmu.Games.MythicRifts
                 return false;
             }
 
-            int highestUnlockedLevel = GetHighestUnlockedRiftLevel(playerDbId);
+            int highestUnlockedLevel = GetHighestUnlockedRiftLevel(playerDbId, mode);
             if (riftLevel > highestUnlockedLevel)
             {
-                errorMessage = $"Requested Rift level {riftLevel} is locked. Highest unlocked level: {highestUnlockedLevel}.";
+                errorMessage = $"Requested {GetModeDisplayName(mode)} level {riftLevel} is locked. Highest unlocked level: {highestUnlockedLevel}.";
                 return false;
             }
 
-            _preferredLaunchRiftLevelByPlayer[playerDbId] = riftLevel;
+            GetPreferredLaunchCache(mode)[playerDbId] = riftLevel;
             appliedLevel = riftLevel;
             return true;
         }
 
-        public int UseHighestUnlockedLaunchRiftLevel(ulong playerDbId)
+        public int UseHighestUnlockedLaunchRiftLevel(ulong playerDbId, MythicRiftMode mode = MythicRiftMode.Standard)
         {
             if (playerDbId == 0)
                 return 1;
 
-            _preferredLaunchRiftLevelByPlayer.Remove(playerDbId);
-            return GetHighestUnlockedRiftLevel(playerDbId);
+            GetPreferredLaunchCache(mode).Remove(playerDbId);
+            return GetHighestUnlockedRiftLevel(playerDbId, mode);
         }
 
-        public bool ConsumePreferredLaunchRiftLevel(ulong playerDbId)
+        public bool ConsumePreferredLaunchRiftLevel(ulong playerDbId, MythicRiftMode mode = MythicRiftMode.Standard)
         {
             if (playerDbId == 0)
                 return false;
 
-            return _preferredLaunchRiftLevelByPlayer.Remove(playerDbId);
+            return GetPreferredLaunchCache(mode).Remove(playerDbId);
         }
 
-        public int SetHighestUnlockedRiftLevel(ulong playerDbId, int unlockedLevel, bool allowDecrease = false)
+        public int SetHighestUnlockedRiftLevel(
+            ulong playerDbId,
+            int unlockedLevel,
+            bool allowDecrease = false,
+            MythicRiftMode mode = MythicRiftMode.Standard)
         {
             if (playerDbId == 0)
                 return 1;
 
             int normalizedLevel = Math.Max(unlockedLevel, 1);
             if (allowDecrease == false)
-                normalizedLevel = Math.Max(normalizedLevel, GetHighestUnlockedRiftLevel(playerDbId));
+                normalizedLevel = Math.Max(normalizedLevel, GetHighestUnlockedRiftLevel(playerDbId, mode));
 
-            _highestUnlockedRiftLevelByPlayer[playerDbId] = normalizedLevel;
-            SyncOnlinePlayerRiftLevel(playerDbId, normalizedLevel);
+            GetHighestUnlockedCache(mode)[playerDbId] = normalizedLevel;
+            SyncOnlinePlayerRiftLevel(playerDbId, normalizedLevel, mode);
             return normalizedLevel;
         }
 
-        public int ResetRiftProgress(ulong playerDbId)
+        public int ResetRiftProgress(ulong playerDbId, MythicRiftMode mode = MythicRiftMode.Standard)
         {
             if (playerDbId == 0)
                 return 1;
 
-            _preferredLaunchRiftLevelByPlayer.Remove(playerDbId);
-            return SetHighestUnlockedRiftLevel(playerDbId, 1, allowDecrease: true);
+            GetPreferredLaunchCache(mode).Remove(playerDbId);
+            return SetHighestUnlockedRiftLevel(playerDbId, 1, allowDecrease: true, mode: mode);
         }
 
-        public int GrantNextRiftLevel(ulong playerDbId, int completedLevel)
+        public int GrantNextRiftLevel(ulong playerDbId, int completedLevel, MythicRiftMode mode = MythicRiftMode.Standard)
         {
             if (playerDbId == 0)
                 return 1;
 
-            int currentUnlockedLevel = GetHighestUnlockedRiftLevel(playerDbId);
+            int currentUnlockedLevel = GetHighestUnlockedRiftLevel(playerDbId, mode);
             int nextUnlockedLevel = MythicRiftProgression.ResolveNextUnlockedLevel(currentUnlockedLevel, completedLevel);
             if (nextUnlockedLevel <= currentUnlockedLevel)
                 return currentUnlockedLevel;
 
-            _highestUnlockedRiftLevelByPlayer[playerDbId] = nextUnlockedLevel;
-            SyncOnlinePlayerRiftLevel(playerDbId, nextUnlockedLevel);
+            GetHighestUnlockedCache(mode)[playerDbId] = nextUnlockedLevel;
+            SyncOnlinePlayerRiftLevel(playerDbId, nextUnlockedLevel, mode);
             return nextUnlockedLevel;
+        }
+
+        private Dictionary<ulong, int> GetHighestUnlockedCache(MythicRiftMode mode)
+        {
+            return mode == MythicRiftMode.Endless
+                ? _highestUnlockedEndlessRiftLevelByPlayer
+                : _highestUnlockedRiftLevelByPlayer;
+        }
+
+        private Dictionary<ulong, int> GetPreferredLaunchCache(MythicRiftMode mode)
+        {
+            return mode == MythicRiftMode.Endless
+                ? _preferredLaunchEndlessRiftLevelByPlayer
+                : _preferredLaunchRiftLevelByPlayer;
+        }
+
+        private static int GetPersistentUnlockedRiftLevel(Player player, MythicRiftMode mode)
+        {
+            if (player == null)
+                return 1;
+
+            return mode == MythicRiftMode.Endless
+                ? player.EndlessRiftHighestUnlockedLevel
+                : player.MythicRiftHighestUnlockedLevel;
+        }
+
+        public static string GetModeDisplayName(MythicRiftMode mode)
+        {
+            return mode == MythicRiftMode.Endless
+                ? "Endless Rift"
+                : "Cosmic Rift";
         }
 
         public MythicRiftRunConfig CreateDebugRunConfig(
@@ -1484,10 +1528,10 @@ namespace MHServerEmu.Games.MythicRifts
                 return null;
             }
 
-            if (CanAccessRiftLevel(player.DatabaseUniqueId, riftLevel) == false)
+            if (CanAccessRiftLevel(player.DatabaseUniqueId, riftLevel, mode) == false)
             {
-                int unlockedLevel = GetHighestUnlockedRiftLevel(player.DatabaseUniqueId);
-                errorMessage = $"Requested Rift level {riftLevel} is locked. Highest unlocked level: {unlockedLevel}.";
+                int unlockedLevel = GetHighestUnlockedRiftLevel(player.DatabaseUniqueId, mode);
+                errorMessage = $"Requested {GetModeDisplayName(mode)} level {riftLevel} is locked. Highest unlocked level: {unlockedLevel}.";
                 return null;
             }
 
@@ -3033,8 +3077,8 @@ namespace MHServerEmu.Games.MythicRifts
 
             foreach (ulong playerDbId in recipientDbIds)
             {
-                int unlockedLevel = GrantNextRiftLevel(playerDbId, runState.Config.RiftLevel);
-                Logger.Info($"Mythic Rift run {runState.Config.RunId} unlocked Rift level {unlockedLevel} for playerDbId=0x{playerDbId:X}.");
+                int unlockedLevel = GrantNextRiftLevel(playerDbId, runState.Config.RiftLevel, runState.Config.Mode);
+                Logger.Info($"Mythic Rift run {runState.Config.RunId} unlocked {GetModeDisplayName(runState.Config.Mode)} level {unlockedLevel} for playerDbId=0x{playerDbId:X}.");
             }
         }
 
@@ -4790,7 +4834,7 @@ namespace MHServerEmu.Games.MythicRifts
             return 50;
         }
 
-        private void SyncOnlinePlayerRiftLevel(ulong playerDbId, int unlockedLevel)
+        private void SyncOnlinePlayerRiftLevel(ulong playerDbId, int unlockedLevel, MythicRiftMode mode)
         {
             if (playerDbId == 0)
                 return;
@@ -4799,7 +4843,10 @@ namespace MHServerEmu.Games.MythicRifts
             if (onlinePlayer == null)
                 return;
 
-            onlinePlayer.MythicRiftHighestUnlockedLevel = unlockedLevel;
+            if (mode == MythicRiftMode.Endless)
+                onlinePlayer.EndlessRiftHighestUnlockedLevel = unlockedLevel;
+            else
+                onlinePlayer.MythicRiftHighestUnlockedLevel = unlockedLevel;
         }
 
         private bool TryFindInProgressRunConflict(IEnumerable<ulong> playerDbIds, out MythicRiftRunState conflictingRun)

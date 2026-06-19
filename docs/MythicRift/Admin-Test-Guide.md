@@ -124,14 +124,21 @@ rift status
 rift level
 rift level 1
 rift level max
+rift level endless
+rift level endless 1
+rift level endless max
 ```
 
 Expected result:
 
-- `rift status` shows the highest unlocked level and the next beacon launch level when no Rift is active
-- `rift level` shows the next beacon launch level and the highest unlocked level
-- `rift level [number]` arms that level for the next successful beacon launch only, and only if that level is already unlocked
-- `rift level max` clears the one-shot launch selection so the next beacon uses the player's highest unlocked level
+- `rift status` shows both Cosmic and Endless highest unlocked levels and next launch levels when no Rift is active
+- `rift level` shows the next Cosmic launch level and the highest unlocked Cosmic level
+- `rift level endless` shows the next Endless launch level and the highest unlocked Endless level
+- `rift level [number]` arms that Cosmic level for the next successful Cosmic beacon launch only, and only if that level is already unlocked
+- `rift level endless [number]` arms that Endless level for the next successful Endless launcher use only, and only if that Endless level is already unlocked
+- `rift level max` clears the Cosmic one-shot launch selection
+- `rift level endless max` clears the Endless one-shot launch selection
+- Cosmic and Endless progression are intentionally separate; leveling one mode must not unlock levels in the other mode
 - `rift level [number]` never lowers the player's highest unlocked progression; it only changes the next launch level
 - `rift setaccess` and `rift prepbeacon` now protect existing higher progression and will not lower a player's max level by accident; use `rift resetprogress` first when an intentional test reset is needed
 - the next purchased or granted beacon uses the one-shot launch level when armed, then the selection is consumed and later beacons go back to the highest unlocked level by default
@@ -142,12 +149,15 @@ Admin progress reset test:
 ```text
 rift progression
 rift resetprogress
+rift resetprogress endless
 rift progression
 ```
 
 Expected result:
 
-- `rift resetprogress` resets the invoking player's highest unlocked Rift level to `1`
+- `rift progression` reports both Cosmic and Endless progression by default
+- `rift resetprogress` resets the invoking player's highest unlocked Cosmic Rift level to `1`
+- `rift resetprogress endless` resets the invoking player's highest unlocked Endless Rift level to `1`
 - any one-shot launch level selection is cleared, so the next launch returns to level `1`
 - this is intentionally admin-only for controlled Test Center resets
 

@@ -4,8 +4,9 @@ Use this as the short playtest instruction sheet when Test Center starts from a 
 
 ## Quick Summary
 
-- Every player starts with Cosmic Rift level `1` unlocked.
-- Using a Rift launcher item starts the player's highest unlocked Rift level by default.
+- Every player starts with Cosmic Rift level `1` unlocked and Endless Rift level `1` unlocked.
+- Cosmic Rift and Endless Rift now have separate progression and separate scaling.
+- Using a Rift launcher item starts that mode's highest unlocked Rift level by default.
 - Completing Rift level `N` unlocks Rift level `N+1`.
 - Failing, abandoning, leaving early, or timing out does not unlock the next level.
 - One launcher item is consumed per Rift attempt.
@@ -64,26 +65,46 @@ rift status
 ```
 
 Shows whether you have an active Rift, your highest unlocked Rift level, and the level your next launcher item will open.
+When no run is active, this reports both Cosmic and Endless progression.
 
 ```text
 rift level
 ```
 
-Shows your next launch level and highest unlocked level.
+Shows your next Cosmic Rift launch level and highest unlocked Cosmic level.
+
+```text
+rift level endless
+```
+
+Shows your next Endless Rift launch level and highest unlocked Endless level.
 
 ```text
 rift level X
 ```
 
-Arms one lower-level farming run, if level `X` is already unlocked. This does not lower your progression and is consumed after the next successful launcher use.
+Arms one lower-level Cosmic farming run, if level `X` is already unlocked. This does not lower your progression and is consumed after the next successful Cosmic launcher use.
 
 Example: if your highest unlocked level is `50`, `rift level 25` makes only the next launcher open level `25`. After that launch, future launchers go back to level `50` by default.
+
+```text
+rift level endless X
+rift level X endless
+```
+
+Arms one lower-level Endless farming run. Cosmic and Endless selections are separate.
 
 ```text
 rift level max
 ```
 
-Clears the one-shot lower-level selection and makes the next launcher use your highest unlocked level.
+Clears the Cosmic one-shot lower-level selection and makes the next Cosmic launcher use your highest unlocked Cosmic level.
+
+```text
+rift level endless max
+```
+
+Clears the Endless one-shot lower-level selection.
 
 ```text
 rift abandon
@@ -95,7 +116,7 @@ Cancels your active Rift attempt, returns online participants to the Danger Room
 rift recover
 ```
 
-Emergency test command. Clears temporary launcher state and safely abandons/removes your active Rift if your session gets stuck.
+Emergency test command. Clears temporary Cosmic and Endless launcher state and safely abandons/removes your active Rift if your session gets stuck.
 
 ## What Players Should Avoid During Playtests
 
@@ -113,7 +134,7 @@ Admins can reset a tester back to Rift level `1` with:
 rift resetprogress
 ```
 
-This also clears any one-shot launch level selection.
+This resets Cosmic progression. Use `rift resetprogress endless` to reset Endless progression. Each reset also clears that mode's one-shot launch level selection.
 
 ## Individual Area Test Commands
 

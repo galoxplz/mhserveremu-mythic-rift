@@ -411,7 +411,8 @@ namespace MHServerEmu.Games.MythicRifts
                 };
             }
 
-            riftLevel = NormalizeRiftLevel(player, riftLevel);
+            MythicRiftMode mode = ResolveModeForPrototype(intent.ItemPrototypeName);
+            riftLevel = NormalizeRiftLevel(player, riftLevel, mode);
             timeLimit = NormalizeTimeLimit(timeLimit);
 
             MythicRiftLauncherUseResult result = TryRequestRunFromPrototypeName(player, intent.ItemPrototypeName, riftLevel, timeLimit);
@@ -431,7 +432,11 @@ namespace MHServerEmu.Games.MythicRifts
                 };
             }
 
-            int riftLevel = NormalizeRiftLevel(player, 0);
+            MythicRiftLauncherIntent intent = GetPendingIntent(player.DatabaseUniqueId);
+            MythicRiftMode mode = intent != null
+                ? ResolveModeForPrototype(intent.ItemPrototypeName)
+                : MythicRiftMode.Standard;
+            int riftLevel = NormalizeRiftLevel(player, 0, mode);
             TimeSpan resolvedTimeLimit = NormalizeTimeLimit(timeLimit.GetValueOrDefault());
             return ConsumePendingIntent(player, riftLevel, resolvedTimeLimit);
         }
@@ -454,7 +459,8 @@ namespace MHServerEmu.Games.MythicRifts
                 };
             }
 
-            riftLevel = NormalizeRiftLevel(player, riftLevel);
+            MythicRiftMode mode = ResolveModeForPrototype(item.PrototypeDataRef);
+            riftLevel = NormalizeRiftLevel(player, riftLevel, mode);
             timeLimit = NormalizeTimeLimit(timeLimit);
 
             string itemPrototypeName = item.PrototypeDataRef.GetName();
@@ -475,7 +481,7 @@ namespace MHServerEmu.Games.MythicRifts
             {
                 EntryPointId = entryPointId,
                 LauncherItemPrototypeName = itemPrototypeName,
-                Mode = ResolveModeForPrototype(item.PrototypeDataRef),
+                Mode = mode,
                 RiftLevel = riftLevel,
                 TimeLimit = timeLimit
             });
@@ -505,7 +511,8 @@ namespace MHServerEmu.Games.MythicRifts
             if (CanHandleItem(item) == false)
                 return null;
 
-            int resolvedRiftLevel = NormalizeRiftLevel(player, armedState.RequestedRiftLevel);
+            MythicRiftMode mode = ResolveModeForPrototype(item.PrototypeDataRef);
+            int resolvedRiftLevel = NormalizeRiftLevel(player, armedState.RequestedRiftLevel, mode);
             TimeSpan resolvedTimeLimit = NormalizeTimeLimit(armedState.TimeLimit);
 
             MythicRiftLauncherUseResult result = string.IsNullOrWhiteSpace(armedState.FixedContentId)
@@ -522,7 +529,7 @@ namespace MHServerEmu.Games.MythicRifts
             if (IsCommittedLauncherUse(result))
             {
                 ConsumeLauncherItemStack(item);
-                Game.MythicRiftManager.ConsumePreferredLaunchRiftLevel(player.DatabaseUniqueId);
+                Game.MythicRiftManager.ConsumePreferredLaunchRiftLevel(player.DatabaseUniqueId, result.EntryResult?.RunState?.Config.Mode ?? mode);
                 _armedLaunchesByPlayerDbId.Remove(player.DatabaseUniqueId);
             }
 
@@ -578,13 +585,16 @@ namespace MHServerEmu.Games.MythicRifts
         private MythicRiftLauncherUseResult BuildRejectedLauncherUseResult(Player player, Item item, string errorMessage)
         {
             MythicRiftLauncherItemCandidate candidate = item != null ? ResolveCandidate(item) : null;
+            MythicRiftMode mode = item != null
+                ? ResolveModeForPrototype(item.PrototypeDataRef)
+                : MythicRiftMode.Standard;
             return new MythicRiftLauncherUseResult
             {
                 Candidate = candidate,
                 ItemPrototypeName = candidate?.PrototypeName ?? item?.PrototypeDataRef.GetNameFormatted(),
                 ItemEntityId = item?.Id ?? 0UL,
                 PortalTargetRegionProtoRef = item?.ItemPrototype?.GetPortalTarget() ?? PrototypeId.Invalid,
-                ResolvedRiftLevel = player != null ? NormalizeRiftLevel(player, 0) : 1,
+                ResolvedRiftLevel = player != null ? NormalizeRiftLevel(player, 0, mode) : 1,
                 ResolvedTimeLimit = DefaultLauncherTimeLimit,
                 InterceptedItemUse = true,
                 ErrorMessage = errorMessage
@@ -629,7 +639,8 @@ namespace MHServerEmu.Games.MythicRifts
             }
 
             MythicRiftArmedLauncherState armedState = GetArmedLauncherState(player.DatabaseUniqueId);
-            int resolvedRiftLevel = NormalizeRiftLevel(player, armedState?.RequestedRiftLevel ?? 0);
+            MythicRiftMode mode = ResolveModeForPrototype(item.PrototypeDataRef);
+            int resolvedRiftLevel = NormalizeRiftLevel(player, armedState?.RequestedRiftLevel ?? 0, mode);
             TimeSpan resolvedTimeLimit = NormalizeTimeLimit(armedState?.TimeLimit ?? DefaultLauncherTimeLimit);
 
             MythicRiftLauncherUseResult result = string.IsNullOrWhiteSpace(armedState?.FixedContentId)
@@ -651,7 +662,7 @@ namespace MHServerEmu.Games.MythicRifts
             if (IsCommittedLauncherUse(result))
             {
                 ConsumeLauncherItemStack(item);
-                Game.MythicRiftManager.ConsumePreferredLaunchRiftLevel(player.DatabaseUniqueId);
+                Game.MythicRiftManager.ConsumePreferredLaunchRiftLevel(player.DatabaseUniqueId, result.EntryResult?.RunState?.Config.Mode ?? mode);
 
                 if (usingGenericTrackedChargeFallback)
                     ConsumeAnyTrackedBeaconCharge(player.DatabaseUniqueId);
@@ -939,9 +950,6 @@ namespace MHServerEmu.Games.MythicRifts
                 };
             }
 
-            riftLevel = NormalizeRiftLevel(player, riftLevel);
-            timeLimit = NormalizeTimeLimit(timeLimit);
-
             if (TryResolveCandidateMapping(itemPrototypeName, out string resolvedCandidatePrototypeName, out string entryPointId) == false)
             {
                 return new MythicRiftLauncherUseResult
@@ -950,6 +958,10 @@ namespace MHServerEmu.Games.MythicRifts
                     ErrorMessage = $"Item is not registered as a Mythic Rift launcher candidate: {itemPrototypeName}"
                 };
             }
+
+            MythicRiftMode mode = ResolveModeForPrototype(resolvedCandidatePrototypeName);
+            riftLevel = NormalizeRiftLevel(player, riftLevel, mode);
+            timeLimit = NormalizeTimeLimit(timeLimit);
 
             PrototypeId itemProtoRef = ResolveItemPrototypeRef(resolvedCandidatePrototypeName);
             ItemPrototype itemProto = itemProtoRef.As<ItemPrototype>();
@@ -970,7 +982,7 @@ namespace MHServerEmu.Games.MythicRifts
             {
                 EntryPointId = entryPointId,
                 LauncherItemPrototypeName = resolvedCandidatePrototypeName,
-                Mode = ResolveModeForPrototype(resolvedCandidatePrototypeName),
+                Mode = mode,
                 RiftLevel = riftLevel,
                 TimeLimit = timeLimit
             });
@@ -1058,7 +1070,7 @@ namespace MHServerEmu.Games.MythicRifts
             return true;
         }
 
-        private int NormalizeRiftLevel(Player player, int requestedRiftLevel)
+        private int NormalizeRiftLevel(Player player, int requestedRiftLevel, MythicRiftMode mode)
         {
             if (requestedRiftLevel > 0)
                 return requestedRiftLevel;
@@ -1066,7 +1078,7 @@ namespace MHServerEmu.Games.MythicRifts
             if (player == null)
                 return 1;
 
-            return Math.Max(Game.MythicRiftManager.GetPreferredLaunchRiftLevel(player.DatabaseUniqueId), 1);
+            return Math.Max(Game.MythicRiftManager.GetPreferredLaunchRiftLevel(player.DatabaseUniqueId, mode), 1);
         }
 
         private static TimeSpan NormalizeTimeLimit(TimeSpan timeLimit)

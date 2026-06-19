@@ -35,8 +35,9 @@ Expected:
 ## Test 1: Basic Wave Completion
 
 ```text
-rift prepbeacon 10 2
-rift level 10
+rift giveendless 2
+rift setaccess 10 endless
+rift level endless 10
 rift armbeaconfixed bronx-zoo 10
 ```
 
@@ -55,8 +56,8 @@ Expected:
 ## Test 2: Maximum Wave
 
 ```text
-rift setaccess 30
-rift level 30
+rift setaccess 30 endless
+rift level endless 30
 rift armbeaconfixed bronx-zoo 10
 ```
 
@@ -88,8 +89,8 @@ Expected:
 ## Test 4: Reset At Level 31
 
 ```text
-rift setaccess 31
-rift level 31
+rift setaccess 31 endless
+rift level endless 31
 rift armbeaconfixed bronx-zoo 10
 ```
 
@@ -105,8 +106,8 @@ Expected:
 ## Test 5: Axis Native UI
 
 ```text
-rift setaccess 20
-rift level 20
+rift setaccess 20 endless
+rift level endless 20
 rift armbeaconfixed march-to-axis 10
 ```
 
@@ -153,8 +154,8 @@ For Doctor Strange, record whether either client receives `region has not finish
 3. On player 1:
 
 ```text
-rift setaccess 10
-rift level 10
+rift setaccess 10 endless
+rift level endless 10
 rift armbeaconfixed bronx-zoo 10
 ```
 
@@ -248,6 +249,8 @@ Prepare two launchers at Rift level 10:
 ```text
 rift setaccess 10
 rift level 10
+rift setaccess 10 endless
+rift level endless 10
 rift givebeacon 1
 rift giveendless 1
 ```

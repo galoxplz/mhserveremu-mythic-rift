@@ -130,6 +130,7 @@ namespace MHServerEmu.Games.Entities
         private uint _loginCount;
         private TimeSpan _loginRewardCooldownTimeStart;
         private int _mythicRiftHighestUnlockedLevel = 1;
+        private int _endlessRiftHighestUnlockedLevel = 1;
 
         private TeleportData _teleportData;
         private SpawnGimbal _spawnGimbal;
@@ -182,6 +183,12 @@ namespace MHServerEmu.Games.Entities
         {
             get => Math.Max(_mythicRiftHighestUnlockedLevel, 1);
             set => _mythicRiftHighestUnlockedLevel = Math.Max(value, 1);
+        }
+
+        public int EndlessRiftHighestUnlockedLevel
+        {
+            get => Math.Max(_endlessRiftHighestUnlockedLevel, 1);
+            set => _endlessRiftHighestUnlockedLevel = Math.Max(value, 1);
         }
 
         public override ulong PartyId { get => _partyId.Get(); }
@@ -475,6 +482,8 @@ namespace MHServerEmu.Games.Entities
                 success &= Serializer.Transfer(archive, ref _loginCount);
                 success &= Serializer.Transfer(archive, ref _loginRewardCooldownTimeStart);
                 success &= Serializer.Transfer(archive, ref _mythicRiftHighestUnlockedLevel);
+                if (archive.IsPacking || archive.Version >= ArchiveVersion.AddedEndlessRiftProgression)
+                    success &= Serializer.Transfer(archive, ref _endlessRiftHighestUnlockedLevel);
             }
 
             return success;

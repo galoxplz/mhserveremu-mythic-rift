@@ -231,7 +231,8 @@ namespace MHServerEmu.Commands.Implementations
                 return "No pending Mythic Rift launcher intent for this player.";
             }
 
-            int unlockedLevel = game.MythicRiftManager.GetHighestUnlockedRiftLevel(player.DatabaseUniqueId);
+            MythicRiftMode mode = game.MythicRiftLauncherService.ResolveModeForPrototype(intent.ItemPrototypeName);
+            int unlockedLevel = game.MythicRiftManager.GetHighestUnlockedRiftLevel(player.DatabaseUniqueId, mode);
             CommandHelper.SendMessages(client, BuildLauncherIntentLines(intent, unlockedLevel));
             return string.Empty;
         }
@@ -271,10 +272,9 @@ namespace MHServerEmu.Commands.Implementations
 
         [Command("access")]
         [CommandDescription("Displays the highest unlocked Rift level for the invoking player and whether a target level is accessible.")]
-        [CommandUsage("rift access [level]")]
+        [CommandUsage("rift access [level] [cosmic|endless]")]
         [CommandUserLevel(AccountUserLevel.Admin)]
         [CommandInvokerType(CommandInvokerType.Client)]
-        [CommandParamCount(1)]
         public string Access(string[] @params, NetClient client)
         {
             PlayerConnection playerConnection = (PlayerConnection)client;
@@ -283,17 +283,20 @@ namespace MHServerEmu.Commands.Implementations
             if (game == null || player == null)
                 return "Game or player not found.";
 
-            if (TryParsePositiveInt(@params[0], out int riftLevel) == false)
+            if (TryParseOptionalModeArguments(@params, out MythicRiftMode mode, out string[] valueArgs, out string modeError) == false)
+                return modeError;
+
+            if (valueArgs.Length != 1 || TryParsePositiveInt(valueArgs[0], out int riftLevel) == false)
                 return "Invalid rift level.";
 
-            int unlockedLevel = game.MythicRiftManager.GetHighestUnlockedRiftLevel(player.DatabaseUniqueId);
-            bool canAccess = game.MythicRiftManager.CanAccessRiftLevel(player.DatabaseUniqueId, riftLevel);
-            return $"Player unlocked level={unlockedLevel} | requested level={riftLevel} | accessible={canAccess}";
+            int unlockedLevel = game.MythicRiftManager.GetHighestUnlockedRiftLevel(player.DatabaseUniqueId, mode);
+            bool canAccess = game.MythicRiftManager.CanAccessRiftLevel(player.DatabaseUniqueId, riftLevel, mode);
+            return $"{MythicRiftManager.GetModeDisplayName(mode)} unlocked level={unlockedLevel} | requested level={riftLevel} | accessible={canAccess}";
         }
 
         [Command("progression")]
         [CommandDescription("Displays the invoking player's current Mythic Rift progression state and any in-progress run.")]
-        [CommandUsage("rift progression")]
+        [CommandUsage("rift progression [cosmic|endless]")]
         [CommandUserLevel(AccountUserLevel.Admin)]
         [CommandInvokerType(CommandInvokerType.Client)]
         public string Progression(string[] @params, NetClient client)
@@ -304,14 +307,28 @@ namespace MHServerEmu.Commands.Implementations
             if (game == null || player == null)
                 return "Game or player not found.";
 
-            int unlockedLevel = game.MythicRiftManager.GetHighestUnlockedRiftLevel(player.DatabaseUniqueId);
-            int selectedLevel = game.MythicRiftManager.GetPreferredLaunchRiftLevel(player.DatabaseUniqueId);
+            if (TryParseOptionalModeArguments(@params, out MythicRiftMode mode, out string[] valueArgs, out string modeError) == false)
+                return modeError;
+
+            if (valueArgs.Length != 0)
+                return "Usage: rift progression [cosmic|endless]";
+
             MythicRiftRunState inProgressRun = game.MythicRiftManager.GetInProgressRunForPlayer(player.DatabaseUniqueId);
 
             List<string> lines = new()
             {
-                $"playerDbId=0x{player.DatabaseUniqueId:X} | highestUnlockedRiftLevel={unlockedLevel} | nextLaunchRiftLevel={selectedLevel} | persistedPlayerValue={player.MythicRiftHighestUnlockedLevel}"
+                $"playerDbId=0x{player.DatabaseUniqueId:X}"
             };
+
+            if (@params.Length == 0)
+            {
+                AppendProgressionLine(lines, game, player, MythicRiftMode.Standard);
+                AppendProgressionLine(lines, game, player, MythicRiftMode.Endless);
+            }
+            else
+            {
+                AppendProgressionLine(lines, game, player, mode);
+            }
 
             if (inProgressRun == null)
             {
@@ -328,10 +345,9 @@ namespace MHServerEmu.Commands.Implementations
 
         [Command("setaccess")]
         [CommandDescription("Sets the highest unlocked Rift level for the invoking player.")]
-        [CommandUsage("rift setaccess [level]")]
+        [CommandUsage("rift setaccess [level] [cosmic|endless]")]
         [CommandUserLevel(AccountUserLevel.Admin)]
         [CommandInvokerType(CommandInvokerType.Client)]
-        [CommandParamCount(1)]
         public string SetAccess(string[] @params, NetClient client)
         {
             PlayerConnection playerConnection = (PlayerConnection)client;
@@ -340,20 +356,23 @@ namespace MHServerEmu.Commands.Implementations
             if (game == null || player == null)
                 return "Game or player not found.";
 
-            if (TryParsePositiveInt(@params[0], out int unlockedLevel) == false)
+            if (TryParseOptionalModeArguments(@params, out MythicRiftMode mode, out string[] valueArgs, out string modeError) == false)
+                return modeError;
+
+            if (valueArgs.Length != 1 || TryParsePositiveInt(valueArgs[0], out int unlockedLevel) == false)
                 return "Invalid level.";
 
-            int previousLevel = game.MythicRiftManager.GetHighestUnlockedRiftLevel(player.DatabaseUniqueId);
-            int appliedLevel = game.MythicRiftManager.SetHighestUnlockedRiftLevel(player.DatabaseUniqueId, unlockedLevel);
+            int previousLevel = game.MythicRiftManager.GetHighestUnlockedRiftLevel(player.DatabaseUniqueId, mode);
+            int appliedLevel = game.MythicRiftManager.SetHighestUnlockedRiftLevel(player.DatabaseUniqueId, unlockedLevel, mode: mode);
             if (unlockedLevel < previousLevel && appliedLevel == previousLevel)
-                return $"Player highest unlocked Rift level remains {appliedLevel}. `rift setaccess` no longer lowers progress; use `rift resetprogress` first if a controlled reset is intended.";
+                return $"Player highest unlocked {MythicRiftManager.GetModeDisplayName(mode)} level remains {appliedLevel}. `rift setaccess` no longer lowers progress; use `rift resetprogress {FormatModeCommandToken(mode)}` first if a controlled reset is intended.";
 
-            return $"Player highest unlocked Rift level set to {appliedLevel}.";
+            return $"Player highest unlocked {MythicRiftManager.GetModeDisplayName(mode)} level set to {appliedLevel}.";
         }
 
         [Command("resetprogress")]
-        [CommandDescription("Resets the invoking player's Cosmic Rift progression and selected launch level back to level 1.")]
-        [CommandUsage("rift resetprogress")]
+        [CommandDescription("Resets the invoking player's Cosmic or Endless Rift progression and selected launch level back to level 1.")]
+        [CommandUsage("rift resetprogress [cosmic|endless]")]
         [CommandUserLevel(AccountUserLevel.Admin)]
         [CommandInvokerType(CommandInvokerType.Client)]
         public string ResetProgress(string[] @params, NetClient client)
@@ -364,9 +383,15 @@ namespace MHServerEmu.Commands.Implementations
             if (game == null || player == null)
                 return "Game or player not found.";
 
-            int appliedLevel = game.MythicRiftManager.ResetRiftProgress(player.DatabaseUniqueId);
+            if (TryParseOptionalModeArguments(@params, out MythicRiftMode mode, out string[] valueArgs, out string modeError) == false)
+                return modeError;
+
+            if (valueArgs.Length != 0)
+                return "Usage: rift resetprogress [cosmic|endless]";
+
+            int appliedLevel = game.MythicRiftManager.ResetRiftProgress(player.DatabaseUniqueId, mode);
             bool disarmed = game.MythicRiftLauncherService.DisarmChosenLauncher(player.DatabaseUniqueId);
-            return $"Player Cosmic Rift progression reset. Highest unlocked Rift level={appliedLevel} | next launch level={game.MythicRiftManager.GetPreferredLaunchRiftLevel(player.DatabaseUniqueId)} | clearedBeaconOverride={disarmed}.";
+            return $"Player {MythicRiftManager.GetModeDisplayName(mode)} progression reset. Highest unlocked Rift level={appliedLevel} | next launch level={game.MythicRiftManager.GetPreferredLaunchRiftLevel(player.DatabaseUniqueId, mode)} | clearedBeaconOverride={disarmed}.";
         }
 
         [Command("debug")]
@@ -1728,12 +1753,11 @@ namespace MHServerEmu.Commands.Implementations
             MythicRiftRunState runState = game.MythicRiftManager.GetInProgressRunForPlayer(player.DatabaseUniqueId);
             if (runState == null)
             {
-                int unlockedLevel = game.MythicRiftManager.GetHighestUnlockedRiftLevel(player.DatabaseUniqueId);
-                int selectedLevel = game.MythicRiftManager.GetPreferredLaunchRiftLevel(player.DatabaseUniqueId);
-                string selectionNote = selectedLevel < unlockedLevel
-                    ? " Lower farming level selected for the next successful Beacon launch only; use `rift level max` to clear it."
-                    : string.Empty;
-                return $"No active Cosmic Rift run. Highest unlocked Rift level: {unlockedLevel}. Next beacon launch level: {selectedLevel}.{selectionNote}";
+                int cosmicUnlockedLevel = game.MythicRiftManager.GetHighestUnlockedRiftLevel(player.DatabaseUniqueId, MythicRiftMode.Standard);
+                int cosmicSelectedLevel = game.MythicRiftManager.GetPreferredLaunchRiftLevel(player.DatabaseUniqueId, MythicRiftMode.Standard);
+                int endlessUnlockedLevel = game.MythicRiftManager.GetHighestUnlockedRiftLevel(player.DatabaseUniqueId, MythicRiftMode.Endless);
+                int endlessSelectedLevel = game.MythicRiftManager.GetPreferredLaunchRiftLevel(player.DatabaseUniqueId, MythicRiftMode.Endless);
+                return $"No active Cosmic Rift run. Cosmic: highest={cosmicUnlockedLevel}, next={cosmicSelectedLevel}. Endless: highest={endlessUnlockedLevel}, next={endlessSelectedLevel}. Use `rift level [level|max]` for Cosmic or `rift level endless [level|max]` for Endless.";
             }
 
             CommandHelper.SendMessages(client, BuildRunLines(runState, game.CurrentTime, includeResolvedRefs: false));
@@ -1741,8 +1765,8 @@ namespace MHServerEmu.Commands.Implementations
         }
 
         [Command("level")]
-        [CommandDescription("Displays or changes the Cosmic Rift level used by the next beacon launch.")]
-        [CommandUsage("rift level [level|max]")]
+        [CommandDescription("Displays or changes the Cosmic or Endless Rift level used by the next beacon launch.")]
+        [CommandUsage("rift level [cosmic|endless] [level|max]")]
         [CommandUserLevel(AccountUserLevel.User)]
         [CommandInvokerType(CommandInvokerType.Client)]
         public string Level(string[] @params, NetClient client)
@@ -1753,36 +1777,44 @@ namespace MHServerEmu.Commands.Implementations
             if (game == null || player == null)
                 return "Game or player not found.";
 
-            int unlockedLevel = game.MythicRiftManager.GetHighestUnlockedRiftLevel(player.DatabaseUniqueId);
-            int selectedLevel = game.MythicRiftManager.GetPreferredLaunchRiftLevel(player.DatabaseUniqueId);
+            if (TryParseOptionalModeArguments(@params, out MythicRiftMode mode, out string[] valueArgs, out string modeError) == false)
+                return modeError;
 
-            if (@params.Length == 0)
+            int unlockedLevel = game.MythicRiftManager.GetHighestUnlockedRiftLevel(player.DatabaseUniqueId, mode);
+            int selectedLevel = game.MythicRiftManager.GetPreferredLaunchRiftLevel(player.DatabaseUniqueId, mode);
+            string modeName = MythicRiftManager.GetModeDisplayName(mode);
+            string modeCommandToken = FormatModeCommandToken(mode);
+
+            if (valueArgs.Length == 0)
             {
                 string selectionNote = selectedLevel < unlockedLevel
                     ? " A lower farming level is armed for one successful Beacon launch; this does not reduce your unlocked progression."
                     : " Beacons will launch your highest unlocked level unless you arm a one-shot lower level.";
-                return $"Next Cosmic Rift launch level: {selectedLevel}. Highest unlocked: {unlockedLevel}.{selectionNote} Use `rift level [1-{unlockedLevel}]` to arm one lower farming run, or `rift level max` to clear the one-shot selection.";
+                return $"Next {modeName} launch level: {selectedLevel}. Highest unlocked: {unlockedLevel}.{selectionNote} Use `rift level {modeCommandToken} [1-{unlockedLevel}]` to arm one lower farming run, or `rift level {modeCommandToken} max` to clear the one-shot selection.";
             }
 
-            string requestedLevelText = @params[0];
+            if (valueArgs.Length != 1)
+                return "Usage: rift level [cosmic|endless] [level|max]";
+
+            string requestedLevelText = valueArgs[0];
             if (string.Equals(requestedLevelText, "max", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(requestedLevelText, "highest", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(requestedLevelText, "auto", StringComparison.OrdinalIgnoreCase))
             {
-                int appliedLevel = game.MythicRiftManager.UseHighestUnlockedLaunchRiftLevel(player.DatabaseUniqueId);
-                return $"Cosmic Rift one-shot launch selection cleared. Next Beacon will use your highest unlocked level: {appliedLevel}.";
+                int appliedLevel = game.MythicRiftManager.UseHighestUnlockedLaunchRiftLevel(player.DatabaseUniqueId, mode);
+                return $"{modeName} one-shot launch selection cleared. Next matching Beacon will use your highest unlocked level: {appliedLevel}.";
             }
 
             if (TryParsePositiveInt(requestedLevelText, out int requestedLevel) == false)
                 return "Invalid Rift level. Use a positive number or `max`.";
 
-            if (game.MythicRiftManager.TrySetPreferredLaunchRiftLevel(player.DatabaseUniqueId, requestedLevel, out int appliedLaunchLevel, out string errorMessage) == false)
+            if (game.MythicRiftManager.TrySetPreferredLaunchRiftLevel(player.DatabaseUniqueId, requestedLevel, out int appliedLaunchLevel, out string errorMessage, mode) == false)
                 return errorMessage;
 
             string appliedNote = appliedLaunchLevel < unlockedLevel
                 ? " This is a lower farming level and does not reduce your unlocked progression."
                 : " This is your current push level.";
-            return $"Next Cosmic Rift Beacon launch set to level {appliedLaunchLevel}. Highest unlocked: {unlockedLevel}.{appliedNote} This one-shot selection is consumed after the next successful Beacon launch.";
+            return $"Next {modeName} Beacon launch set to level {appliedLaunchLevel}. Highest unlocked: {unlockedLevel}.{appliedNote} This one-shot selection is consumed after the next successful matching Beacon launch.";
         }
 
         [Command("abandon")]
@@ -1828,21 +1860,22 @@ namespace MHServerEmu.Commands.Implementations
                 return "Game or player not found.";
 
             bool disarmed = game.MythicRiftLauncherService.DisarmChosenLauncher(player.DatabaseUniqueId);
-            int nextLaunchLevel = game.MythicRiftManager.UseHighestUnlockedLaunchRiftLevel(player.DatabaseUniqueId);
+            int nextCosmicLaunchLevel = game.MythicRiftManager.UseHighestUnlockedLaunchRiftLevel(player.DatabaseUniqueId, MythicRiftMode.Standard);
+            int nextEndlessLaunchLevel = game.MythicRiftManager.UseHighestUnlockedLaunchRiftLevel(player.DatabaseUniqueId, MythicRiftMode.Endless);
             MythicRiftRunState runState = game.MythicRiftManager.GetInProgressRunForPlayer(player.DatabaseUniqueId);
             if (runState == null)
-                return $"Cosmic Rift recovery complete: no active run found. clearedBeaconOverride={disarmed} | nextLaunchLevel={nextLaunchLevel}.";
+                return $"Cosmic Rift recovery complete: no active run found. clearedBeaconOverride={disarmed} | nextCosmicLaunchLevel={nextCosmicLaunchLevel} | nextEndlessLaunchLevel={nextEndlessLaunchLevel}.";
 
             ulong runId = runState.Config.RunId;
             string contentName = runState.Config.Content.DisplayName;
             int riftLevel = runState.Config.RiftLevel;
 
             if (game.MythicRiftManager.MarkRunAborted(runId, game.CurrentTime) == false)
-                return $"Cosmic Rift recovery partially complete: clearedBeaconOverride={disarmed} | nextLaunchLevel={nextLaunchLevel}, but failed to abort run {runId}.";
+                return $"Cosmic Rift recovery partially complete: clearedBeaconOverride={disarmed} | nextCosmicLaunchLevel={nextCosmicLaunchLevel} | nextEndlessLaunchLevel={nextEndlessLaunchLevel}, but failed to abort run {runId}.";
 
             int teleportedPlayerCount = game.MythicRiftManager.ReturnRunParticipantsToDangerRoomHub(runState, player);
             game.MythicRiftManager.RemoveRun(runId);
-            return $"Cosmic Rift recovery complete: abandoned runId={runId} | map={contentName} | level={riftLevel} | returnedPlayers={teleportedPlayerCount} | clearedBeaconOverride={disarmed} | nextLaunchLevel={nextLaunchLevel}.";
+            return $"Cosmic Rift recovery complete: abandoned runId={runId} | map={contentName} | level={riftLevel} | returnedPlayers={teleportedPlayerCount} | clearedBeaconOverride={disarmed} | nextCosmicLaunchLevel={nextCosmicLaunchLevel} | nextEndlessLaunchLevel={nextEndlessLaunchLevel}.";
         }
 
         [Command("run")]
@@ -2417,6 +2450,90 @@ namespace MHServerEmu.Commands.Implementations
         private static bool TryParseRunId(string value, out ulong parsedValue)
         {
             return ulong.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out parsedValue) && parsedValue != 0;
+        }
+
+        private static void AppendProgressionLine(List<string> lines, Game game, Player player, MythicRiftMode mode)
+        {
+            int unlockedLevel = game.MythicRiftManager.GetHighestUnlockedRiftLevel(player.DatabaseUniqueId, mode);
+            int selectedLevel = game.MythicRiftManager.GetPreferredLaunchRiftLevel(player.DatabaseUniqueId, mode);
+            int persistedLevel = mode == MythicRiftMode.Endless
+                ? player.EndlessRiftHighestUnlockedLevel
+                : player.MythicRiftHighestUnlockedLevel;
+
+            lines.Add($"{MythicRiftManager.GetModeDisplayName(mode)} | highestUnlockedRiftLevel={unlockedLevel} | nextLaunchRiftLevel={selectedLevel} | persistedPlayerValue={persistedLevel}");
+        }
+
+        private static bool TryParseOptionalModeArguments(
+            string[] args,
+            out MythicRiftMode mode,
+            out string[] valueArgs,
+            out string errorMessage)
+        {
+            mode = MythicRiftMode.Standard;
+            valueArgs = args ?? Array.Empty<string>();
+            errorMessage = string.Empty;
+
+            if (args == null || args.Length == 0)
+                return true;
+
+            bool firstIsMode = TryParseRiftModeToken(args[0], out MythicRiftMode firstMode);
+            MythicRiftMode lastMode = MythicRiftMode.Standard;
+            bool lastIsMode = args.Length > 1 && TryParseRiftModeToken(args[^1], out lastMode);
+
+            if (firstIsMode && lastIsMode && firstMode != lastMode)
+            {
+                errorMessage = "Conflicting Rift modes. Use either `cosmic` or `endless` once.";
+                return false;
+            }
+
+            if (firstIsMode)
+            {
+                mode = firstMode;
+                valueArgs = args.Skip(1).ToArray();
+                return true;
+            }
+
+            if (lastIsMode)
+            {
+                mode = lastMode;
+                valueArgs = args.Take(args.Length - 1).ToArray();
+                return true;
+            }
+
+            return true;
+        }
+
+        private static bool TryParseRiftModeToken(string value, out MythicRiftMode mode)
+        {
+            mode = MythicRiftMode.Standard;
+            if (string.IsNullOrWhiteSpace(value))
+                return false;
+
+            switch (value.Trim().ToLowerInvariant())
+            {
+                case "standard":
+                case "cosmic":
+                case "mythic":
+                case "rift":
+                    mode = MythicRiftMode.Standard;
+                    return true;
+
+                case "endless":
+                case "gauntlet":
+                case "thirtywave":
+                case "30wave":
+                case "30-wave":
+                    mode = MythicRiftMode.Endless;
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+
+        private static string FormatModeCommandToken(MythicRiftMode mode)
+        {
+            return mode == MythicRiftMode.Endless ? "endless" : "cosmic";
         }
 
         private static bool TryParsePositiveInt(string value, out int parsedValue)

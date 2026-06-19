@@ -16,6 +16,7 @@
 - Logical entry points can now be registered server-side even though no concrete in-game launcher has been chosen yet.
 - Two TAHITI-friendly consumable launcher families are active: `PortalToRandomMaxAffixDungeon` selects Standard mode, while `PortalToDangerRoomRandomThemeNoAffixesPurple` selects Endless mode. Stock `PortalToRandomDungeon` behavior stays outside the Rift path.
 - Danger Room vendors present those families as separate `Mythic Rift Scenario` and `Endless Rift Scenario` items. The item selects the mode directly; there is no global 30-wave config toggle.
+- Cosmic/Standard Rift and Endless Rift share the same random map, kill quota, random boss, completion, and reward plumbing, but their player progression and scaling are intentionally separate.
 - Random Rift runs now decouple the selected map from the selected boss source, so the current prototype can produce a random dungeon or curated non-terminal map with a different random terminal boss.
 - Terminal Rift entries now prefer the `AltRegions/*RegionL60` variants instead of the older base terminal region refs, matching MonEll's local finding that native start targets can otherwise resolve into `RegionBand` variants.
 - Successful Rift clears now spawn a return portal back to the Danger Room hub; cleanup is requested after the completed Rift region becomes empty.
@@ -317,6 +318,7 @@ These entries can be selected randomly only through the special branch, currentl
 - Player-safe commands:
   - `rift status`
   - `rift level [level|max]`
+  - `rift level endless [level|max]`
   - `rift abandon`
   - `rift recover`
 - `rift list`
